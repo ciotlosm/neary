@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Netlify folder
+.netlify
+
+# Sensitive configuration files
+.postman.json
+*.env
+*.env.local
+*.env.production
+*.env.staging
+.env.*
+
+# API keys and secrets
+**/config/secrets.*
+**/config/keys.*
+**/*secret*
+**/*key*
+**/*token*
+
+# User-specific configuration
+.kiro/settings/
+.kiro/user/
+.kiro/cache/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

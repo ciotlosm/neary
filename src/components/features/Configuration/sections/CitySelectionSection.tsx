@@ -1,0 +1,74 @@
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  Stack,
+  Box,
+  Typography,
+  Autocomplete,
+  TextField,
+  useTheme,
+  alpha,
+} from '@mui/material';
+import { LocationOn as LocationIcon } from '@mui/icons-material';
+
+interface CityOption {
+  label: string;
+  value: string;
+}
+
+interface CitySelectionSectionProps {
+  city: string;
+  onCityChange: (city: string) => void;
+  cityOptions: CityOption[];
+  error?: string;
+}
+
+export const CitySelectionSection: React.FC<CitySelectionSectionProps> = ({
+  city,
+  onCityChange,
+  cityOptions,
+  error,
+}) => {
+  const theme = useTheme();
+
+  return (
+    <Card variant="outlined" sx={{ bgcolor: alpha(theme.palette.secondary.main, 0.02) }}>
+      <CardContent>
+        <Stack spacing={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LocationIcon sx={{ color: 'secondary.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              City Selection
+            </Typography>
+          </Box>
+          
+          <Autocomplete
+            options={cityOptions}
+            value={cityOptions.find(option => option.value === city) || null}
+            onChange={(_, newValue) => {
+              onCityChange(newValue?.value || '');
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select your city"
+                error={!!error}
+                helperText={error || 'Choose the city for bus tracking'}
+              />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props;
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <LocationIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  {option.label}
+                </Box>
+              );
+            }}
+          />
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
