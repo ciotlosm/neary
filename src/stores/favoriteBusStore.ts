@@ -145,12 +145,10 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
           // Get routes for the agency
           const routes = await enhancedTranzyApi.getRoutes(agencyId);
           
-          // Transform routes to the expected format (using only short names as requested)
+          // Transform routes to the expected format
           const availableRoutes = routes.map(route => ({
-            shortName: route.shortName, // PRIMARY: What users see and interact with
-            name: route.shortName, // Use short name instead of long name
-            longName: route.shortName, // Simplified - no need for long descriptions
-            description: route.description,
+            shortName: route.shortName, // route_short_name: What users see and interact with ("100", "101")
+            longName: route.longName, // route_long_name: Full description ("Piața Unirii - Mănăștur")
             type: route.type as 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other'
           }));
 

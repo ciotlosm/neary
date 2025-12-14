@@ -41,12 +41,12 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
     });
   }, [buses]);
 
-  // Group buses by routeShortName
+  // Group buses by route short name
   const groupedBuses = useMemo(() => {
     const groups = new Map<string, BusWithStatus[]>();
     
     busesWithStatus.forEach((bus) => {
-      const key = bus.routeShortName;
+      const key = bus.routeName || 'Unknown'; // routeName is now the short name
       if (!groups.has(key)) {
         groups.set(key, []);
       }
@@ -98,12 +98,12 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
       });
   }, [busesWithStatus]);
 
-  const handleGroupToggle = (routeShortName: string) => {
+  const handleGroupToggle = (routeKey: string) => {
     const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(routeShortName)) {
-      newExpanded.delete(routeShortName);
+    if (newExpanded.has(routeKey)) {
+      newExpanded.delete(routeKey);
     } else {
-      newExpanded.add(routeShortName);
+      newExpanded.add(routeKey);
     }
     setExpandedGroups(newExpanded);
   };
@@ -113,20 +113,20 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
   const routeDistances = useMemo(() => {
     const distances = new Map<string, number>();
     
-    groupedBuses.forEach(([routeShortName, busGroup]) => {
+    groupedBuses.forEach(([routeKey, busGroup]) => {
       // Only check the first bus in each group since all buses on the same route
       // will have the same closest station and distance to user
       const firstBus = busGroup[0];
       if (firstBus?.stopSequence && firstBus.stopSequence.length > 0) {
         const userStop = firstBus.stopSequence.find(stop => stop.isClosestToUser);
         if (userStop && userStop.distanceToUser !== undefined) {
-          distances.set(routeShortName, userStop.distanceToUser);
+          distances.set(routeKey, userStop.distanceToUser);
         }
       }
     });
     
     return distances;
-  }, [buses.map(bus => `${bus.routeShortName}-${bus.stopSequence?.find(s => s.isClosestToUser)?.distanceToUser}`).join(',')]);
+  }, [buses.map(bus => `${bus.routeName}-${bus.stopSequence?.find(s => s.isClosestToUser)?.distanceToUser}`).join(',')]);
 
   React.useEffect(() => {
     if (routeDistances.size === 0) {
@@ -138,10 +138,10 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
     let closestRoute: string | null = null;
     let closestDistance = Infinity;
 
-    routeDistances.forEach((distance, routeShortName) => {
+    routeDistances.forEach((distance, routeKey) => {
       if (distance < closestDistance) {
         closestDistance = distance;
-        closestRoute = routeShortName;
+        closestRoute = routeKey;
       }
     });
 
@@ -160,8 +160,8 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
 
   return (
     <Stack spacing={1}>
-      {groupedBuses.map(([routeShortName, busGroup]) => {
-        const isExpanded = expandedGroups.has(routeShortName);
+      {groupedBuses.map(([routeKey, busGroup]) => {
+        const isExpanded = expandedGroups.has(routeKey);
         const routeTypeInfo = getRouteTypeInfo(String(busGroup[0]?.routeType || 'bus'), theme);
         
         // Count buses by status
@@ -180,9 +180,9 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
 
         return (
           <Accordion
-            key={routeShortName}
+            key={routeKey}
             expanded={isExpanded}
-            onChange={() => handleGroupToggle(routeShortName)}
+            onChange={() => handleGroupToggle(routeKey)}
             sx={{
               border: `1px solid ${theme.palette.divider}`,
               borderRadius: 2,
@@ -232,7 +232,7 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
                     flexShrink: 0, // Don't shrink the avatar
                   }}
                 >
-                  {routeShortName}
+                  {routeKey}
                 </Box>
 
                 {/* Route Info - Flexible container */}
@@ -256,7 +256,7 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      {routeShortName}
+                      {routeKey}
                     </Typography>
                     {/* Bus/Trolleybus Type Chip */}
                     <Chip
@@ -329,7 +329,7 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
               <Stack spacing={2}>
                 {busGroup.map((bus, index) => (
                   <FavoriteBusCard
-                    key={`${bus.routeShortName}-${bus.vehicleId}-${bus.lastUpdate?.getTime() || Date.now()}-${index}`}
+                    key={`${routeKey}-${bus.vehicleId}-${bus.lastUpdate?.getTime() || Date.now()}-${index}`}
                     bus={bus}
                     index={index}
                   />

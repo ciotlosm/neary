@@ -18,10 +18,8 @@ import {
 import { getRouteTypeInfo } from '../../../../utils/routeUtils';
 // Define the route type used by the store
 type StoreRoute = {
-  shortName: string; // PRIMARY: What users see and interact with
-  name?: string;
-  longName?: string; // This corresponds to route_long_desc from the API
-  description?: string;
+  shortName: string; // route_short_name: What users see and interact with ("100", "101")
+  longName?: string; // route_long_name: Full description ("Piața Unirii - Mănăștur")
   type: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
 };
 
@@ -114,7 +112,7 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
               maxWidth: 300,
             }}
           >
-            {route.longName || route.description || route.name || 'No description available'}
+            {route.longName || 'No description available'}
           </Typography>
         }
       />

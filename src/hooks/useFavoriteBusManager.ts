@@ -8,10 +8,8 @@ import type { FavoriteRoute } from '../types';
 
 // Define the route type used by the store
 type StoreRoute = {
-  shortName: string; // PRIMARY: What users see and interact with
-  name?: string; // Optional - might be undefined from API
-  longName?: string; // Optional - might be undefined from API
-  description?: string;
+  shortName: string; // route_short_name: What users see and interact with ("100", "101")
+  longName?: string; // route_long_name: Full description ("Piața Unirii - Mănăștur")
   type: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
 };
 
@@ -71,24 +69,22 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
 
   // Separate favorite and available routes
   const favoriteRoutes = useMemo(() => {
-    const selectedShortNames = selectedRoutes.map(r => r.shortName);
-    return availableRoutes.filter(route => selectedShortNames.includes(route.shortName));
+    const selectedRouteNames = selectedRoutes.map(r => r.routeName);
+    return availableRoutes.filter(route => selectedRouteNames.includes(route.shortName));
   }, [availableRoutes, selectedRoutes]);
 
   // Filter available routes based on search term and selected types
   const filteredAvailableRoutes = useMemo(() => {
-    const selectedShortNames = selectedRoutes.map(r => r.shortName);
+    const selectedRouteNames = selectedRoutes.map(r => r.routeName);
     return availableRoutes.filter(route => {
       // Exclude routes that are already in favorites
-      if (selectedShortNames.includes(route.shortName)) {
+      if (selectedRouteNames.includes(route.shortName)) {
         return false;
       }
       
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = (
         route.shortName?.toLowerCase().includes(searchLower) ||
-        route.name?.toLowerCase().includes(searchLower) ||
-        route.description?.toLowerCase().includes(searchLower) ||
         route.longName?.toLowerCase().includes(searchLower)
       );
       
@@ -99,11 +95,11 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
   }, [availableRoutes, selectedRoutes, searchTerm, selectedTypes]);
 
   const handleToggleRoute = async (routeShortName: string): Promise<void> => {
-    const isCurrentlySelected = selectedRoutes.some(r => r.shortName === routeShortName);
+    const isCurrentlySelected = selectedRoutes.some(r => r.routeName === routeShortName);
     
     if (isCurrentlySelected) {
       // Remove from favorites
-      const newSelectedRoutes = selectedRoutes.filter(r => r.shortName !== routeShortName);
+      const newSelectedRoutes = selectedRoutes.filter(r => r.routeName !== routeShortName);
       setSelectedRoutes(newSelectedRoutes);
     } else {
       // Add to favorites - find the complete route object and get proper route ID
@@ -121,7 +117,7 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
           
           const favoriteRoute: FavoriteRoute = {
             id: routeMapping.routeId, // Always use proper route ID from mapping service
-            shortName: routeShortName,
+            routeName: routeShortName,
             longName: routeToAdd.longName || routeMapping.routeLongName || `Route ${routeShortName}`,
             type: routeToAdd.type
           };

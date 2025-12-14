@@ -92,7 +92,6 @@ export interface Route {
   agencyId: string;
   shortName: string;
   longName: string;
-  description?: string;
   type: 'tram' | 'metro' | 'rail' | 'bus' | 'ferry' | 'trolleybus' | 'other';
   color?: string;
   textColor?: string;

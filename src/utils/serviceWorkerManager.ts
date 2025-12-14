@@ -19,6 +19,9 @@ class ServiceWorkerManagerImpl implements ServiceWorkerManager {
     }
 
     try {
+      // In development, force update checks more aggressively
+      const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      
       this.registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
         updateViaCache: 'none' // Always check for updates
@@ -53,6 +56,13 @@ class ServiceWorkerManagerImpl implements ServiceWorkerManager {
 
       // Check for updates immediately
       await this.checkForUpdates();
+
+      // In development, check for updates more frequently
+      if (isDevelopment) {
+        setInterval(() => {
+          this.checkForUpdates();
+        }, 10 * 1000); // Check every 10 seconds in development
+      }
 
       return this.registration;
     } catch (error) {

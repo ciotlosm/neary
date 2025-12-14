@@ -324,7 +324,6 @@ export class EnhancedTranzyApiService {
       agencyId: route.agency_id.toString(),
       shortName: route.route_short_name,
       longName: route.route_long_name,
-      description: route.route_desc,
       type: this.getRouteType(route.route_type),
       color: route.route_color,
       textColor: route.route_text_color,

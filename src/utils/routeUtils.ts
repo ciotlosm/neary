@@ -73,7 +73,7 @@ export const filterRoutes = (
     const matchesSearch = (
       route.shortName?.toLowerCase().includes(searchLower) ||
       route.name?.toLowerCase().includes(searchLower) ||
-      route.description?.toLowerCase().includes(searchLower) ||
+      route.longName?.toLowerCase().includes(searchLower) ||
       route.id.toLowerCase().includes(searchLower)
     );
     

@@ -179,7 +179,7 @@ class RouteMappingService {
         routeShortName: route.shortName || route.id,
         routeId: route.id,
         routeLongName: route.longName || route.shortName || `Route ${route.id}`,
-        routeDescription: route.description,
+        routeDescription: route.longName, // Use longName for description
         routeType: route.type || 'bus'
       }));
 

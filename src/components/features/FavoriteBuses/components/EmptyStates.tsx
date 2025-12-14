@@ -95,7 +95,7 @@ export const EmptyStates: React.FC<EmptyStatesProps> = ({
             {(config?.favoriteBuses || []).map((favoriteRoute: any) => {
               // Handle both old format (string) and new format (FavoriteRoute object)
               const routeId = typeof favoriteRoute === 'string' ? favoriteRoute : favoriteRoute.id;
-              const routeShortName = typeof favoriteRoute === 'string' ? favoriteRoute : favoriteRoute.shortName;
+              const routeShortName = typeof favoriteRoute === 'string' ? favoriteRoute : favoriteRoute.routeName;
               const routeType = typeof favoriteRoute === 'string' ? 'bus' : favoriteRoute.type;
               
               // Get route type info based on the route type, not helper functions

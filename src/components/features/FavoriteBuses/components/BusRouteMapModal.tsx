@@ -216,7 +216,7 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
       }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Route {bus.routeShortName} - Live Map
+        Route {bus.routeName} - Live Map
         <IconButton onClick={onClose} size="small">
           <Close />
         </IconButton>
@@ -398,7 +398,7 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
                     Bus {bus.vehicleId}
                   </Typography>
                   <Typography variant="caption" display="block">
-                    Route: {bus.routeShortName}
+                    Route: {bus.routeName}
                   </Typography>
                   {bus.destination && (
                     <Typography variant="caption" display="block">

@@ -21,9 +21,8 @@ export interface BusStopInfo {
 }
 
 export interface FavoriteBusInfo {
-  routeShortName: string; // What users see: "42", "43B", etc. (PRIMARY IDENTIFIER)
-  routeName: string; // Display name: "Route 42" or full long name
-  routeDescription?: string;
+  routeName: string; // route_short_name (e.g., "100", "101", "43B")
+  routeLongName?: string; // route_long_name (e.g., "Piața Unirii - Mănăștur")
   routeType: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
   vehicleId: string; // Live vehicle ID
   tripId: string; // Active trip ID (indicates direction: "40_0", "40_1", etc.)
@@ -320,7 +319,7 @@ class FavoriteBusService {
   }
 
   async getFavoriteBusInfo(
-    favoriteRoutes: Array<{id: string, shortName: string}>,
+    favoriteRoutes: Array<{id: string, routeName: string, longName?: string}>,
     cityName: string,
     userLocation?: { latitude: number; longitude: number } | null
   ): Promise<FavoriteBusResult> {
@@ -374,28 +373,29 @@ class FavoriteBusService {
 
       // Get route mappings for display info and correct route IDs
       const routeMappings = new Map<string, any>();
-      const correctedFavoriteRoutes: Array<{id: string, shortName: string}> = [];
+      const correctedFavoriteRoutes: Array<{id: string, routeName: string, longName?: string}> = [];
       
       for (const favoriteRoute of favoriteRoutes) {
-        const mapping = await routeMappingService.getRouteMappingFromShortName(favoriteRoute.shortName, cityName);
+        const mapping = await routeMappingService.getRouteMappingFromShortName(favoriteRoute.routeName, cityName);
         if (mapping) {
           // Use the correct route ID from the mapping, not the one from favorites config
           const correctedRoute = {
             id: mapping.routeId, // This is the correct API route ID
-            shortName: favoriteRoute.shortName // Keep the user-friendly short name
+            routeName: favoriteRoute.routeName, // Keep the user-friendly route name
+            longName: favoriteRoute.longName // Pass through the full route description
           };
           correctedFavoriteRoutes.push(correctedRoute);
           routeMappings.set(mapping.routeId, mapping);
           
           console.log('🔄 ROUTE MAPPING:', {
-            userShortName: favoriteRoute.shortName,
+            userRouteName: favoriteRoute.routeName,
             configRouteId: favoriteRoute.id,
             correctApiRouteId: mapping.routeId,
             corrected: favoriteRoute.id !== mapping.routeId
           });
         } else {
           logger.warn('No route mapping found for favorite route', { 
-            shortName: favoriteRoute.shortName, 
+            routeName: favoriteRoute.routeName, 
             configId: favoriteRoute.id 
           });
           // Keep original if no mapping found
@@ -492,7 +492,7 @@ class FavoriteBusService {
 
       // Process favorite routes using cached vehicles
       for (const favoriteRoute of correctedFavoriteRoutes) {
-        const routeShortName = favoriteRoute.shortName;
+        const routeShortName = favoriteRoute.routeName; // Keep for logging and identification
         const routeId = favoriteRoute.id;
         
         try {
@@ -579,9 +579,8 @@ class FavoriteBusService {
               : (vehicle.timestamp ? new Date(vehicle.timestamp) : new Date());
 
             const favoriteBus: FavoriteBusInfo = {
-              routeShortName,
-              routeName: routeMapping?.routeLongName || `Route ${routeShortName}`,
-              routeDescription: routeMapping?.routeDescription,
+              routeName: routeShortName, // route_short_name (e.g., "100", "101")
+              routeLongName: favoriteRoute.longName || routeMapping?.routeLongName, // route_long_name (e.g., "Piața Unirii - Mănăștur")
               routeType: routeMapping?.routeType || 'bus',
               vehicleId: vehicle.id,
               tripId: vehicle.tripId!, // We know it's not null due to filtering

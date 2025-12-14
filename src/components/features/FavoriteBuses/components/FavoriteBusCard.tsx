@@ -12,7 +12,7 @@ import {
   ListItemText,
   ListItemIcon,
 } from '@mui/material';
-import { ExpandMore, ExpandLess, LocationOn, RadioButtonUnchecked, PersonPin } from '@mui/icons-material';
+import { ExpandMore, ExpandLess, LocationOn, RadioButtonUnchecked, PersonPin, DirectionsBus } from '@mui/icons-material';
 
 import { BusCard } from '../../../ui/Card';
 import { BusRouteMapModal } from './BusRouteMapModal';
@@ -37,8 +37,8 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
   const { config } = useConfigStore();
   const { currentLocation } = useLocationStore();
   
-  const displayRouteName = String(bus?.routeShortName || ''); // Just show the route number, not the full description
-  const avatarRouteNumber = String(bus?.routeShortName || 'N/A');
+  const displayRouteName = bus?.routeLongName || bus?.routeName || 'Unknown Route';
+  const avatarRouteNumber = bus?.routeName || 'N/A';
 
 
   
@@ -215,65 +215,30 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
         delay={0}
         isFavorite={true}
         onToggleFavorite={() => {
-          console.log('Toggle favorite for route:', bus.routeShortName);
+          console.log('Toggle favorite for route:', bus.routeName);
         }}
         onMapClick={() => setShowMap(true)}
         arrivalStatus={arrivalStatus}
         customContent={
           <Box>
             {/* Route display - either simplified or expanded */}
-            {!showStops ? (
-              <Box>
+            <Box>
+              {!showStops ? (
                 <SimplifiedRouteDisplay 
                   stopSequence={bus.stopSequence || []}
                   destination={bus.destination}
                 />
-                
-                {/* Route Stops button right under final destination */}
-                {bus.stopSequence && bus.stopSequence.length > 0 && (
-                  <Box sx={{ mt: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowStops(true)}
-                        sx={{ p: 0.5 }}
-                      >
-                        <ExpandMore fontSize="small" />
-                      </IconButton>
-                      <Typography variant="caption" color="text.secondary">
-                        Stops ({bus.stopSequence.length})
-                      </Typography>
-                    </Stack>
-                  </Box>
-                )}
-              </Box>
-            ) : (
-              <Box>
-                {/* Collapse button to return to simplified view */}
-                <Box sx={{ mb: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowStops(false)}
-                      sx={{ p: 0.5 }}
-                    >
-                      <ExpandLess fontSize="small" />
-                    </IconButton>
-                    <Typography variant="subtitle2" color="text.primary">
-                      Stops ({bus.stopSequence?.length || 0})
-                    </Typography>
-                  </Stack>
-                </Box>
-
-                {/* Expanded route stops list */}
-                <List dense sx={{ py: 0 }}>
-                  {bus.stopSequence?.map((stop) => {
+              ) : (
+                <Box>
+                  {/* Expanded route stops list */}
+                  <List dense sx={{ py: 0, mb: 1 }}>
+                    {bus.stopSequence?.map((stop) => {
                     const isCurrent = stop.isCurrent;
                     const isClosestToUser = stop.isClosestToUser;
                     
                     return (
                       <ListItem
-                        key={`expanded-${bus.routeShortName}-${stop.id}-${stop.sequence}`}
+                        key={`expanded-${avatarRouteNumber}-${stop.id}-${stop.sequence}`}
                         sx={{
                           py: 0.5,
                           px: 1,
@@ -291,29 +256,58 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                         }}
                       >
                         <ListItemIcon sx={{ minWidth: 32 }}>
-                          {isCurrent ? (
-                            <LocationOn 
-                              fontSize="small" 
-                              color="primary"
-                            />
-                          ) : isClosestToUser ? (
-                            <PersonPin 
-                              fontSize="small" 
-                              color="info"
-                            />
-                          ) : (
-                            <RadioButtonUnchecked 
-                              fontSize="small" 
-                              sx={{ color: theme.palette.text.disabled }}
-                            />
-                          )}
+                          <Box
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: theme.palette.background.paper,
+                              border: `1px solid ${theme.palette.divider}`,
+                            }}
+                          >
+                            {isCurrent ? (
+                              <DirectionsBus 
+                                sx={{ 
+                                  fontSize: 14, 
+                                  color: theme.palette.primary.main
+                                }} 
+                              />
+                            ) : isClosestToUser ? (
+                              <PersonPin 
+                                sx={{ 
+                                  fontSize: 14, 
+                                  color: theme.palette.info.main
+                                }} 
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  bgcolor: theme.palette.text.disabled,
+                                }}
+                              />
+                            )}
+                          </Box>
                         </ListItemIcon>
                         <ListItemText
                           primary={
                             <Typography 
-                              variant="caption" 
-                              color={isCurrent ? 'primary' : isClosestToUser ? 'info' : 'text.secondary'}
-                              sx={{ fontWeight: (isCurrent || isClosestToUser) ? 600 : 400 }}
+                              variant="body2" 
+                              sx={{
+                                fontSize: '0.8rem',
+                                fontWeight: isCurrent ? 600 : isClosestToUser ? 500 : 400,
+                                color: isCurrent 
+                                  ? theme.palette.primary.main 
+                                  : isClosestToUser 
+                                  ? theme.palette.info.main 
+                                  : theme.palette.text.primary,
+                                lineHeight: 1.2,
+                              }}
                             >
                               {stop.name}
                             </Typography>
@@ -381,12 +375,34 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                     );
                   })}
                 </List>
-              </Box>
-            )}
+                </Box>
+              )}
+              
+              {/* Consistent toggle control - always in the same position */}
+              {bus.stopSequence && bus.stopSequence.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowStops(!showStops)}
+                      sx={{ p: 0.5 }}
+                    >
+                      {showStops ? (
+                        <ExpandLess fontSize="small" />
+                      ) : (
+                        <ExpandMore fontSize="small" />
+                      )}
+                    </IconButton>
+                    <Typography variant="caption" color="text.secondary">
+                      {showStops ? 'Hide' : 'Show'} stops ({bus.stopSequence.length})
+                    </Typography>
+                  </Stack>
+                </Box>
+              )}
+            </Box>
           </Box>
         }
-      >
-      </BusCard>
+      />
 
       {/* Map Modal */}
       <BusRouteMapModal

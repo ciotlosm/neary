@@ -1,6 +1,6 @@
 // Service Worker for Bus Tracker offline functionality
 // Update this version number with each deployment to force cache refresh
-const VERSION = '2025-12-14-0929';
+const VERSION = '2025-12-14-1430';
 const CACHE_NAME = `bus-tracker-${VERSION}`;
 const API_CACHE_NAME = `bus-tracker-api-${VERSION}`;
 
@@ -105,6 +105,11 @@ function isApiRequest(url) {
          API_PATTERNS.some(pattern => pattern.test(url.pathname));
 }
 
+// Check if we're in development mode
+function isDevelopment() {
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+}
+
 // Handle API requests with network-first, cache fallback
 async function handleApiRequest(request) {
   const cache = await caches.open(API_CACHE_NAME);
@@ -163,6 +168,22 @@ async function handleApiRequest(request) {
 
 // Handle static assets with cache-first strategy
 async function handleStaticRequest(request) {
+  // In development, use network-first to avoid cache issues
+  if (isDevelopment()) {
+    try {
+      return await fetch(request);
+    } catch (error) {
+      // Fallback to cache in development if network fails
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      throw error;
+    }
+  }
+
+  // Production: use cache-first strategy
   const cache = await caches.open(CACHE_NAME);
   
   // Try cache first

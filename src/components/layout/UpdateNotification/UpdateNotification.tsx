@@ -18,6 +18,9 @@ import { logger } from '../../../utils/loggerFixed';
 export const UpdateNotification: React.FC = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDevelopment] = useState(() => 
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  );
 
   useEffect(() => {
     // Listen for service worker updates
@@ -28,10 +31,33 @@ export const UpdateNotification: React.FC = () => {
 
     window.addEventListener('sw-update-available', handleUpdateAvailable);
 
+    // In development, also check for updates more aggressively
+    if (isDevelopment) {
+      const checkForUpdates = async () => {
+        try {
+          const hasUpdate = await serviceWorkerManager.checkForUpdates();
+          if (hasUpdate) {
+            setUpdateAvailable(true);
+          }
+        } catch (error) {
+          logger.debug('Update check failed:', error);
+        }
+      };
+
+      // Check immediately and then every 5 seconds in development
+      checkForUpdates();
+      const interval = setInterval(checkForUpdates, 5000);
+
+      return () => {
+        window.removeEventListener('sw-update-available', handleUpdateAvailable);
+        clearInterval(interval);
+      };
+    }
+
     return () => {
       window.removeEventListener('sw-update-available', handleUpdateAvailable);
     };
-  }, []);
+  }, [isDevelopment]);
 
   const handleUpdate = async () => {
     setIsUpdating(true);

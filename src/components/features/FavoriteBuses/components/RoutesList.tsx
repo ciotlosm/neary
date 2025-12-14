@@ -8,10 +8,8 @@ import {
 import { RouteListItem } from './RouteListItem';
 // Define the route type used by the store
 type StoreRoute = {
-  shortName: string; // PRIMARY: What users see and interact with
-  name?: string;
-  longName?: string; // This corresponds to route_long_desc from the API
-  description?: string;
+  shortName: string; // route_short_name: What users see and interact with ("100", "101")
+  longName?: string; // route_long_name: Full description ("Piața Unirii - Mănăștur")
   type: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
 };
 

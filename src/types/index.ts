@@ -33,8 +33,8 @@ export interface Agency {
 
 export interface FavoriteRoute {
   id: string; // API route ID for queries
-  shortName: string; // Display name for users ("42", "43B")
-  longName: string; // Full route name
+  routeName: string; // route_short_name ("42", "43B", "100")
+  longName: string; // route_long_name (e.g., "Piața Unirii - Mănăștur")
   type: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
 }
 
