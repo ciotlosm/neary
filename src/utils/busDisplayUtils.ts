@@ -56,28 +56,28 @@ export const getUrgencyColor = (minutesAway: number, theme?: any) => {
 };
 
 export const getDisplayRouteName = (bus: FavoriteBusInfo): string => {
-  const { routeName, routeShortName } = bus;
+  const { routeName, routeLongName } = bus;
   
-  // If routeName exists and is different from shortName, use it
-  if (routeName && routeName !== routeShortName && !routeName.startsWith('Route ')) {
-    return routeName;
+  // If routeLongName exists and is different from routeName, use it
+  if (routeLongName && routeLongName !== routeName && !routeLongName.startsWith('Route ')) {
+    return routeLongName;
   }
   
   // Otherwise, create a proper label
-  if (routeShortName) {
-    return `Route ${routeShortName}`;
+  if (routeName) {
+    return `Route ${routeName}`;
   }
   
-  return `Route ${routeShortName}`;
+  return `Route ${routeName}`;
 };
 
 export const getAvatarRouteNumber = (bus: FavoriteBusInfo): string => {
-  const { routeName, routeShortName } = bus;
+  const { routeName, routeLongName } = bus;
   
-  // Strategy 1: Extract route number from routeName if it contains meaningful route info
-  if (routeName && routeName !== routeShortName) {
-    // Look for route numbers in the routeName (e.g., "Route 42", "42", "42A", etc.)
-    const routeNumberMatch = routeName.match(/\b(\d+[A-Z]?)\b/);
+  // Strategy 1: Extract route number from routeLongName if it contains meaningful route info
+  if (routeLongName && routeLongName !== routeName) {
+    // Look for route numbers in the routeLongName (e.g., "Route 42", "42", "42A", etc.)
+    const routeNumberMatch = routeLongName.match(/\b(\d+[A-Z]?)\b/);
     if (routeNumberMatch) {
       return routeNumberMatch[1];
     }
@@ -89,9 +89,9 @@ export const getAvatarRouteNumber = (bus: FavoriteBusInfo): string => {
     }
   }
   
-  // Strategy 2: Use routeShortName as fallback
-  if (routeShortName) {
-    return routeShortName;
+  // Strategy 2: Use routeName as fallback
+  if (routeName) {
+    return routeName;
   }
   
   // Strategy 3: Fallback to generic number

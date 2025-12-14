@@ -148,6 +148,7 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
           // Transform routes to the expected format
           const availableRoutes = routes.map(route => ({
             shortName: route.shortName, // route_short_name: What users see and interact with ("100", "101")
+            name: route.shortName, // Use shortName as name for compatibility
             longName: route.longName, // route_long_name: Full description ("Piața Unirii - Mănăștur")
             type: route.type as 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other'
           }));

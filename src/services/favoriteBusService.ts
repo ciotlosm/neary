@@ -344,7 +344,7 @@ class FavoriteBusService {
       favoriteRoutes.forEach((route, index) => {
         console.log(`🔍 Route ${index}:`, {
           id: route.id,
-          shortName: route.shortName,
+          shortName: route.routeName,
           idType: typeof route.id,
           parsedId: parseInt(route.id),
           isValidNumber: !isNaN(parseInt(route.id))

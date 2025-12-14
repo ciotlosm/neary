@@ -13,7 +13,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
 
       addFavoriteBus: (routeShortName: string) => {
         const currentFavorites = get().favorites;
-        if (!currentFavorites.buses.some(bus => typeof bus === 'string' ? bus === routeShortName : bus.shortName === routeShortName)) {
+        if (!currentFavorites.buses.some(bus => typeof bus === 'string' ? bus === routeShortName : bus.routeName === routeShortName)) {
           set({
             favorites: {
               ...currentFavorites,
@@ -28,7 +28,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
         set({
           favorites: {
             ...currentFavorites,
-            buses: currentFavorites.buses.filter(bus => typeof bus === 'string' ? bus !== routeShortName : bus.shortName !== routeShortName),
+            buses: currentFavorites.buses.filter(bus => typeof bus === 'string' ? bus !== routeShortName : bus.routeName !== routeShortName),
           },
         });
       },
@@ -68,7 +68,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
           // Check if any bus at this station is in favorites
           const stationBuses = buses.filter(bus => bus.station.id === station.id);
           // Note: bus.route should now contain route short names
-          return stationBuses.some(bus => favorites.buses.some(favBus => typeof favBus === 'string' ? favBus === bus.route : favBus.shortName === bus.route));
+          return stationBuses.some(bus => favorites.buses.some(favBus => typeof favBus === 'string' ? favBus === bus.route : favBus.routeName === bus.route));
         });
       },
     }),
