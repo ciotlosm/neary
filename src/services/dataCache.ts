@@ -1,5 +1,5 @@
 // Cache management for different data types
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 // Cache configuration for different data types
 export interface CacheConfig {

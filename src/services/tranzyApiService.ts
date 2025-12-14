@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import type { BusInfo, Station, Agency, TranzyApiService, ErrorState } from '../types';
 import { useOfflineStore } from '../stores/offlineStore';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 
 // Tranzy API response interfaces based on GTFS specification

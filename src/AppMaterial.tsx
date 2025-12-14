@@ -43,7 +43,7 @@ import { useRefreshSystem } from './hooks/useRefreshSystem';
 import { useErrorHandler } from './hooks/useErrorHandler';
 
 import { useComponentLifecycle, logPerformanceMetrics } from './utils/performance';
-import { logger } from './utils/logger';
+import { logger } from './utils/loggerFixed';
 import { DebugPanel } from './components/features/Debug/DebugPanel';
 import MaterialFavoriteBusDisplay from './components/features/FavoriteBuses/MaterialFavoriteBusDisplay';
 import MaterialFavoriteBusManager from './components/features/FavoriteBuses/MaterialFavoriteBusManager';

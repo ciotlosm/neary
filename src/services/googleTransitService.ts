@@ -1,5 +1,5 @@
 import { unifiedCache, CacheKeys } from './unifiedCache';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 import { useConfigStore } from '../stores/configStore';
 
 export interface TransitEstimate {

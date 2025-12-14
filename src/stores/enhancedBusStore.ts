@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ErrorState, EnhancedBusInfo } from '../types';
 import { useConfigStore } from './configStore';
 import { enhancedTranzyApi } from '../services/enhancedTranzyApi';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export interface EnhancedBusStore {
   // Data

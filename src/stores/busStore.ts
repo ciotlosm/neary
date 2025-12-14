@@ -6,7 +6,7 @@ import { useLocationStore } from './locationStore';
 import { useOfflineStore } from './offlineStore';
 import { withRetry, isRetryableError, RetryError } from '../utils/retryUtils';
 import { unifiedCache, CacheKeys } from '../services/unifiedCache';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 // Global refresh interval management
 let refreshIntervalId: number | null = null;

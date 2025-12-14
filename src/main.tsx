@@ -6,7 +6,8 @@ import './index.css'
 import App from './AppMaterial.tsx'
 import { getTheme } from './theme/materialTheme'
 import { useThemeStore } from './stores/themeStore'
-import { logger } from './utils/logger'
+import { logger } from './utils/loggerFixed'
+import './test-logger.js'
 
 // Initialize logging
 logger.info('Application starting', { 

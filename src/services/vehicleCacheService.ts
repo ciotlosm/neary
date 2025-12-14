@@ -1,6 +1,6 @@
 import { enhancedTranzyApi } from './enhancedTranzyApi';
 import { unifiedCache, CacheKeys } from './unifiedCache';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 class VehicleCacheService {
 
@@ -13,6 +13,7 @@ class VehicleCacheService {
   ): Promise<Map<string, any[]>> {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
+    // First attempt: get from cache
     const allVehiclesRaw = await unifiedCache.get(
       cacheKey,
       () => this.fetchAllVehicles(agencyId)
@@ -23,10 +24,69 @@ class VehicleCacheService {
 
     // Filter for requested routes
     const result = new Map<string, any[]>();
+    let hasAnyVehicles = false;
+    
     for (const routeId of routeIds) {
       const vehicles = allVehicles.get(routeId) || [];
       if (vehicles.length > 0) {
         result.set(routeId, vehicles);
+        hasAnyVehicles = true;
+      }
+    }
+
+    // Smart cache refresh: If no vehicles found for ANY requested route,
+    // check if cache is stale and refresh if needed
+    if (!hasAnyVehicles) {
+      const cacheAge = unifiedCache.getCacheAge(cacheKey);
+      const isStale = cacheAge > 15000; // 15 seconds threshold for favorite routes
+      
+      if (isStale) {
+        logger.info('No vehicles found and cache is stale, forcing refresh', {
+          agencyId,
+          requestedRoutes: routeIds,
+          cacheAgeSeconds: Math.round(cacheAge / 1000)
+        });
+        
+        try {
+          // Force refresh and try again
+          const freshVehiclesRaw = await unifiedCache.get(
+            cacheKey,
+            () => this.fetchAllVehicles(agencyId),
+            true // Force refresh
+          );
+          
+          const freshVehicles = this.ensureMap(freshVehiclesRaw);
+          
+          // Re-filter with fresh data
+          const refreshResult = new Map<string, any[]>();
+          for (const routeId of routeIds) {
+            const vehicles = freshVehicles.get(routeId) || [];
+            if (vehicles.length > 0) {
+              refreshResult.set(routeId, vehicles);
+            }
+          }
+          
+          logger.info('Cache refresh completed', {
+            agencyId,
+            foundVehiclesAfterRefresh: refreshResult.size > 0,
+            routesWithVehicles: Array.from(refreshResult.keys())
+          });
+          
+          return refreshResult;
+        } catch (error) {
+          logger.error('Failed to refresh cache when no vehicles found', {
+            agencyId,
+            requestedRoutes: routeIds,
+            error
+          });
+          // Return original empty result
+        }
+      } else {
+        logger.debug('No vehicles found but cache is fresh', {
+          agencyId,
+          requestedRoutes: routeIds,
+          cacheAgeSeconds: Math.round(cacheAge / 1000)
+        });
       }
     }
 

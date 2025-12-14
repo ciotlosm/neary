@@ -2,7 +2,7 @@ import { enhancedTranzyApi } from './enhancedTranzyApi';
 import { agencyService } from './agencyService';
 import { routeMappingService } from './routeMappingService';
 import { vehicleCacheService } from './vehicleCacheService';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export interface BusStopInfo {
   id: string;

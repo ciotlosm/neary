@@ -5,7 +5,7 @@ import { favoriteBusService, type FavoriteBusResult } from '../services/favorite
 import { enhancedTranzyApi } from '../services/enhancedTranzyApi';
 import { useConfigStore } from './configStore';
 import { useLocationStore } from './locationStore';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export interface FavoriteBusStore {
   // Data

@@ -15,7 +15,7 @@ import type {
 } from '../types/tranzyApi';
 import type { Agency, Station } from '../types';
 import { dataCacheManager, CACHE_CONFIGS } from './dataCache';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export class EnhancedTranzyApiService {
   private axiosInstance: AxiosInstance;

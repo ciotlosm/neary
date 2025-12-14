@@ -1,5 +1,5 @@
 import { enhancedTranzyApi } from './enhancedTranzyApi';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 import type { Agency } from '../types';
 
 /**

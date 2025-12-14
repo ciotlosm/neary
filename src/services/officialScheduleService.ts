@@ -1,6 +1,6 @@
 // Service for managing official CTP Cluj schedule data
 import { officialSchedules, type OfficialScheduleEntry } from '../data/officialSchedules';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export class OfficialScheduleService {
   

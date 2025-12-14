@@ -1,7 +1,7 @@
 import type { Coordinates, Station, EnhancedBusInfo } from '../types';
 import { enhancedTranzyApi } from './enhancedTranzyApi';
 import { agencyService } from './agencyService';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export interface RouteConnection {
   firstBus: EnhancedBusInfo;

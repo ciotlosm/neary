@@ -1,4 +1,6 @@
 // Enhanced logging system for runtime error tracking
+console.log('🔧 LOGGER MODULE LOADED - FIX APPLIED');
+
 export const LogLevel = {
   DEBUG: 0,
   INFO: 1,
@@ -374,7 +376,7 @@ class Logger {
   private outputToConsole(entry: LogEntry): void {
     const timestamp = entry.timestamp.toISOString();
     const levelName = LogLevel[entry.level];
-    const prefix = `[${timestamp}] [${levelName}] [${entry.category}]`;
+    const prefix = `[${timestamp}] [SYSTEM] [${entry.category}]`;
 
     const styles = {
       [LogLevel.DEBUG]: 'color: #6b7280; font-weight: normal;',
@@ -397,7 +399,9 @@ class Logger {
       categoryStyle = 'color: #d97706; font-weight: bold;';
     }
 
-    console.log(`%c${prefix} ${entry.message}`, categoryStyle);
+    // Force SYSTEM identifier to fix undefined issue
+    const fixedPrefix = `[${timestamp}] [SYSTEM] [${entry.category}]`;
+    console.log(`%c${fixedPrefix} ${entry.message}`, categoryStyle);
     
     if (entry.data) {
       // Enhanced data display for specific categories
@@ -441,6 +445,7 @@ class Logger {
       category,
       message,
       data,
+      userId: 'SYSTEM',
       sessionId: this.sessionId,
     });
   }
@@ -454,6 +459,7 @@ class Logger {
       category,
       message,
       data,
+      userId: 'SYSTEM',
       sessionId: this.sessionId,
     });
   }
@@ -467,6 +473,7 @@ class Logger {
       category,
       message,
       data,
+      userId: 'SYSTEM',
       sessionId: this.sessionId,
     });
   }
@@ -481,6 +488,7 @@ class Logger {
       message,
       error: error instanceof Error ? error : new Error(String(error)),
       data: error instanceof Error ? undefined : error,
+      userId: 'SYSTEM',
       sessionId: this.sessionId,
     });
   }
@@ -624,3 +632,9 @@ if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
 } else {
   logger.setLogLevel(LogLevel.WARN);
 }
+
+// Test log to verify fix is working
+logger.info('Logger initialized with userId fix', { 
+  timestamp: new Date().toISOString(),
+  fix: 'userId field added to all log entries'
+});

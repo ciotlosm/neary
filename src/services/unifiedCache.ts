@@ -8,7 +8,7 @@
  * - Event-driven cache invalidation
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 // Cache entry interface
 interface CacheEntry<T> {
@@ -301,6 +301,17 @@ export class UnifiedCacheManager {
       logger.warn('Failed to load cache from storage', { error });
       this.cache = new Map();
     }
+  }
+
+  /**
+   * Get the age of a cache entry in milliseconds
+   */
+  getCacheAge(key: string): number {
+    const entry = this.cache.get(key);
+    if (!entry) {
+      return Infinity; // No cache = infinitely old
+    }
+    return Date.now() - entry.timestamp;
   }
 
   /**

@@ -3,7 +3,7 @@ import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
 import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { useFavoriteBusStore } from '../../../stores/favoriteBusStore';
 import { MaterialButton } from '../../ui/Button/MaterialButton';
-import { logger } from '../../../utils/logger';
+import { logger } from '../../../utils/loggerFixed';
 import { formatRefreshTime } from '../../../utils/timeFormat';
 
 interface RefreshControlProps {

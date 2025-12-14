@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AgencyStore, ErrorState } from '../types';
 import { tranzyApiService } from '../services/tranzyApiService';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/loggerFixed';
 
 export const useAgencyStore = create<AgencyStore>()(
   persist(

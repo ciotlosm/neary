@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { logger, LogLevel } from '../../../utils/logger';
+import { logger, LogLevel } from '../../../utils/loggerFixed';
 import { MaterialButton } from '../../ui/Button';
 
 export const DebugPanel: React.FC = () => {
