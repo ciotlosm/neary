@@ -122,8 +122,8 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
       loadAvailableRoutes: async () => {
         const { config } = useConfigStore.getState();
         
-        if (!config?.city || !config?.apiKey) {
-          logger.warn('Cannot load available routes - missing city or API key');
+        if (!config?.agencyId || !config?.apiKey) {
+          logger.warn('Cannot load available routes - missing agency ID or API key');
           return;
         }
 
@@ -133,23 +133,17 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
           // Set API key in enhanced API service
           enhancedTranzyApi.setApiKey(config.apiKey);
 
-          // Get agency ID for the city
-          const agencies = await enhancedTranzyApi.getAgencies();
-          const agency = agencies.find(a => a.name.toLowerCase().includes(config.city.toLowerCase()));
-          
-          if (!agency) {
-            throw new Error(`No agency found for city: ${config.city}`);
-          }
+          const agencyId = parseInt(config.agencyId);
 
           logger.info('Loading available routes for agency', { 
-            agencyId: agency.id, 
+            agencyId, 
             city: config.city,
             hasApiKey: !!config.apiKey,
             apiKeyLength: config.apiKey?.length || 0
           });
 
           // Get routes for the agency
-          const routes = await enhancedTranzyApi.getRoutes(parseInt(agency.id));
+          const routes = await enhancedTranzyApi.getRoutes(agencyId);
           
           // Transform routes to the expected format (using only short names as requested)
           const availableRoutes = routes.map(route => ({
@@ -168,7 +162,8 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
 
           logger.info('Available routes loaded successfully', { 
             count: availableRoutes.length,
-            city: config.city 
+            city: config.city,
+            agencyId 
           });
 
         } catch (error) {

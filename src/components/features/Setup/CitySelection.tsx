@@ -3,27 +3,33 @@ import { useAgencyStore } from '../../../stores/agencyStore';
 import { logger } from '../../../utils/logger';
 
 interface CitySelectionProps {
-  onCitySelected: (city: string) => void;
+  onCitySelected: (city: string, agencyId: string) => void;
   onBack?: () => void;
 }
 
 export const CitySelection: React.FC<CitySelectionProps> = ({ onCitySelected, onBack }) => {
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedAgency, setSelectedAgency] = useState<{city: string, agencyId: string} | null>(null);
   const { agencies } = useAgencyStore();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedCity.trim()) {
+    if (!selectedAgency) {
       return;
     }
 
-    logger.info('City selected in setup wizard', { city: selectedCity }, 'UI');
-    onCitySelected(selectedCity.trim());
+    logger.info('City selected in setup wizard', { 
+      city: selectedAgency.city, 
+      agencyId: selectedAgency.agencyId 
+    }, 'UI');
+    onCitySelected(selectedAgency.city, selectedAgency.agencyId);
   };
 
-  // Get unique cities from agencies
-  const cities = Array.from(new Set(agencies.map(agency => (agency as any).city))).sort();
+  // Get agencies as city options
+  const cityOptions = agencies.map(agency => ({
+    city: agency.name,
+    agencyId: agency.id,
+  })).sort((a, b) => a.city.localeCompare(b.city));
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
@@ -46,15 +52,22 @@ export const CitySelection: React.FC<CitySelectionProps> = ({ onCitySelected, on
           </label>
           <select
             id="city"
-            value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
+            value={selectedAgency ? `${selectedAgency.city}|${selectedAgency.agencyId}` : ''}
+            onChange={(e) => {
+              if (e.target.value) {
+                const [city, agencyId] = e.target.value.split('|');
+                setSelectedAgency({ city, agencyId });
+              } else {
+                setSelectedAgency(null);
+              }
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           >
             <option value="">Select a city...</option>
-            {cities.map((city) => (
-              <option key={city} value={city}>
-                {city}
+            {cityOptions.map((option) => (
+              <option key={option.agencyId} value={`${option.city}|${option.agencyId}`}>
+                {option.city}
               </option>
             ))}
           </select>
@@ -72,7 +85,7 @@ export const CitySelection: React.FC<CitySelectionProps> = ({ onCitySelected, on
           )}
           <button
             type="submit"
-            disabled={!selectedCity.trim()}
+            disabled={!selectedAgency}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             Continue

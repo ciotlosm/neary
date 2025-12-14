@@ -75,17 +75,16 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
           // Set API key
           enhancedTranzyApi.setApiKey(config.apiKey);
 
-          // Get agency for the city
-          const agencies = await enhancedTranzyApi.getAgencies(forceRefresh);
-          const agency = agencies.find(a => a.name === config.city);
-          
-          if (!agency) {
-            throw new Error(`No agency found for city: ${config.city}`);
+          // Use the stored agency ID instead of looking up by name
+          if (!config.agencyId) {
+            throw new Error('Agency ID not configured');
           }
+          
+          const agencyId = parseInt(config.agencyId);
 
           // Get enhanced bus information
           const enhancedBuses = await enhancedTranzyApi.getEnhancedBusInfo(
-            parseInt(agency.id),
+            agencyId,
             undefined, // stopId - get all stops
             undefined, // routeId - get all routes
             forceRefresh
@@ -152,23 +151,21 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
       refreshScheduleData: async () => {
         try {
           const config = useConfigStore.getState().config;
-          if (!config?.city || !config?.apiKey) return;
+          if (!config?.agencyId || !config?.apiKey) return;
 
           enhancedTranzyApi.setApiKey(config.apiKey);
           
-          const agencies = await enhancedTranzyApi.getAgencies();
-          const agency = agencies.find(a => a.name === config.city);
-          if (!agency) return;
+          const agencyId = parseInt(config.agencyId);
 
           // Refresh schedule-related data (routes, stops, trips, stop_times)
           await Promise.allSettled([
-            enhancedTranzyApi.getRoutes(parseInt(agency.id), true),
-            enhancedTranzyApi.getStops(parseInt(agency.id), true),
-            enhancedTranzyApi.getTrips(parseInt(agency.id), undefined, true),
-            enhancedTranzyApi.getStopTimes(parseInt(agency.id), undefined, undefined, true),
+            enhancedTranzyApi.getRoutes(agencyId, true),
+            enhancedTranzyApi.getStops(agencyId, true),
+            enhancedTranzyApi.getTrips(agencyId, undefined, true),
+            enhancedTranzyApi.getStopTimes(agencyId, undefined, undefined, true),
           ]);
 
-          logger.info('Schedule data refreshed', { agencyId: agency.id }, 'BUS_STORE');
+          logger.info('Schedule data refreshed', { agencyId }, 'BUS_STORE');
           
         } catch (error) {
           logger.warn('Failed to refresh schedule data', { error }, 'BUS_STORE');
@@ -178,21 +175,19 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
       refreshLiveData: async () => {
         try {
           const config = useConfigStore.getState().config;
-          if (!config?.city || !config?.apiKey) return;
+          if (!config?.agencyId || !config?.apiKey) return;
 
           enhancedTranzyApi.setApiKey(config.apiKey);
           
-          const agencies = await enhancedTranzyApi.getAgencies();
-          const agency = agencies.find(a => a.name === config.city);
-          if (!agency) return;
+          const agencyId = parseInt(config.agencyId);
 
           // Get fresh vehicle data
-          await enhancedTranzyApi.getVehicles(parseInt(agency.id));
+          await enhancedTranzyApi.getVehicles(agencyId);
           
           // Refresh the bus display with new live data
           await get().refreshBuses(false); // Don't force refresh schedule data
 
-          logger.debug('Live data refreshed', { agencyId: agency.id }, 'BUS_STORE');
+          logger.debug('Live data refreshed', { agencyId }, 'BUS_STORE');
           
         } catch (error) {
           logger.warn('Failed to refresh live data', { error }, 'BUS_STORE');
@@ -204,21 +199,16 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
         
         try {
           const config = useConfigStore.getState().config;
-          if (!config?.city || !config?.apiKey) {
+          if (!config?.agencyId || !config?.apiKey) {
             throw new Error('Configuration not available');
           }
 
           enhancedTranzyApi.setApiKey(config.apiKey);
           
-          const agencies = await enhancedTranzyApi.getAgencies(true);
-          const agency = agencies.find(a => a.name === config.city);
-          
-          if (!agency) {
-            throw new Error(`No agency found for city: ${config.city}`);
-          }
+          const agencyId = parseInt(config.agencyId);
 
           // Force refresh all data
-          await enhancedTranzyApi.forceRefreshAll(parseInt(agency.id));
+          await enhancedTranzyApi.forceRefreshAll(agencyId);
           
           // Refresh buses with fresh data
           await get().refreshBuses(true);
@@ -230,7 +220,7 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
             } 
           });
 
-          logger.info('Force refresh all completed', { agencyId: agency.id }, 'BUS_STORE');
+          logger.info('Force refresh all completed', { agencyId }, 'BUS_STORE');
           
         } catch (error) {
           const errorState: ErrorState = {

@@ -17,6 +17,7 @@ type SetupStep = 'api-key' | 'city' | 'locations' | 'complete';
 interface SetupData {
   apiKey: string;
   city: string;
+  agencyId: string;
   homeLocation?: Coordinates;
   workLocation?: Coordinates;
   refreshRate: number;
@@ -45,9 +46,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onSetupComplete }) => 
     setCurrentStep('city');
   };
 
-  const handleCitySelected = (city: string) => {
-    logger.info('City selected, proceeding to location setup', { city }, 'UI');
-    setSetupData(prev => ({ ...prev, city }));
+  const handleCitySelected = (city: string, agencyId: string) => {
+    logger.info('City selected, proceeding to location setup', { city, agencyId }, 'UI');
+    setSetupData(prev => ({ ...prev, city, agencyId }));
     setCurrentStep('locations');
   };
 
@@ -56,6 +57,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onSetupComplete }) => 
     
     const finalConfig: UserConfig = {
       city: setupData.city!,
+      agencyId: setupData.agencyId!,
       homeLocation,
       workLocation,
       apiKey: setupData.apiKey!,

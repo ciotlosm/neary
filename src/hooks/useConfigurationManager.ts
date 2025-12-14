@@ -36,6 +36,7 @@ export interface UseConfigurationManagerReturn {
   
   // Actions
   handleApiKeyChange: (value: string) => void;
+  handleCityChange: (city: string, agencyId: string) => void;
   validateApiKey: (apiKey: string) => Promise<void>;
   handleLocationPicker: (type: 'home' | 'work') => void;
   handleLocationSelected: (location: Coordinates) => void;
@@ -59,6 +60,7 @@ export const useConfigurationManager = (
   
   const [formData, setFormData] = useState<Partial<UserConfig>>({
     city: config?.city || '',
+    agencyId: config?.agencyId || '',
     homeLocation: config?.homeLocation || undefined,
     workLocation: config?.workLocation || undefined,
     apiKey: config?.apiKey || '',
@@ -84,7 +86,7 @@ export const useConfigurationManager = (
 
   // Get city options from agencies
   const cityOptions = agencies
-    .map(agency => ({ label: agency.name, value: agency.name }))
+    .map(agency => ({ label: agency.name, value: agency.name, agencyId: agency.id }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const validateAndSetErrors = (): boolean => {
@@ -95,6 +97,10 @@ export const useConfigurationManager = (
     }
     
     if (!formData.city?.trim()) {
+      newErrors.city = 'City selection is required';
+    }
+    
+    if (!formData.agencyId?.trim()) {
       newErrors.city = 'City selection is required';
     }
     
@@ -118,23 +124,15 @@ export const useConfigurationManager = (
 
     setIsValidatingApiKey(true);
     try {
-      // First validate the API key
-      const service = tranzyApiService();
-      const isValid = await service.validateApiKey(apiKey.trim());
+      // Use the validateAndFetchAgencies method which caches agencies
+      const isValid = await validateAndFetchAgencies(apiKey.trim());
       setApiKeyValid(isValid);
       
       if (!isValid) {
         setErrors(prev => ({ ...prev, apiKey: 'Invalid API key' }));
       } else {
         setErrors(prev => ({ ...prev, apiKey: undefined }));
-        
-        // If validation successful, fetch agencies
-        try {
-          service.setApiKey(apiKey.trim());
-          await fetchAgencies();
-        } catch (agencyError) {
-          console.warn('Failed to fetch agencies after API validation:', agencyError);
-        }
+        // Agencies are now cached automatically by validateAndFetchAgencies
       }
     } catch (error) {
       setApiKeyValid(false);
@@ -147,6 +145,10 @@ export const useConfigurationManager = (
   const handleApiKeyChange = (value: string): void => {
     setFormData(prev => ({ ...prev, apiKey: value }));
     setApiKeyValid(null);
+  };
+
+  const handleCityChange = (city: string, agencyId: string): void => {
+    setFormData(prev => ({ ...prev, city, agencyId }));
   };
 
   const handleLocationPicker = (type: 'home' | 'work'): void => {
@@ -217,6 +219,7 @@ export const useConfigurationManager = (
     
     // Actions
     handleApiKeyChange,
+    handleCityChange,
     validateApiKey,
     handleLocationPicker,
     handleLocationSelected,

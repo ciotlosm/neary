@@ -40,6 +40,7 @@ export interface FavoriteRoute {
 
 export interface UserConfig {
   city: string;
+  agencyId: string; // Store the agency ID for consistent API calls
   homeLocation: Coordinates;
   workLocation: Coordinates;
   apiKey: string;

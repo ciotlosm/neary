@@ -68,6 +68,7 @@ export const useConfigStore = create<ConfigStore>()(
         
         const isFullyConfigured = !!(
           updatedConfig.city &&
+          updatedConfig.agencyId &&
           updatedConfig.homeLocation &&
           updatedConfig.workLocation &&
           updatedConfig.apiKey &&
@@ -92,6 +93,24 @@ export const useConfigStore = create<ConfigStore>()(
     {
       name: 'bus-tracker-config',
       storage: createJSONStorage(() => createEncryptedStorage()),
+      version: 2, // Increment version for migration
+      migrate: (persistedState: any, version: number) => {
+        // Migration for version 1 -> 2: Add agencyId field
+        if (version < 2 && persistedState?.config) {
+          // If user has a city but no agencyId, they need to reconfigure
+          if (persistedState.config.city && !persistedState.config.agencyId) {
+            return {
+              ...persistedState,
+              config: {
+                ...persistedState.config,
+                agencyId: '', // Will trigger reconfiguration
+              },
+              isFullyConfigured: false, // Force reconfiguration
+            };
+          }
+        }
+        return persistedState;
+      },
     }
   )
 );

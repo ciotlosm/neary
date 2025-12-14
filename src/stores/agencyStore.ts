@@ -98,7 +98,7 @@ export const useAgencyStore = create<AgencyStore>()(
             return false;
           }
 
-          // If validation successful, fetch agencies
+          // If validation successful, fetch and cache agencies
           const agencies = await service.getAgencies();
           
           set({
@@ -108,8 +108,9 @@ export const useAgencyStore = create<AgencyStore>()(
             isApiValidated: true,
           });
           
-          logger.info('API validation and agency fetch successful', { 
-            agencyCount: agencies.length 
+          logger.info('API validation and agency fetch successful - agencies cached', { 
+            agencyCount: agencies.length,
+            agencies: agencies.map(a => ({ id: a.id, name: a.name }))
           }, 'STORE');
           
           return true;

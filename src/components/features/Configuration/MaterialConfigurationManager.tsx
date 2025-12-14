@@ -57,6 +57,7 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
     
     // Actions
     handleApiKeyChange,
+    handleCityChange,
     validateApiKey,
     handleLocationPicker,
     handleLocationSelected,
@@ -94,7 +95,7 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
         {/* City Selection */}
         <CitySelectionSection
           city={formData.city || ''}
-          onCityChange={(city) => setFormData(prev => ({ ...prev, city }))}
+          onCityChange={handleCityChange}
           cityOptions={cityOptions}
           error={errors.city}
         />

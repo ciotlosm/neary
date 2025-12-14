@@ -22,12 +22,13 @@ export const useRefreshSystem = () => {
       hasConfig: !!config, 
       hasRefreshRate: (config?.refreshRate || 0) > 0, 
       hasCity: !!config?.city, 
+      hasAgencyId: !!config?.agencyId,
       hasHome: !!config?.homeLocation, 
       hasWork: !!config?.workLocation,
       currentAutoRefreshState 
     });
     
-    if (isConfigured && config && config.refreshRate > 0 && config.city && config.homeLocation && config.workLocation) {
+    if (isConfigured && config && config.refreshRate > 0 && config.city && config.agencyId && config.homeLocation && config.workLocation) {
       console.log('Starting auto refresh...');
       // Start auto refresh if not already enabled
       if (!currentAutoRefreshState) {
@@ -46,14 +47,14 @@ export const useRefreshSystem = () => {
       const currentBusStore = useEnhancedBusStore.getState();
       currentBusStore.stopAutoRefresh();
     };
-  }, [isConfigured, config?.refreshRate, config?.city, config?.homeLocation, config?.workLocation]); // Removed isAutoRefreshEnabled from deps
+  }, [isConfigured, config?.refreshRate, config?.city, config?.agencyId, config?.homeLocation, config?.workLocation]); // Removed isAutoRefreshEnabled from deps
 
   // Handle configuration changes that affect refresh rate (only for fully configured systems)
   useEffect(() => {
     const busStore = useEnhancedBusStore.getState();
     const currentAutoRefreshState = busStore.isAutoRefreshEnabled;
     
-    if (currentAutoRefreshState && config?.refreshRate && config?.city && config?.homeLocation && config?.workLocation) {
+    if (currentAutoRefreshState && config?.refreshRate && config?.city && config?.agencyId && config?.homeLocation && config?.workLocation) {
       // Restart auto refresh with new rate for enhanced bus store
       busStore.stopAutoRefresh();
       // Small delay to ensure cleanup is complete
@@ -64,7 +65,7 @@ export const useRefreshSystem = () => {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [config?.refreshRate, config?.city, config?.homeLocation, config?.workLocation]); // Removed isAutoRefreshEnabled from deps
+  }, [config?.refreshRate, config?.city, config?.agencyId, config?.homeLocation, config?.workLocation]); // Removed isAutoRefreshEnabled from deps
 
   // Handle refresh rate changes for favorite bus store
   useEffect(() => {

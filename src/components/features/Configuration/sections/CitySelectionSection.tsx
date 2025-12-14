@@ -15,11 +15,12 @@ import { LocationOn as LocationIcon } from '@mui/icons-material';
 interface CityOption {
   label: string;
   value: string;
+  agencyId: string;
 }
 
 interface CitySelectionSectionProps {
   city: string;
-  onCityChange: (city: string) => void;
+  onCityChange: (city: string, agencyId: string) => void;
   cityOptions: CityOption[];
   error?: string;
 }
@@ -47,7 +48,7 @@ export const CitySelectionSection: React.FC<CitySelectionSectionProps> = ({
             options={cityOptions}
             value={cityOptions.find(option => option.value === city) || null}
             onChange={(_, newValue) => {
-              onCityChange(newValue?.value || '');
+              onCityChange(newValue?.value || '', newValue?.agencyId || '');
             }}
             renderInput={(params) => (
               <TextField
