@@ -19,14 +19,13 @@ export const MaterialRefreshControl: React.FC = () => {
   const { manualRefresh, refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
   const { lastUpdate, lastApiUpdate, cacheStats } = useEnhancedBusStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null);
+
   const [currentTime, setCurrentTime] = React.useState(Date.now());
 
   const refresh = async () => {
     setIsRefreshing(true);
     try {
       await manualRefresh();
-      setLastRefresh(new Date());
     } finally {
       setIsRefreshing(false);
     }
@@ -91,22 +90,28 @@ export const MaterialRefreshControl: React.FC = () => {
   };
 
   return (
-    <Stack direction="row" alignItems="center" spacing={1}>
+    <Stack direction="row" alignItems="center" spacing={0.5}>
       {/* Always visible timing information */}
-      <Box sx={{ textAlign: 'right', minWidth: 80 }}>
+      <Box sx={{ 
+        textAlign: 'right', 
+        minWidth: { xs: 60, sm: 80 }, // Smaller on mobile
+        display: { xs: 'block', sm: 'block' } // Always show but more compact on mobile
+      }}>
         <Typography variant="caption" sx={{ 
           display: 'block', 
-          fontSize: '0.65rem',
+          fontSize: { xs: '0.6rem', sm: '0.65rem' }, // Smaller on mobile
           color: alpha(theme.palette.common.white, 0.9),
-          lineHeight: 1.2,
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap', // Prevent wrapping
         }}>
           Last: {formatTimeDifference(getLastRefreshTime())}
         </Typography>
         <Typography variant="caption" sx={{ 
           display: 'block', 
-          fontSize: '0.65rem',
+          fontSize: { xs: '0.6rem', sm: '0.65rem' }, // Smaller on mobile
           color: alpha(theme.palette.common.white, 0.9),
-          lineHeight: 1.2,
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap', // Prevent wrapping
         }}>
           Next: {getTimeToNextRefresh()}
         </Typography>

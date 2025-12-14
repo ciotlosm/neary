@@ -103,7 +103,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
           />
 
           {/* Statistics */}
-          <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
             <Chip
               label={`${selectedRoutes.length} Favorite${selectedRoutes.length !== 1 ? 's' : ''}`}
               color="primary"
@@ -122,7 +122,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
                 sx={{ fontWeight: 600 }}
               />
             )}
-          </Stack>
+          </Box>
 
           {/* Loading State */}
           {isLoading && (
