@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   IconButton,
-  Tooltip,
   CircularProgress,
   useTheme,
   alpha,
   Box,
   Typography,
+  Stack,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -90,48 +90,29 @@ export const MaterialRefreshControl: React.FC = () => {
     }
   };
 
-  const getTooltipContent = () => {
-    const lastRefreshTime = getLastRefreshTime();
-    const timeSinceLastRefresh = formatTimeDifference(lastRefreshTime);
-    const timeToNextRefresh = getTimeToNextRefresh();
-    
-    const refreshRateText = refreshRate > 0 ? `${refreshRate / 1000}s` : 'Off';
-    const statusText = isAutoRefreshEnabled ? 'Active' : 'Inactive';
-    
-    return (
-      <Box sx={{ textAlign: 'center' }}>
-        <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-          Auto: {refreshRateText} ({statusText})
+  return (
+    <Stack direction="row" alignItems="center" spacing={1}>
+      {/* Always visible timing information */}
+      <Box sx={{ textAlign: 'right', minWidth: 80 }}>
+        <Typography variant="caption" sx={{ 
+          display: 'block', 
+          fontSize: '0.65rem',
+          color: alpha(theme.palette.common.white, 0.9),
+          lineHeight: 1.2,
+        }}>
+          Last: {formatTimeDifference(getLastRefreshTime())}
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-          Last: {timeSinceLastRefresh} • Next: {timeToNextRefresh}
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem', opacity: 0.8 }}>
-          Click to refresh now
+        <Typography variant="caption" sx={{ 
+          display: 'block', 
+          fontSize: '0.65rem',
+          color: alpha(theme.palette.common.white, 0.9),
+          lineHeight: 1.2,
+        }}>
+          Next: {getTimeToNextRefresh()}
         </Typography>
       </Box>
-    );
-  };
-
-  // Force tooltip to re-render by including currentTime in the key
-  const tooltipKey = `${currentTime}-${isAutoRefreshEnabled}-${refreshRate}`;
-  
-  return (
-    <Tooltip 
-      title={getTooltipContent()} 
-      arrow
-      key={tooltipKey}
-      componentsProps={{
-        tooltip: {
-          sx: {
-            bgcolor: alpha(theme.palette.grey[900], 0.95),
-            color: theme.palette.common.white,
-            fontSize: '0.7rem',
-            maxWidth: 200,
-          }
-        }
-      }}
-    >
+      
+      {/* Refresh button */}
       <IconButton
         onClick={refresh}
         disabled={isRefreshing}
@@ -168,7 +149,7 @@ export const MaterialRefreshControl: React.FC = () => {
           }} />
         )}
       </IconButton>
-    </Tooltip>
+    </Stack>
   );
 };
 

@@ -35,7 +35,6 @@ import {
 
 import { useConfigStore } from '../../../stores/configStore';
 import MaterialConfigurationManager from '../Configuration/MaterialConfigurationManager';
-import MaterialFavoriteBusManager from '../FavoriteBuses/MaterialFavoriteBusManager';
 import { SimplifiedCacheManager } from './SimplifiedCacheManager';
 import { MaterialButton } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
@@ -155,7 +154,6 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
 
   const tabs = [
     { label: 'Configuration', icon: <SettingsIcon /> },
-    { label: 'Favorites', icon: <FavoriteIcon /> },
     { label: 'Cache', icon: <DatabaseIcon /> },
     { label: 'Backup', icon: <BackupIcon /> },
   ];
@@ -195,14 +193,10 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
-        <MaterialFavoriteBusManager />
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={2}>
         <SimplifiedCacheManager />
       </TabPanel>
 
-      <TabPanel value={activeTab} index={3}>
+      <TabPanel value={activeTab} index={2}>
         <InfoCard
           title="Backup & Restore"
           subtitle="Export, import, and reset your configuration"

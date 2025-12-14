@@ -25,6 +25,7 @@ import {
   Refresh as RefreshIcon,
   Check as CheckIcon,
   LiveTv as LiveIcon,
+  Favorite as FavoriteIcon,
 } from '@mui/icons-material';
 
 import ThemeToggle from './components/ui/ThemeToggle';
@@ -45,6 +46,7 @@ import { useComponentLifecycle, logPerformanceMetrics } from './utils/performanc
 import { logger } from './utils/logger';
 import { DebugPanel } from './components/features/Debug/DebugPanel';
 import MaterialFavoriteBusDisplay from './components/features/FavoriteBuses/MaterialFavoriteBusDisplay';
+import MaterialFavoriteBusManager from './components/features/FavoriteBuses/MaterialFavoriteBusManager';
 import { useFavoriteBusStore } from './stores/favoriteBusStore';
 
 
@@ -113,14 +115,14 @@ const MaterialHeader: React.FC<{
 
 // Material Design Bottom Navigation
 const MaterialBottomNav: React.FC<{ 
-  currentView: 'buses' | 'settings'; 
-  onViewChange: (view: 'buses' | 'settings') => void;
+  currentView: 'buses' | 'favorites' | 'settings'; 
+  onViewChange: (view: 'buses' | 'favorites' | 'settings') => void;
   isConfigured: boolean;
   isFromSetupFlowRef: React.MutableRefObject<boolean>;
 }> = React.memo(({ currentView, onViewChange, isConfigured: isFullyConfigured, isFromSetupFlowRef }) => {
   const theme = useTheme();
   
-  const handleNavigation = React.useCallback((view: 'buses' | 'settings') => {
+  const handleNavigation = React.useCallback((view: 'buses' | 'favorites' | 'settings') => {
     // Prevent duplicate navigation to the same view
     if (view === currentView) {
       logger.info('Navigation ignored - already on target view', { currentView, targetView: view }, 'UI');
@@ -191,6 +193,27 @@ const MaterialBottomNav: React.FC<{
           }}
         />
         <BottomNavigationAction
+          label="Favorites"
+          value="favorites"
+          icon={<FavoriteIcon />}
+          disabled={!isFullyConfigured}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isFullyConfigured) return;
+            console.log('Favorites button clicked');
+            handleNavigation('favorites');
+          }}
+          sx={{
+            '&.Mui-selected': {
+              color: theme.palette.primary.main,
+            },
+            '&.Mui-disabled': {
+              opacity: 0.5,
+            },
+          }}
+        />
+        <BottomNavigationAction
           label="Settings"
           value="settings"
           icon={<SettingsIcon />}
@@ -230,7 +253,7 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 ));
 
 function AppMaterial() {
-  const [currentView, setCurrentView] = useState<'buses' | 'settings'>('buses');
+  const [currentView, setCurrentView] = useState<'buses' | 'favorites' | 'settings'>('buses');
   const [showSetupPrompt, setShowSetupPrompt] = useState(true);
   const { config, isConfigured, isFullyConfigured } = useConfigStore();
 
@@ -433,6 +456,47 @@ function AppMaterial() {
           </Box>
         );
 
+      case 'favorites':
+        if (!isFullyConfigured) {
+          return (
+            <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
+              <Avatar
+                sx={{
+                  bgcolor: theme.palette.warning.main,
+                  width: 64,
+                  height: 64,
+                  mx: 'auto',
+                  mb: 3,
+                }}
+              >
+                <SettingsIcon sx={{ fontSize: 32 }} />
+              </Avatar>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                Setup Required
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Please complete your setup to manage favorites.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  isFromSetupFlow.current = true; // Mark that we're coming from setup
+                  setCurrentView('settings');
+                }}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Complete Setup
+              </Button>
+            </Card>
+          );
+        }
+
+        return <MaterialFavoriteBusManager />;
+
       case 'settings':
         return (
           <Settings onClose={() => {
@@ -450,6 +514,8 @@ function AppMaterial() {
     switch (currentView) {
       case 'buses':
         return config?.city ? `Buses in ${config.city}` : 'Bus Tracker';
+      case 'favorites':
+        return 'Favorite Buses';
       case 'settings':
         return 'Settings';
       default:
@@ -462,7 +528,7 @@ function AppMaterial() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <MaterialHeader 
           title={getHeaderTitle()}
-          showRefresh={currentView === 'buses'}
+          showRefresh={currentView === 'buses' || currentView === 'favorites'}
         />
         
         <MaterialContentArea>
