@@ -75,6 +75,14 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
         icon={<FavoriteIcon />}
       >
         <Stack spacing={3}>
+          {/* Favorite Routes List */}
+          <RoutesList
+            title="Your Favorite Routes"
+            routes={favoriteRoutes as any}
+            isFavoriteList={true}
+            onToggleRoute={handleToggleRoute}
+          />
+
           {/* Search Bar */}
           <TextField
             fullWidth
@@ -133,14 +141,6 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
               </Typography>
             </Box>
           )}
-
-          {/* Favorite Routes List */}
-          <RoutesList
-            title="Your Favorite Routes"
-            routes={favoriteRoutes as any}
-            isFavoriteList={true}
-            onToggleRoute={handleToggleRoute}
-          />
 
           {/* Available Routes List */}
           <RoutesList
