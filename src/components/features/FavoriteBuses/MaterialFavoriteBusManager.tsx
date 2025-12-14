@@ -75,40 +75,98 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
         icon={<FavoriteIcon />}
       >
         <Stack spacing={3}>
-          {/* Favorite Routes List */}
-          <RoutesList
-            title="Your Favorite Routes"
-            routes={favoriteRoutes as any}
-            isFavoriteList={true}
-            onToggleRoute={handleToggleRoute}
-          />
+          {/* Unsaved Changes Alert - Top Priority */}
+          {hasChanges && (
+            <Alert 
+              severity="warning" 
+              sx={{ 
+                borderRadius: 2,
+                '& .MuiAlert-message': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%'
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Unsaved Changes
+                </Typography>
+                <Chip
+                  label={`${selectedRoutes.length} selected`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+              </Box>
+              <MaterialButton
+                variant="filled"
+                size="small"
+                onClick={handleSaveChanges}
+                icon={<CheckIcon />}
+                sx={{ ml: 2 }}
+              >
+                Save All
+              </MaterialButton>
+            </Alert>
+          )}
 
-          {/* Search Bar */}
-          <TextField
-            fullWidth
-            placeholder="Search routes by number, name, or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 3,
-              },
-            }}
-          />
+          {/* Favorite Routes Section */}
+          <Box>
+            <RoutesList
+              title="Your Favorite Routes"
+              routes={favoriteRoutes as any}
+              isFavoriteList={true}
+              onToggleRoute={handleToggleRoute}
+            />
+            {/* Save button for favorites section */}
+            {hasChanges && favoriteRoutes.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <MaterialButton
+                  variant="outlined"
+                  size="small"
+                  onClick={handleSaveChanges}
+                  icon={<CheckIcon />}
+                  fullWidth
+                >
+                  Save Favorite Routes ({favoriteRoutes.length})
+                </MaterialButton>
+              </Box>
+            )}
+          </Box>
 
-          {/* Bus Type Filters */}
-          <RouteTypeFilters
-            availableTypes={availableTypes}
-            selectedTypes={selectedTypes}
-            onTypeFilterChange={handleTypeFilterChange}
-          />
+          {/* Search and Filter Section */}
+          <Box>
+            {/* Search Bar */}
+            <TextField
+              fullWidth
+              placeholder="Search routes by number, name, or description..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                mb: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                },
+              }}
+            />
+
+            {/* Bus Type Filters */}
+            <RouteTypeFilters
+              availableTypes={availableTypes}
+              selectedTypes={selectedTypes}
+              onTypeFilterChange={handleTypeFilterChange}
+            />
+          </Box>
 
           {/* Statistics */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
@@ -123,13 +181,6 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
               variant="outlined"
               icon={<BusIcon />}
             />
-            {hasChanges && (
-              <Chip
-                label="Unsaved Changes"
-                color="warning"
-                sx={{ fontWeight: 600 }}
-              />
-            )}
           </Box>
 
           {/* Loading State */}
@@ -142,14 +193,30 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
             </Box>
           )}
 
-          {/* Available Routes List */}
-          <RoutesList
-            title="Available Routes"
-            routes={filteredAvailableRoutes as any}
-            isFavoriteList={false}
-            onToggleRoute={handleToggleRoute}
-            maxHeight={400}
-          />
+          {/* Available Routes Section */}
+          <Box>
+            <RoutesList
+              title="Available Routes"
+              routes={filteredAvailableRoutes as any}
+              isFavoriteList={false}
+              onToggleRoute={handleToggleRoute}
+              maxHeight={400}
+            />
+            {/* Save button for available routes section */}
+            {hasChanges && (
+              <Box sx={{ mt: 2 }}>
+                <MaterialButton
+                  variant="outlined"
+                  size="small"
+                  onClick={handleSaveChanges}
+                  icon={<CheckIcon />}
+                  fullWidth
+                >
+                  Save Changes ({selectedRoutes.length} total selected)
+                </MaterialButton>
+              </Box>
+            )}
+          </Box>
 
           {/* Status Messages */}
           <StatusMessages
@@ -163,20 +230,6 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
             selectedCount={selectedRoutes.length}
             hasChanges={hasChanges}
           />
-
-          {/* Save Button */}
-          {hasChanges && (
-            <MaterialButton
-              variant="filled"
-              size="large"
-              fullWidth
-              onClick={handleSaveChanges}
-              icon={<CheckIcon />}
-              sx={{ py: 1.5 }}
-            >
-              Save Favorite Buses ({selectedRoutes.length} selected)
-            </MaterialButton>
-          )}
         </Stack>
       </InfoCard>
     </Box>
