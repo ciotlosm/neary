@@ -159,12 +159,16 @@ class VehicleCacheService {
       if (Array.isArray(data)) {
         // Array format: [[key, value], [key, value], ...]
         for (const [key, value] of data) {
-          map.set(key, value);
+          if (typeof key === 'string' && Array.isArray(value)) {
+            map.set(key, value);
+          }
         }
       } else {
         // Object format: { key: value, key: value, ... }
         for (const [key, value] of Object.entries(data)) {
-          map.set(key, value);
+          if (Array.isArray(value)) {
+            map.set(key, value);
+          }
         }
       }
       

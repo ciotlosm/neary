@@ -39,7 +39,7 @@ export class UnifiedCacheManager {
   private listeners = new Map<string, Set<CacheEventListener<any>>>();
   private readonly TTL = 30 * 1000; // 30 seconds for all live data
   private readonly STORAGE_KEY = 'cluj-bus-cache';
-  private cleanupInterval: NodeJS.Timeout;
+  private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor() {
     this.loadFromStorage();
