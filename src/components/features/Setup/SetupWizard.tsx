@@ -60,6 +60,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onSetupComplete }) => 
       workLocation,
       apiKey: setupData.apiKey!,
       refreshRate: setupData.refreshRate!,
+      staleDataThreshold: 2, // Default to 2 minutes
     };
 
     // Update the configuration store
