@@ -59,7 +59,13 @@ export class LocationService {
         return;
       }
 
-      const finalOptions = { ...LocationService.DEFAULT_OPTIONS, ...options };
+      // Force fresh location by setting maximumAge to 0 for refresh scenarios
+      const finalOptions = { 
+        ...LocationService.DEFAULT_OPTIONS, 
+        maximumAge: 0, // Always get fresh location
+        timeout: 20000, // Increase timeout for better reliability
+        ...options 
+      };
 
       navigator.geolocation.getCurrentPosition(
         (position) => {

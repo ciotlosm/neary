@@ -1,0 +1,1 @@
+export { FavoriteRoutesView } from './FavoriteRoutesView';

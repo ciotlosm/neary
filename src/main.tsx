@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
@@ -20,6 +20,16 @@ logger.info('Application starting', {
 const ThemedApp = () => {
   const { mode } = useThemeStore();
   const theme = getTheme(mode);
+  
+  // Apply theme to document root for PWA consistency
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+    // Also set meta theme-color for PWA status bar
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', mode === 'dark' ? '#1D1B20' : '#6750A4');
+    }
+  }, [mode]);
   
   return (
     <ThemeProvider theme={theme}>

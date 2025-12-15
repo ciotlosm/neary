@@ -1,0 +1,480 @@
+import React from 'react';
+import {
+  Box,
+  Stack,
+  Typography,
+  Chip,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Collapse,
+  alpha,
+  useTheme,
+} from '@mui/material';
+import { 
+  ExpandMore, 
+  ExpandLess, 
+  DirectionsBus, 
+  FlagOutlined,
+  Map as MapIcon,
+  LocationOn
+} from '@mui/icons-material';
+import { formatTime24 } from '../../../utils/timeFormat';
+import type { EnhancedVehicleInfo } from '../../../types';
+
+interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
+  _internalDirection?: 'arriving' | 'departing' | 'unknown';
+  stopSequence?: Array<{
+    stopId: string;
+    stopName: string;
+    sequence: number;
+    isCurrent: boolean;
+    isDestination: boolean;
+  }>;
+}
+
+interface VehicleCardProps {
+  vehicle: EnhancedVehicleInfoWithDirection;
+  stationId?: string;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onShowMap: () => void;
+  onRouteClick?: () => void;
+  showShortStopList?: boolean; // Show short stop list always visible in card
+  showFullStopsButton?: boolean; // Show "Show stops" button for full expandable list
+}
+
+export const VehicleCard: React.FC<VehicleCardProps> = ({
+  vehicle,
+  stationId,
+  isExpanded,
+  onToggleExpanded,
+  onShowMap,
+  onRouteClick,
+  showShortStopList = false,
+  showFullStopsButton = true
+}) => {
+  const theme = useTheme();
+
+  // Determine which stops to show based on showShortStopList
+  const stopsToShow = React.useMemo(() => {
+    if (!vehicle.stopSequence || !showShortStopList) {
+      return vehicle.stopSequence || [];
+    }
+
+    // For short list in Routes view, show: current vehicle station, closest station (target), and end station
+    const allStops = vehicle.stopSequence;
+    const currentStop = allStops.find(stop => stop.isCurrent);
+    const targetStop = allStops.find(stop => stop.stopId === stationId); // The station from the group header
+    const endStop = allStops.find(stop => stop.isDestination);
+
+    // Create a set of unique stops in route order
+    const uniqueStops = new Map<string, typeof allStops[0]>();
+    
+    // Add all stops to maintain order, then filter to our target stops
+    allStops.forEach(stop => {
+      uniqueStops.set(stop.stopId, stop);
+    });
+
+    // Get the stops we want to show
+    const stopsToInclude = [];
+    if (currentStop) stopsToInclude.push(currentStop);
+    if (targetStop && targetStop.stopId !== currentStop?.stopId) stopsToInclude.push(targetStop);
+    if (endStop && endStop.stopId !== currentStop?.stopId && endStop.stopId !== targetStop?.stopId) {
+      stopsToInclude.push(endStop);
+    }
+
+    // Sort by sequence to maintain route order
+    return stopsToInclude.sort((a, b) => a.sequence - b.sequence);
+  }, [vehicle.stopSequence, showShortStopList, stationId]);
+
+  const isDeparted = vehicle._internalDirection === 'departing';
+
+  return (
+    <Card
+      sx={{
+        position: 'relative',
+        bgcolor: isDeparted ? 'rgba(30, 41, 59, 0.15)' : 'rgba(30, 41, 59, 0.3)',
+        backdropFilter: 'blur(16px)',
+        border: isDeparted ? '1px solid rgba(100, 116, 139, 0.1)' : '1px solid rgba(100, 116, 139, 0.2)',
+        transition: 'all 0.2s ease-in-out',
+        opacity: isDeparted ? 0.6 : 1,
+        '&:hover': {
+          bgcolor: isDeparted ? 'rgba(30, 41, 59, 0.25)' : 'rgba(30, 41, 59, 0.5)',
+          border: isDeparted ? '1px solid rgba(100, 116, 139, 0.2)' : '1px solid rgba(100, 116, 139, 0.4)',
+        },
+        // Add overlay for departed vehicles
+        '&::before': isDeparted ? {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          bgcolor: 'rgba(0, 0, 0, 0.3)',
+          borderRadius: 'inherit',
+          pointerEvents: 'none',
+          zIndex: 1,
+        } : {},
+      }}
+    >
+      <CardContent sx={{ py: 2, position: 'relative', zIndex: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box 
+            onClick={onRouteClick}
+            sx={{
+              minWidth: 48,
+              height: 48,
+              borderRadius: 2,
+              bgcolor: isDeparted ? 'rgba(59, 130, 246, 0.4)' : 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: onRouteClick ? 'pointer' : 'default',
+              transition: 'all 0.2s ease-in-out',
+              ...(onRouteClick && {
+                '&:hover': {
+                  bgcolor: isDeparted ? 'rgba(59, 130, 246, 0.5)' : 'primary.dark',
+                  transform: 'scale(1.05)',
+                },
+                '&:active': {
+                  transform: 'scale(0.95)',
+                }
+              })
+            }}
+          >
+            <Typography variant="h6" sx={{ color: isDeparted ? 'rgba(255, 255, 255, 0.7)' : 'white', fontWeight: 'bold' }}>
+              {vehicle.route}
+            </Typography>
+          </Box>
+          
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="body1" sx={{ color: isDeparted ? 'rgba(255, 255, 255, 0.6)' : 'white', fontWeight: 600 }}>
+              {vehicle.destination || 'Unknown destination'}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+              <Typography variant="body2" sx={{ color: isDeparted ? 'rgba(156, 163, 175, 0.6)' : 'grey.400' }}>
+                Vehicle: {vehicle.vehicle?.label || vehicle.vehicle?.id || 'Unknown'}
+              </Typography>
+              {vehicle._internalDirection !== 'unknown' && (
+                <Chip
+                  label={
+                    vehicle._internalDirection === 'arriving' 
+                      ? vehicle.minutesAway === 0 
+                        ? 'At station'
+                        : vehicle.minutesAway === 1 
+                          ? 'Arriving next'
+                          : `Arriving in ${vehicle.minutesAway}min`
+                      : `Already left`
+                  }
+                  size="small"
+                  sx={{
+                    bgcolor: vehicle._internalDirection === 'arriving' 
+                      ? vehicle.minutesAway === 0
+                        ? 'rgba(251, 191, 36, 0.1)' // Yellow background for "At station"
+                        : 'rgba(34, 197, 94, 0.1)'  // Green background for "Arriving"
+                      : 'rgba(239, 68, 68, 0.1)', // Red background for "Already left"
+                    color: vehicle._internalDirection === 'arriving' 
+                      ? vehicle.minutesAway === 0
+                        ? 'rgb(252, 211, 77)' // Yellow text for "At station"
+                        : 'rgb(134, 239, 172)' // Green text for "Arriving"
+                      : 'rgb(248, 113, 113)', // Red text for "Already left"
+                    border: vehicle._internalDirection === 'arriving' 
+                      ? vehicle.minutesAway === 0
+                        ? '1px solid rgba(251, 191, 36, 0.3)' // Yellow border for "At station"
+                        : '1px solid rgba(34, 197, 94, 0.3)'  // Green border for "Arriving"
+                      : '1px solid rgba(239, 68, 68, 0.3)', // Red border for "Already left"
+                    fontSize: '0.75rem',
+                    height: 20,
+                  }}
+                />
+              )}
+            </Box>
+            
+            {/* Short stop list (always visible for favorite routes) */}
+            {showShortStopList && stopsToShow.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" sx={{ color: 'grey.500', mb: 0.5, display: 'block' }}>
+                  Next stops:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {stopsToShow.map((stop, index) => (
+                    <Box
+                      key={`${vehicle.id}-short-stop-${stop.stopId}-${stop.sequence}`}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 1,
+                        bgcolor: stop.isCurrent
+                          ? alpha(theme.palette.primary.main, 0.1)
+                          : stop.stopId === stationId
+                          ? alpha(theme.palette.info.main, 0.1)
+                          : stop.isDestination
+                          ? alpha(theme.palette.success.main, 0.1)
+                          : 'rgba(100, 116, 139, 0.1)',
+                        border: stop.isCurrent
+                          ? `1px solid ${alpha(theme.palette.primary.main, 0.3)}`
+                          : stop.stopId === stationId
+                          ? `1px solid ${alpha(theme.palette.info.main, 0.3)}`
+                          : stop.isDestination
+                          ? `1px solid ${alpha(theme.palette.success.main, 0.3)}`
+                          : '1px solid rgba(100, 116, 139, 0.2)',
+                      }}
+                    >
+                      {/* Icon circle */}
+                      <Box
+                        sx={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: theme.palette.background.paper,
+                          border: `1px solid ${theme.palette.divider}`,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {stop.isCurrent ? (
+                          <DirectionsBus 
+                            sx={{ 
+                              fontSize: 10, 
+                              color: theme.palette.primary.main
+                            }} 
+                          />
+                        ) : stop.stopId === stationId ? (
+                          <LocationOn 
+                            sx={{ 
+                              fontSize: 10, 
+                              color: theme.palette.info.main
+                            }} 
+                          />
+                        ) : stop.isDestination ? (
+                          <FlagOutlined 
+                            sx={{ 
+                              fontSize: 10, 
+                              color: theme.palette.success.main
+                            }} 
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              bgcolor: theme.palette.text.disabled,
+                            }}
+                          />
+                        )}
+                      </Box>
+                      
+                      {/* Stop name */}
+                      <Typography 
+                        variant="caption" 
+                        sx={{
+                          fontSize: '0.7rem',
+                          fontWeight: stop.isCurrent ? 600 : 400,
+                          color: stop.isCurrent 
+                            ? theme.palette.primary.main 
+                            : stop.stopId === stationId
+                            ? theme.palette.info.main
+                            : stop.isDestination
+                            ? theme.palette.success.main
+                            : theme.palette.text.secondary,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {stop.stopName}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Expandable stops toggle and map button */}
+            {vehicle.stopSequence && vehicle.stopSequence.length > 0 && (
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                {/* Stops toggle button (only show if showFullStopsButton is true) */}
+                {showFullStopsButton && (
+                  <Box
+                    onClick={onToggleExpanded}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      py: 0.5,
+                      px: 1,
+                      borderRadius: 1,
+                      bgcolor: 'rgba(100, 116, 139, 0.1)',
+                      flex: 1,
+                      '&:hover': {
+                        bgcolor: 'rgba(100, 116, 139, 0.2)',
+                      },
+                      '&:active': {
+                        bgcolor: 'rgba(100, 116, 139, 0.3)',
+                      }
+                    }}
+                  >
+                    <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                      {isExpanded ? (
+                        <ExpandLess fontSize="small" />
+                      ) : (
+                        <ExpandMore fontSize="small" />
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {isExpanded ? 'Hide' : 'Show'} all stops ({vehicle.stopSequence.length})
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* Map button */}
+                <Box
+                  onClick={onShowMap}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    py: 0.5,
+                    px: 1,
+                    borderRadius: 1,
+                    bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    ...(showFullStopsButton ? {} : { flex: 1, justifyContent: 'center' }),
+                    '&:hover': {
+                      bgcolor: 'rgba(59, 130, 246, 0.2)',
+                    },
+                    '&:active': {
+                      bgcolor: 'rgba(59, 130, 246, 0.3)',
+                    }
+                  }}
+                >
+                  <MapIcon fontSize="small" sx={{ color: 'rgb(147, 197, 253)' }} />
+                  {!showFullStopsButton && (
+                    <Typography variant="caption" sx={{ ml: 1, color: 'rgb(147, 197, 253)' }}>
+                      View on map
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography variant="body2" sx={{ color: isDeparted ? 'rgba(34, 197, 94, 0.5)' : 'success.main', fontWeight: 600 }}>
+              Live
+            </Typography>
+            <Typography variant="caption" sx={{ color: isDeparted ? 'rgba(107, 114, 128, 0.6)' : 'grey.500' }}>
+              {formatTime24(
+                vehicle.vehicle?.timestamp instanceof Date 
+                  ? vehicle.vehicle.timestamp 
+                  : vehicle.vehicle?.timestamp 
+                    ? new Date(vehicle.vehicle.timestamp)
+                    : new Date()
+              )}
+            </Typography>
+          </Box>
+        </Box>
+      </CardContent>
+      
+      {/* Collapsible stops list (always shows full route) */}
+      <Collapse in={isExpanded}>
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Typography variant="caption" sx={{ color: 'grey.500', mb: 1, display: 'block' }}>
+            All route stops for {vehicle.route}
+          </Typography>
+          <List dense sx={{ py: 0 }}>
+            {(vehicle.stopSequence || []).map((stop) => (
+              <ListItem
+                key={`${vehicle.id}-stop-${stop.stopId}-${stop.sequence}`}
+                sx={{
+                  py: 0.5,
+                  px: 1,
+                  borderRadius: 1,
+                  bgcolor: stop.isCurrent
+                    ? alpha(theme.palette.primary.main, 0.1)
+                    : 'transparent',
+                  border: stop.isCurrent
+                    ? `1px solid ${alpha(theme.palette.primary.main, 0.3)}`
+                    : '1px solid transparent',
+                  mb: 0.5,
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    {stop.isCurrent ? (
+                      <DirectionsBus 
+                        sx={{ 
+                          fontSize: 14, 
+                          color: theme.palette.primary.main
+                        }} 
+                      />
+                    ) : stop.isDestination ? (
+                      <FlagOutlined 
+                        sx={{ 
+                          fontSize: 14, 
+                          color: theme.palette.success.main
+                        }} 
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: theme.palette.text.disabled,
+                        }}
+                      />
+                    )}
+                  </Box>
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography 
+                      variant="body2" 
+                      sx={{
+                        fontSize: '0.8rem',
+                        fontWeight: stop.isCurrent ? 600 : 400,
+                        color: stop.isCurrent 
+                          ? theme.palette.primary.main 
+                          : theme.palette.text.primary,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {stop.stopName}
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+                      {stop.isCurrent && 'Bus is currently closest to this stop'}
+                      {stop.isDestination && 'Final destination'}
+                      {!stop.isCurrent && !stop.isDestination && `Stop ${stop.sequence}`}
+                    </Typography>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Collapse>
+    </Card>
+  );
+};

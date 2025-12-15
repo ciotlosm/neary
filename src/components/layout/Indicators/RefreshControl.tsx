@@ -13,11 +13,12 @@ import {
 import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
 import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { useLocationStore } from '../../../stores/locationStore';
+import { logger } from '../../../utils/logger';
 
 export const RefreshControl: React.FC = () => {
   const { manualRefresh, refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
   const { lastUpdate, lastApiUpdate, cacheStats } = useEnhancedBusStore();
-  const { requestLocation, locationPermission } = useLocationStore();
+  const { requestLocation } = useLocationStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(Date.now());
 
@@ -26,14 +27,15 @@ export const RefreshControl: React.FC = () => {
   const refresh = async () => {
     setIsRefreshing(true);
     try {
-      // Refresh GPS location if permission is granted
-      if (locationPermission === 'granted') {
-        try {
-          await requestLocation();
-        } catch (locationError) {
-          console.warn('Failed to refresh GPS location:', locationError);
-          // Continue with data refresh even if GPS fails
-        }
+      // Always attempt to refresh GPS location first, regardless of current permission status
+      // This handles cases where permission was granted but location is stale
+      try {
+        await requestLocation();
+        logger.info('GPS location refreshed successfully', undefined, 'REFRESH');
+      } catch (locationError) {
+        logger.warn('Failed to refresh GPS location', locationError, 'REFRESH');
+        // Continue with data refresh even if GPS fails
+        // This is expected behavior if user denied location or GPS is unavailable
       }
       
       // Refresh bus data

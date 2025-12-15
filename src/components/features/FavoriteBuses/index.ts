@@ -1,10 +1,8 @@
 export { FavoriteBusDisplay } from './FavoriteBusDisplay';
 export { FavoriteBusManager } from './FavoriteBusManager';
-
-// Component exports
-export { FavoriteBusCard } from './components/FavoriteBusCard';
 export { EmptyStates } from './components/EmptyStates';
-export { RouteListItem } from './components/RouteListItem';
-export { RoutesList } from './components/RoutesList';
+export { GroupedFavoriteBusDisplay } from './components/GroupedFavoriteBusDisplay';
 export { RouteTypeFilters } from './components/RouteTypeFilters';
+export { RoutesList } from './components/RoutesList';
 export { StatusMessages } from './components/StatusMessages';
+export { BusRouteMapModal } from './components/BusRouteMapModal';

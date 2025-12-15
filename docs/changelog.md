@@ -2,6 +2,130 @@
 
 ## Recent Updates
 
+### December 15, 2024 - UI Consistency & Visual Improvements
+
+#### 🎨 **MAJOR REFACTOR: Unified Vehicle Card Components**
+- **Change**: Refactored StationDisplay (nearby stations view) to use shared VehicleCard component
+- **Benefits**: 
+  - **Consistent dimming**: Departed vehicles now show dimmed appearance in both views
+  - **Unified styling**: Same visual design across favorite routes and nearby stations
+  - **Shared functionality**: Both views now have identical vehicle interaction patterns
+  - **Maintainability**: Single component to update instead of duplicate code
+- **Technical**: Replaced custom vehicle cards with shared VehicleCard, StationHeader, and RouteFilterChips components
+- **Impact**: Better visual consistency and user experience across the entire app
+
+#### 🎯 **UX IMPROVEMENT: Show Only Closest Station**
+- **Change**: Modified favorite routes view to display only the closest station to user instead of all stations
+- **Benefit**: Simplified interface focuses user attention on most relevant nearby station
+- **Technical**: Updated station selection logic from `stationsWithDistances` to `stationsWithDistances.slice(0, 1)`
+- **Impact**: Cleaner, more focused view for users checking their favorite routes
+
+#### ✨ **VISUAL ENHANCEMENT: Dimmed Departed Vehicles**
+- **Feature**: Vehicles that have already left stations now appear dimmed with overlay
+- **Visual Changes**:
+  - **Reduced opacity**: 60% opacity for entire card
+  - **Dark overlay**: Semi-transparent black overlay on departed vehicle cards
+  - **Dimmed colors**: Route badges, text, and status indicators use muted colors
+  - **Clear distinction**: Easy to distinguish between arriving and departed vehicles
+- **Impact**: Users can quickly identify which buses are still coming vs. already gone
+
+#### 🐛 **BUG FIX: GPS Off Button Now Works**
+- **Problem**: GPS off button in status indicators didn't open location picker modal
+- **Root Cause**: StatusIndicators component had its own useConfigurationManager instance, separate from the main app's LocationPicker modal
+- **Solution**: 
+  - **Prop drilling**: Pass handleLocationPicker function from App component down to StatusIndicators
+  - **Component updates**: Modified MaterialHeader and StatusIndicators to accept onLocationPicker prop
+  - **State sharing**: Now both components share the same location picker state
+- **Impact**: Users can now click GPS off/disabled buttons to set offline location
+
+#### 🐛 **MAJOR FIX: Station Filtering Logic for Favorite Routes**
+- **Problem**: Users with configured favorite routes were seeing "No nearby stations" or "No stations found that serve your favorite routes" even when stations should be available
+- **Root Cause**: Station filtering logic was too restrictive:
+  - Only showed stations where vehicles were currently active (had `tripId`)
+  - Limited to maximum 2 stations within 200m of each other
+  - Required exact route name matches between favorites and API data
+- **Solution Applied**:
+  - **Fallback to schedule data**: If no active vehicles found, searches all stations from route schedules
+  - **Increased station limit**: Now shows up to 5 nearby stations (instead of 2)
+  - **No distance limits**: Shows stations for favorite routes regardless of distance (instead of 200m clusters)
+  - **Better route matching**: Improved logging to debug route name mismatches
+- **Impact**: Users should now see stations for their favorite routes even when no buses are currently active, and the app will show stations regardless of distance from user location
+- **Debugging**: Check browser console for "Favorite route mapping" and "Selected target stations" logs to verify route matching works correctly
+
+### December 15, 2024 - Navigation Cleanup & Component Recovery
+
+#### 🗂️ **UI CLEANUP: Removed Redundant Favorite Routes View**
+- **Removed**: "Routes" tab from bottom navigation that showed FavoriteBusDisplay
+- **Reason**: Duplicate functionality with existing "Routes at Stations" view
+- **Navigation**: Simplified from 4 tabs to 3 tabs (Station, Routes, Settings)
+- **Content**: The removed view showed "No real-time data available for your favorite routes" message
+- **Benefit**: Cleaner navigation with less user confusion
+
+#### 🔧 **BUG FIX: Missing Components After Checkpoint Restore**
+- **Problem**: Checkpoint restore moved FavoriteBuses components to archive, breaking build
+- **Solution**: Recovered missing components from git history:
+  - `BusRouteMapModal.tsx` - Interactive route map with live vehicle tracking
+  - `RoutesList.tsx` - Route list display with filtering
+  - `RouteListItem.tsx` - Individual route item with favorite toggle
+  - `RouteTypeFilters.tsx` - Route type filtering (bus, trolleybus, etc.)
+  - `StatusMessages.tsx` - User feedback and status messages
+- **Build Status**: ✅ All TypeScript compilation errors resolved
+- **Prevention**: Added troubleshooting guide for component recovery
+
+### December 15, 2024 - New Favorite Routes View & Shared Components
+
+#### 🚌 **NEW FEATURE: Favorite Routes View (Temporary Navigation)**
+- **New Routes Tab**: Added temporary "Routes" navigation button in bottom navigation
+- **Favorite Route Filtering**: Shows only vehicles from user's favorite routes at nearby stations
+- **Station-Based Display**: Groups vehicles by the closest stations that serve favorite routes
+- **Intelligent Station Selection**: Finds up to 3 closest stations (within 5km) that serve favorite routes
+- **Dual Stop List Display**: 
+  - **Always Visible Short List**: Shows 3 key stops in route order with icons and colors:
+    - 🚌 **Current Vehicle Station** (blue) - where the bus is now
+    - 📍 **Target Station** (info blue) - the station from the group header  
+    - 🏁 **End Station** (green) - final destination
+  - **Expandable Full List**: "Show all stops" button reveals complete route stops (identical to Station Display)
+- **No Vehicle Limits**: Shows all vehicles from favorite routes (no 5-bus limit like Station Display)
+- **Same UI Components**: Reuses vehicle cards, route filters, and station headers from Station Display
+
+#### 🔧 **NEW FEATURE: Shared Component Architecture**
+- **VehicleCard Component**: Reusable vehicle display with dual stop list functionality
+  - **Always Visible Short Stops**: Compact horizontal list showing next 2-3 stops in card
+  - **Expandable Full Stops**: Complete vertical list identical to Station Display when expanded
+  - **Configurable Display**: Can show short list only, full list only, or both
+  - **Route Click Handler**: Optional route selection functionality
+  - **Map Integration**: Built-in map button for route visualization
+- **RouteFilterChips Component**: Reusable route filtering interface with vehicle count badges
+- **StationHeader Component**: Consistent station name and distance display
+
+#### 🎯 **Smart Route-to-Station Mapping**
+- **Favorite Route Analysis**: Takes user's favorite routes and finds all vehicles for those routes
+- **Station Discovery**: Identifies which stations those vehicles serve using GTFS trip data
+- **Proximity Sorting**: Finds closest stations to user that serve favorite routes
+- **Deduplication Logic**: Same route deduplication and vehicle limits as Station Display
+- **Direction Analysis**: Shows arriving/departing status relative to each station
+
+#### ⚙️ **Technical Implementation:**
+- **Component Sharing**: Created `src/components/features/shared/` for reusable components
+- **Type Compatibility**: Handles both string arrays (legacy) and FavoriteRoute objects
+- **GTFS Integration**: Uses proper trip_id filtering for accurate vehicle-station relationships
+- **Performance Optimization**: Efficient bulk API calls and in-memory filtering
+- **No Deduplication**: Shows all vehicles from favorite routes without route deduplication or limits
+- **Consistent UI**: Same route filtering and map integration as Station Display
+
+#### 🗺️ **User Experience:**
+- **Focused View**: Only shows buses from routes the user cares about
+- **Nearby Stations**: Automatically finds relevant stations within reasonable distance
+- **Mobile Optimized**: Short stop lists prevent overwhelming mobile screens
+- **Familiar Interface**: Same look and feel as existing Station Display
+- **Route Context**: Clear indication of which favorite routes are being displayed
+
+#### 📱 **Navigation & Integration:**
+- **Temporary Button**: New "Routes" tab in bottom navigation (will replace current Routes later)
+- **Setup Requirements**: Requires favorite routes to be configured and location services
+- **Refresh Integration**: Includes refresh button and auto-refresh functionality
+- **Map Modal**: Same route map visualization as other views
+
 ### December 15, 2024 - Expandable Route Stops & Vehicle Management
 
 #### 🗺️ **NEW FEATURE: Expandable Route Stops & Interactive Map**
@@ -497,7 +621,53 @@ All requested concept alignment and bug fixes have been completed successfully.
 
 #### 🎯 **Enhanced User Experience**
 - **Loading Progress Display**: Visual progress bar and step-by-step status updates
-- **Error Recovery**: Graceful error handling with retry functionality for failed initialization
+- **Error Recovery**: Retry button for failed initialization steps
+- **Fresh Data Guarantee**: App starts with current GPS location and live vehicle data
+
+### December 15, 2024 - PWA Dark Mode & GPS Refresh Fixes
+
+#### 📱 **MAJOR FIX: PWA Dark Mode Persistence**
+- **Problem**: Dark mode setting didn't persist when exiting and re-entering PWA (iPhone Add to Home Screen)
+- **Root Cause**: Theme persistence issues in PWA mode due to localStorage timing and theme flash prevention
+- **Solution Applied**:
+  - **Enhanced theme store persistence**: Changed storage key to `cluj-bus-theme` for better PWA isolation
+  - **Immediate theme application**: Added `onRehydrateStorage` callback to apply theme immediately on load
+  - **Document root theme attribute**: Added `data-theme` attribute to prevent theme flash
+  - **PWA meta theme-color**: Dynamic theme-color meta tag updates based on current theme
+  - **Theme initialization**: Improved theme detection and application on app startup
+
+#### 🗺️ **MAJOR FIX: GPS Location Refresh Button**
+- **Problem**: Pressing the refresh button didn't update GPS location for user
+- **Root Cause**: Location refresh logic was checking permission status instead of always attempting fresh location
+- **Solution Applied**:
+  - **Always attempt GPS refresh**: Modified RefreshControl to always try location refresh regardless of permission status
+  - **Force fresh location**: Set `maximumAge: 0` in geolocation options to prevent cached location
+  - **Increased timeout**: Extended GPS timeout to 20 seconds for better reliability
+  - **Better error handling**: Improved GPS error logging while continuing with data refresh
+
+#### 🎨 **PWA Theme Integration**
+- **Updated manifest.json**: Changed theme colors from old blue (#1976d2) to Material Design primary (#6750A4)
+- **Updated index.html**: Fixed meta theme-color to match app's primary color
+- **Dynamic theme-color**: PWA status bar now changes color based on light/dark mode
+- **Consistent branding**: All PWA elements now use the same color scheme as the app
+
+#### 🔧 **Technical Implementation**
+- **Theme Store Enhancements**: Better PWA persistence with immediate theme application
+- **Location Service Improvements**: Force fresh GPS coordinates on manual refresh
+- **React useEffect Integration**: Theme changes applied to document root and meta tags
+- **PWA Manifest Updates**: Proper theme colors for better mobile experience
+
+#### ✅ **User Experience Improvements**
+- **Persistent Dark Mode**: Theme setting now survives PWA app restarts on mobile devices
+- **Working GPS Refresh**: Manual refresh button now properly updates user location
+- **Consistent PWA Colors**: Status bar and splash screen match app theme
+- **No Theme Flash**: Smooth theme transitions without white/dark flashes on startup
+
+#### 🎯 **Prevention & Testing**
+- **Mobile Device Testing**: Always test PWA functionality on actual mobile devices
+- **Theme Persistence Testing**: Verify theme survives app close/reopen cycles
+- **GPS Testing**: Test location refresh on devices with GPS enabled
+- **PWA Installation**: Test Add to Home Screen functionality with proper theming Graceful error handling with retry functionality for failed initialization
 - **Non-Blocking GPS**: Continues initialization even if GPS permission is denied
 - **Smart Retry**: Automatic re-initialization when critical configuration changes
 - **Background Refresh**: Starts auto-refresh systems immediately after data loading

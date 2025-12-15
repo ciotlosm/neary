@@ -17,16 +17,15 @@ import {
 
 import { useOfflineStore } from '../../../stores/offlineStore';
 import { useLocationStore } from '../../../stores/locationStore';
-import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
 
 interface StatusIndicatorsProps {
   compact?: boolean;
+  onLocationPicker?: (type: 'home' | 'work' | 'offline') => void;
 }
 
-export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = false }) => {
+export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = false, onLocationPicker }) => {
   const { isOnline } = useOfflineStore();
   const { currentLocation, locationPermission } = useLocationStore();
-  const { handleLocationPicker } = useConfigurationManager();
   const theme = useTheme();
 
   const getLocationStatus = () => {
@@ -117,7 +116,7 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
           icon={locationStatus.icon}
           label={locationStatus.label}
           size={compact ? 'small' : 'medium'}
-          onClick={(locationPermission === 'denied' || !currentLocation) ? () => handleLocationPicker('offline') : undefined}
+          onClick={(locationPermission === 'denied' || !currentLocation) && onLocationPicker ? () => onLocationPicker('offline') : undefined}
           sx={{
             bgcolor: locationStatus.bgColor,
             color: locationStatus.color,
@@ -125,8 +124,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
             fontWeight: 600,
             fontSize: compact ? '0.7rem' : '0.75rem',
             height: compact ? 24 : 32,
-            cursor: (locationPermission === 'denied' || !currentLocation) ? 'pointer' : 'default',
-            '&:hover': (locationPermission === 'denied' || !currentLocation) ? {
+            cursor: (locationPermission === 'denied' || !currentLocation) && onLocationPicker ? 'pointer' : 'default',
+            '&:hover': (locationPermission === 'denied' || !currentLocation) && onLocationPicker ? {
               bgcolor: alpha(locationStatus.color, 0.2),
               transform: 'scale(1.02)',
             } : {},

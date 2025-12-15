@@ -48,6 +48,38 @@
 **Solution**: Fixed vehicle-to-station assignment logic
 - Updated vehicle filtering to check which stations each vehicle's trip actually serves
 - Added proper trip_id to stop_times mapping for accurate vehicle-station relationships
+
+#### Missing Components After Checkpoint Restore
+**Problem**: After restoring from a checkpoint, some FavoriteBuses components are missing, causing build errors like "Cannot find module './components/RouteTypeFilters'"
+
+**Root Cause**: Checkpoint restore moved some files to an archive folder, but imports still reference the original locations
+
+**Solution**: Restore missing components from git history
+1. **Identify missing files** from git history:
+   ```bash
+   git log --name-only --oneline | head -50
+   ```
+
+2. **Restore from git history:**
+   ```bash
+   # Find the commit with the files
+   git show COMMIT_HASH:path/to/file.tsx > /tmp/file.tsx
+   cp /tmp/file.tsx src/path/to/file.tsx
+   ```
+
+3. **Key files to restore:**
+   - `BusRouteMapModal.tsx` - Route map modal component
+   - `RoutesList.tsx` - Routes list display
+   - `RouteListItem.tsx` - Individual route item
+   - `RouteTypeFilters.tsx` - Route type filtering
+   - `StatusMessages.tsx` - Status message display
+
+4. **Verify build:**
+   ```bash
+   npm run build
+   ```
+
+**Prevention**: Always verify that all imported components exist before committing changes
 - Fixed TypeScript interface issues with LiveVehicle vs raw API response data
 - Added station name deduplication to handle multiple stations with same names
 
@@ -588,3 +620,54 @@ npm run dev
 - Clear browser cache and localStorage
 - Check cache TTL settings
 - Verify auto-refresh is working
+
+### PWA & Mobile Issues
+
+#### Dark Mode Not Persisting in PWA (iPhone Add to Home Screen)
+**Problem**: Dark mode setting doesn't stay when exiting and re-entering the browser/PWA
+
+**Root Cause**: Theme persistence issues in PWA mode due to localStorage timing and theme flash prevention
+
+**Solution Applied (December 2024)**:
+- **Enhanced theme store persistence**: Changed storage key to `cluj-bus-theme` for better PWA isolation
+- **Immediate theme application**: Added `onRehydrateStorage` callback to apply theme immediately on load
+- **Document root theme attribute**: Added `data-theme` attribute to prevent theme flash
+- **PWA meta theme-color**: Dynamic theme-color meta tag updates based on current theme
+- **Theme initialization**: Improved theme detection and application on app startup
+
+**Technical Changes**:
+- Updated `themeStore.ts` with better PWA persistence
+- Added theme initialization in `main.tsx` with React useEffect
+- Updated `manifest.json` and `index.html` with correct theme colors
+- Added document-level theme attributes for consistent theming
+
+**Prevention**: Always test PWA functionality on actual mobile devices, not just desktop browser dev tools
+
+#### GPS Location Not Refreshing on Manual Refresh
+**Problem**: Pressing the refresh button doesn't update GPS location for user
+
+**Root Cause**: Location refresh logic was checking permission status instead of always attempting fresh location
+
+**Solution Applied (December 2024)**:
+- **Always attempt GPS refresh**: Modified RefreshControl to always try location refresh regardless of permission status
+- **Force fresh location**: Set `maximumAge: 0` in geolocation options to prevent cached location
+- **Increased timeout**: Extended GPS timeout to 20 seconds for better reliability
+- **Better error handling**: Improved GPS error logging while continuing with data refresh
+
+**Technical Changes**:
+- Updated `RefreshControl.tsx` to always call `requestLocation()`
+- Modified `LocationService.getCurrentPosition()` to force fresh location
+- Added better GPS refresh logging for debugging
+- Maintained graceful fallback when GPS fails
+
+**Prevention**: Test location refresh on actual mobile devices with GPS enabled
+
+#### PWA Theme Color Not Matching App Theme
+**Problem**: PWA status bar color doesn't match the app's current theme (light/dark)
+
+**Solution Applied**: 
+- Updated `manifest.json` theme_color to match Material Design primary color
+- Added dynamic meta theme-color updates in `main.tsx`
+- Updated `index.html` meta theme-color to correct value
+
+**Prevention**: Keep PWA manifest colors in sync with app theme colors

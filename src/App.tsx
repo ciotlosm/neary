@@ -51,9 +51,9 @@ import { useAppInitialization } from './hooks/useAppInitialization';
 import { useComponentLifecycle, logPerformanceMetrics } from './utils/performance';
 import { logger } from './utils/logger';
 import { DebugPanel } from './components/features/Debug/DebugPanel';
-import FavoriteBusDisplay from './components/features/FavoriteBuses/FavoriteBusDisplay';
-import FavoriteBusManager from './components/features/FavoriteBuses/FavoriteBusManager';
+
 import { StationDisplay } from './components/features/StationDisplay';
+import { FavoriteRoutesView } from './components/features/FavoriteRoutesView';
 import UpdateNotification from './components/layout/UpdateNotification';
 import { useFavoriteBusStore } from './stores/favoriteBusStore';
 import { initializeServiceWorker } from './utils/serviceWorkerManager';
@@ -70,7 +70,8 @@ const MaterialHeader: React.FC<{
   title: string; 
   showRefresh?: boolean;
   isLoading?: boolean;
-}> = React.memo(({ title, showRefresh = false, isLoading = false }) => {
+  onLocationPicker?: (type: 'home' | 'work' | 'offline') => void;
+}> = React.memo(({ title, showRefresh = false, isLoading = false, onLocationPicker }) => {
   const theme = useTheme();
   
   return (
@@ -109,7 +110,7 @@ const MaterialHeader: React.FC<{
         
         {/* Status Indicators */}
         <Box sx={{ mr: 1 }}>
-          <StatusIndicators compact />
+          <StatusIndicators compact onLocationPicker={onLocationPicker} />
         </Box>
         
         {/* Manual Refresh Button */}
@@ -126,14 +127,14 @@ const MaterialHeader: React.FC<{
 
 // Material Design Bottom Navigation
 const MaterialBottomNav: React.FC<{ 
-  currentView: 'buses' | 'station' | 'favorites' | 'settings'; 
-  onViewChange: (view: 'buses' | 'station' | 'favorites' | 'settings') => void;
+  currentView: 'station' | 'routes' | 'settings'; 
+  onViewChange: (view: 'station' | 'routes' | 'settings') => void;
   isConfigured: boolean;
   isFromSetupFlowRef: React.MutableRefObject<boolean>;
 }> = React.memo(({ currentView, onViewChange, isConfigured: isFullyConfigured, isFromSetupFlowRef }) => {
   const theme = useTheme();
   
-  const handleNavigation = React.useCallback((view: 'buses' | 'station' | 'favorites' | 'settings') => {
+  const handleNavigation = React.useCallback((view: 'station' | 'routes' | 'settings') => {
     // Prevent duplicate navigation to the same view
     if (view === currentView) {
       logger.info('Navigation ignored - already on target view', { currentView, targetView: view }, 'UI');
@@ -202,36 +203,17 @@ const MaterialBottomNav: React.FC<{
             },
           }}
         />
+
         <BottomNavigationAction
           label="Routes"
-          value="buses"
-          icon={<BusIcon />}
-          disabled={!isFullyConfigured}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!isFullyConfigured) return;
-            handleNavigation('buses');
-          }}
-          sx={{
-            '&.Mui-selected': {
-              color: theme.palette.primary.main,
-            },
-            '&.Mui-disabled': {
-              opacity: 0.5,
-            },
-          }}
-        />
-        <BottomNavigationAction
-          label="Favorites"
-          value="favorites"
+          value="routes"
           icon={<FavoriteIcon />}
           disabled={!isFullyConfigured}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             if (!isFullyConfigured) return;
-            handleNavigation('favorites');
+            handleNavigation('routes');
           }}
           sx={{
             '&.Mui-selected': {
@@ -281,13 +263,14 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 ));
 
 function AppMaterial() {
-  const [currentView, setCurrentView] = useState<'buses' | 'station' | 'favorites' | 'settings'>('station');
+  const [currentView, setCurrentView] = useState<'station' | 'routes' | 'settings'>('station');
   const { config, isConfigured, isFullyConfigured } = useConfigStore();
   const { 
     locationPickerOpen, 
     locationPickerType, 
     setLocationPickerOpen, 
-    handleLocationSelected 
+    handleLocationSelected,
+    handleLocationPicker
   } = useConfigurationManager();
 
   const { isAutoRefreshEnabled } = useRefreshSystem();
@@ -442,59 +425,6 @@ function AppMaterial() {
     }
 
     switch (currentView) {
-      case 'buses':
-        if (!isFullyConfigured) {
-          return (
-            <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
-              <Avatar
-                sx={{
-                  bgcolor: theme.palette.warning.main,
-                  width: 64,
-                  height: 64,
-                  mx: 'auto',
-                  mb: 3,
-                }}
-              >
-                <SettingsIcon sx={{ fontSize: 32 }} />
-              </Avatar>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Setup Required
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Please complete your setup to start tracking buses.
-              </Typography>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  isFromSetupFlow.current = true; // Mark that we're coming from setup
-                  setCurrentView('settings');
-                }}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                }}
-              >
-                Complete Setup
-              </Button>
-            </Card>
-          );
-        }
-
-        return (
-          <Box sx={{ space: 3 }}>
-            {/* Offline Indicator */}
-            <Box sx={{ mb: 2 }}>
-              <OfflineIndicator />
-            </Box>
-            
-            {/* Favorite Routes */}
-            <Box sx={{ mb: 3 }}>
-              <FavoriteBusDisplay />
-            </Box>
-          </Box>
-        );
-
       case 'station':
         if (!isFullyConfigured) {
           return (
@@ -548,7 +478,7 @@ function AppMaterial() {
           </Box>
         );
 
-      case 'favorites':
+      case 'routes':
         if (!isFullyConfigured) {
           return (
             <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
@@ -567,7 +497,7 @@ function AppMaterial() {
                 Setup Required
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Please complete your setup to manage favorites.
+                Please complete your setup to view favorite routes at nearby stations.
               </Typography>
               <Button
                 variant="contained"
@@ -587,12 +517,12 @@ function AppMaterial() {
           );
         }
 
-        return <FavoriteBusManager />;
+        return <FavoriteRoutesView onNavigateToSettings={() => setCurrentView('settings')} />;
 
       case 'settings':
         return (
           <Settings onClose={() => {
-            setCurrentView('buses');
+            setCurrentView('station');
           }} />
         );
 
@@ -605,10 +535,8 @@ function AppMaterial() {
     switch (currentView) {
       case 'station':
         return 'Nearby Station';
-      case 'buses':
-        return (config?.city === 'Cluj-Napoca' || config?.city === 'CTP Cluj') ? 'My Favorite Routes' : config?.city ? `Buses in ${config.city}` : 'Bus Tracker';
-      case 'favorites':
-        return 'My Favorite Routes';
+      case 'routes':
+        return 'Favorite Routes at Stations';
       case 'settings':
         return 'Settings';
       default:
@@ -621,7 +549,8 @@ function AppMaterial() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <MaterialHeader 
           title={getHeaderTitle()}
-          showRefresh={currentView === 'buses' || currentView === 'station' || currentView === 'favorites'}
+          showRefresh={currentView === 'station' || currentView === 'routes'}
+          onLocationPicker={handleLocationPicker}
           isLoading={isInitializing}
         />
         

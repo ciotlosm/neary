@@ -6,9 +6,11 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Button,
 } from '@mui/material';
 import { useLocationStore } from '../../../stores/locationStore';
 import { useConfigStore } from '../../../stores/configStore';
+import { useFavoriteBusStore } from '../../../stores/favoriteBusStore';
 import { getEffectiveLocation } from '../../../utils/locationUtils';
 import { withPerformanceMonitoring } from '../../../utils/performance';
 import { logger } from '../../../utils/logger';
@@ -17,8 +19,8 @@ import { BusIcon, MapPinIcon } from '../../ui/Icons/Icons';
 import { enhancedTranzyApi } from '../../../services/tranzyApiService';
 import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
-import { StationHeader } from '../shared/StationHeader';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
+import { StationHeader } from '../shared/StationHeader';
 import type { EnhancedVehicleInfo, Station, LiveVehicle } from '../../../types';
 import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
 
@@ -33,13 +35,15 @@ interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
   }>;
 }
 
-interface StationDisplayProps {
-  // No props needed - maxVehicles comes from config
+interface FavoriteRoutesViewProps {
+  onNavigateToSettings?: () => void;
 }
 
-const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
+const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavigateToSettings }) => {
   const { currentLocation } = useLocationStore();
   const { config } = useConfigStore();
+  const { favoriteBusResult } = useFavoriteBusStore();
+  
   const [allStations, setAllStations] = React.useState<Station[]>([]);
   const [isLoadingStations, setIsLoadingStations] = React.useState(false);
   const [vehicles, setVehicles] = React.useState<LiveVehicle[]>([]);
@@ -67,6 +71,19 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   // State for route filtering per station
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
 
+  // Get effective location with fallback priority
+  const effectiveLocationForDisplay = getEffectiveLocation(
+    currentLocation,
+    config?.homeLocation,
+    config?.workLocation,
+    config?.defaultLocation
+  );
+
+  // Get favorite route names from config
+  const favoriteRoutes = React.useMemo(() => {
+    return config?.favoriteBuses || [];
+  }, [config?.favoriteBuses]);
+
   // Convert vehicle to FavoriteBusInfo format for map modal
   const convertVehicleToFavoriteBusInfo = (vehicle: EnhancedVehicleInfoWithDirection, targetStationId: string): FavoriteBusInfo => {
     return {
@@ -89,11 +106,10 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
       currentStation: vehicle.station ? {
         id: vehicle.station.id,
         name: vehicle.station.name,
-        distance: 0, // We don't have this data readily available
+        distance: 0,
         isAtStation: vehicle.minutesAway === 0
       } : null,
       stopSequence: vehicle.stopSequence?.map(stop => {
-        // Find the corresponding station coordinates
         const stationCoords = allStations.find(s => s.id === stop.stopId)?.coordinates;
         
         return {
@@ -102,8 +118,8 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           sequence: stop.sequence,
           coordinates: stationCoords || { latitude: 0, longitude: 0 },
           arrivalTime: undefined,
-          isCurrent: false, // Don't mark where the bus currently is
-          isClosestToUser: stop.stopId === targetStationId, // Mark the target station (where vehicle is arriving)
+          isCurrent: false,
+          isClosestToUser: stop.stopId === targetStationId,
           distanceToUser: undefined,
           distanceFromBus: undefined
         };
@@ -112,14 +128,6 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
       distanceFromUser: undefined
     };
   };
-
-  // Get effective location with fallback priority
-  const effectiveLocationForDisplay = getEffectiveLocation(
-    currentLocation,
-    config?.homeLocation,
-    config?.workLocation,
-    config?.defaultLocation
-  );
 
   // Fetch all available stations when component mounts or config changes
   React.useEffect(() => {
@@ -133,12 +141,12 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
         const stations = await enhancedTranzyApi.getStops(agencyId);
         setAllStations(stations);
         
-        logger.debug('Fetched all stations for station display', {
+        logger.debug('Fetched all stations for favorite routes view', {
           stationCount: stations.length,
           agencyId
         }, 'COMPONENT');
       } catch (error) {
-        logger.error('Failed to fetch stations for station display', { error }, 'COMPONENT');
+        logger.error('Failed to fetch stations for favorite routes view', { error }, 'COMPONENT');
         setAllStations([]);
       } finally {
         setIsLoadingStations(false);
@@ -160,12 +168,12 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
         const vehicleData = await enhancedTranzyApi.getVehicles(agencyId);
         setVehicles(vehicleData);
         
-        logger.debug('Fetched vehicles for station display', {
+        logger.debug('Fetched vehicles for favorite routes view', {
           vehicleCount: vehicleData.length,
           agencyId
         }, 'COMPONENT');
       } catch (error) {
-        logger.error('Failed to fetch vehicles for station display', { error }, 'COMPONENT');
+        logger.error('Failed to fetch vehicles for favorite routes view', { error }, 'COMPONENT');
         setVehicles([]);
       } finally {
         setIsLoadingVehicles(false);
@@ -175,57 +183,10 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     fetchVehicles();
   }, [config?.apiKey, config?.agencyId]);
 
-  // Find closest stations (keep 1-2 stations that are close to each other)
-  const targetStations = React.useMemo(() => {
-    if (!effectiveLocationForDisplay || !allStations.length) return [];
-
-    const maxSearchRadius = 2000; // 2km search radius
-    const nearbyThreshold = 100; // 100m threshold for second station
-
-    // Get all stations within search radius with distances
-    const stationsWithDistances = allStations
-      .map(station => {
-        try {
-          const distance = calculateDistance(effectiveLocationForDisplay, station.coordinates);
-          return distance <= maxSearchRadius ? { station, distance } : null;
-        } catch (error) {
-          return null;
-        }
-      })
-      .filter(item => item !== null)
-      .sort((a, b) => a.distance - b.distance);
-
-    if (stationsWithDistances.length === 0) return [];
-
-    // Always include the closest station
-    const result = [stationsWithDistances[0]];
-    const closestStation = stationsWithDistances[0];
-
-    // Find one additional station within 100m of the closest station
-    for (let i = 1; i < stationsWithDistances.length && result.length < 2; i++) {
-      const candidate = stationsWithDistances[i];
-      try {
-        const distanceBetweenStations = calculateDistance(
-          closestStation.station.coordinates,
-          candidate.station.coordinates
-        );
-        
-        if (distanceBetweenStations <= nearbyThreshold) {
-          result.push(candidate);
-          break; // Only add one additional station
-        }
-      } catch (error) {
-        // Skip this station if distance calculation fails
-      }
-    }
-
-    return result;
-  }, [effectiveLocationForDisplay, allStations, calculateDistance]);
-
-  // Process vehicles using trip_id filtering based on stop_times data
+  // Process vehicles based on favorite routes and find closest stations
   React.useEffect(() => {
     const processVehicles = async () => {
-      if (!targetStations.length || !vehicles.length || !config?.agencyId) {
+      if (!effectiveLocationForDisplay || !vehicles.length || !config?.agencyId || !favoriteRoutes.length || !allStations.length) {
         setStationVehicleGroups([]);
         return;
       }
@@ -233,41 +194,144 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
       setIsProcessingVehicles(true);
       
       try {
-        logger.debug('Starting trip-based vehicle filtering', {
-          targetStationsCount: targetStations.length,
+        logger.debug('Starting favorite routes vehicle processing', {
+          favoriteRoutes,
           vehiclesCount: vehicles.length,
-          agencyId: config.agencyId
+          agencyId: config.agencyId,
+          userLocation: effectiveLocationForDisplay
         });
 
-        // Step 1: Get stop_times data to find which trips serve our target stations
+        // Step 1: Get routes data to map route names to route IDs
+        const routes = await enhancedTranzyApi.getRoutes(parseInt(config.agencyId));
+        const routesMap = new Map(routes.map(route => [route.routeName, route])); // Map by route name (what user sees)
+        const routeIdMap = new Map(routes.map(route => [route.id, route])); // Map by route ID (for vehicle lookup)
+
+        // Step 2: Filter vehicles that belong to favorite routes
+        // Handle both string array (legacy) and FavoriteRoute object array formats
+        const favoriteRouteNames = favoriteRoutes.map(route => 
+          typeof route === 'string' ? route : route.routeName
+        );
+        
+        const favoriteRouteIds = favoriteRouteNames
+          .map(routeName => routesMap.get(routeName)?.id)
+          .filter(id => id !== undefined);
+
+        logger.debug('Favorite route mapping', {
+          favoriteRoutes,
+          favoriteRouteNames,
+          favoriteRouteIds,
+          routesMapSize: routesMap.size,
+          availableRouteNames: Array.from(routesMap.keys()).slice(0, 10), // Show first 10 for debugging
+          missingRoutes: favoriteRouteNames.filter(name => !routesMap.has(name))
+        });
+
+        const favoriteVehicles = vehicles.filter(vehicle => 
+          vehicle.routeId && favoriteRouteIds.includes(vehicle.routeId)
+        );
+
+        if (favoriteVehicles.length === 0) {
+          logger.debug('No vehicles found for favorite routes, continuing to fallback logic');
+          // Don't return early - continue to fallback logic to show stations from schedule data
+        }
+
+        // Step 3: Get stop_times data to find which stations these vehicles serve
         const allStopTimes = await enhancedTranzyApi.getStopTimes(parseInt(config.agencyId));
         
         if (!allStopTimes || allStopTimes.length === 0) {
-          logger.warn('No stop_times data available');
+          logger.warn('No stop_times data available for favorite routes');
           setStationVehicleGroups([]);
           return;
         }
 
-        // Step 2: Filter stop_times by target station IDs to get relevant trip_ids
-        const stationIds = targetStations.map(ts => ts.station.id);
-        const relevantTripIds = new Set<string>();
-        
+        // Step 4: Find all stations that favorite route vehicles serve
+        const favoriteVehicleTripIds = new Set(
+          favoriteVehicles
+            .map(v => v.tripId)
+            .filter(tripId => tripId !== null && tripId !== undefined)
+        );
+
+        const stationsServedByFavoriteRoutes = new Set<string>();
         allStopTimes.forEach(stopTime => {
-          if (stationIds.includes(stopTime.stopId)) {
-            relevantTripIds.add(stopTime.tripId);
+          if (favoriteVehicleTripIds.has(stopTime.tripId)) {
+            stationsServedByFavoriteRoutes.add(stopTime.stopId);
           }
         });
 
-        // Step 3: Filter vehicles by those trip_ids (only vehicles that actually serve these stations)
-        const matchingVehicles = vehicles.filter(vehicle => 
-          vehicle.tripId && relevantTripIds.has(vehicle.tripId)
+        // Step 5: Find closest stations to user from the stations served by favorite routes
+        // If no active vehicles found, fall back to all stations that serve favorite routes from schedule data
+        let candidateStations = allStations.filter(station => 
+          stationsServedByFavoriteRoutes.has(station.id)
         );
 
-        // Step 4: Get routes data to enrich vehicle information
-        const routes = await enhancedTranzyApi.getRoutes(parseInt(config.agencyId));
-        const routesMap = new Map(routes.map(route => [route.id, route]));
+        // Fallback: if no stations found from active vehicles, use schedule data to find all stations for favorite routes
+        if (candidateStations.length === 0) {
+          logger.debug('No stations found from active vehicles, falling back to schedule data');
+          
+          // Get trips to map trip IDs to route IDs
+          const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId));
+          const tripToRouteMap = new Map(trips.map(trip => [trip.id, trip.routeId]));
+          
+          const favoriteRouteStations = new Set<string>();
+          allStopTimes.forEach(stopTime => {
+            // Get route ID from trip ID
+            const routeId = tripToRouteMap.get(stopTime.tripId);
+            if (routeId) {
+              const route = routeIdMap.get(routeId);
+              if (route && favoriteRouteNames.includes(route.routeName)) {
+                favoriteRouteStations.add(stopTime.stopId);
+              }
+            }
+          });
+          
+          candidateStations = allStations.filter(station => 
+            favoriteRouteStations.has(station.id)
+          );
+          
+          logger.debug('Fallback station search results', {
+            favoriteRouteStations: favoriteRouteStations.size,
+            candidateStations: candidateStations.length
+          });
+        }
 
-        // Step 5: Build a map of trip_id -> stop sequence data for efficient lookup
+        const stationsWithDistances = candidateStations
+          .map(station => {
+            try {
+              const distance = calculateDistance(effectiveLocationForDisplay, station.coordinates);
+              return { station, distance };
+            } catch (error) {
+              return null;
+            }
+          })
+          .filter(item => item !== null)
+          .sort((a, b) => a.distance - b.distance);
+
+        // Step 6: Use only the closest station to the user
+        const targetStations = stationsWithDistances.slice(0, 1);
+
+        if (targetStations.length === 0) {
+          logger.debug('No nearby stations found for favorite routes', {
+            candidateStationsCount: candidateStations.length,
+            stationsWithDistancesCount: stationsWithDistances.length,
+            favoriteRoutes,
+            favoriteRouteIds,
+            stationsServedByFavoriteRoutesCount: stationsServedByFavoriteRoutes.size
+          });
+          setStationVehicleGroups([]);
+          return;
+        }
+
+        logger.debug('Selected closest station for favorite routes', {
+          closestStation: targetStations.length > 0 ? {
+            id: targetStations[0].station.id,
+            name: targetStations[0].station.name,
+            distance: Math.round(targetStations[0].distance)
+          } : null,
+          totalCandidates: candidateStations.length,
+          favoriteRoutes,
+          favoriteRouteIds
+        });
+
+        // Step 7: Build a map of trip_id -> stop sequence data for efficient lookup
         const tripStopSequenceMap = new Map<string, Array<{stopId: string, sequence: number}>>();
         allStopTimes.forEach(stopTime => {
           if (!tripStopSequenceMap.has(stopTime.tripId)) {
@@ -288,13 +352,11 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             try {
               const tripStops = tripStopSequenceMap.get(vehicle.tripId)!;
               
-              // Find the target station's sequence in this trip
               const targetStationStop = tripStops.find(stop => stop.stopId === targetStation.id);
               
               if (targetStationStop) {
                 const targetSequence = targetStationStop.sequence;
                 
-                // Find the closest stop to vehicle's current GPS position
                 const vehiclePosition = { latitude: vehicle.position.latitude, longitude: vehicle.position.longitude };
                 let closestStopDistance = Infinity;
                 let closestStopSequence = 0;
@@ -310,25 +372,21 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                   }
                 }
                 
-                // Determine direction based on sequence comparison
                 if (closestStopSequence < targetSequence) {
-                  // Vehicle is before the target station → arriving
                   directionStatus = 'arriving';
                   const remainingStops = targetSequence - closestStopSequence;
-                  estimatedMinutes = Math.max(1, remainingStops * 2); // 2 minutes per stop estimate
+                  estimatedMinutes = Math.max(1, remainingStops * 2);
                 } else if (closestStopSequence > targetSequence) {
-                  // Vehicle is after the target station → departing
                   directionStatus = 'departing';
                   const stopsSinceDeparture = closestStopSequence - targetSequence;
-                  estimatedMinutes = stopsSinceDeparture * 2; // 2 minutes per stop estimate
+                  estimatedMinutes = stopsSinceDeparture * 2;
                 } else {
-                  // Vehicle is at the target station (sequence match)
                   directionStatus = 'arriving';
-                  estimatedMinutes = 0; // At station = "At station"
+                  estimatedMinutes = 0;
                 }
               }
             } catch (error) {
-              logger.warn('Failed to analyze vehicle direction', { 
+              logger.warn('Failed to analyze vehicle direction for favorite routes', { 
                 vehicleId: vehicle.id, 
                 tripId: vehicle.tripId, 
                 targetStationId: targetStation.id,
@@ -340,9 +398,9 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           return { directionStatus, estimatedMinutes };
         };
 
-        // Create base enhanced vehicles (we'll recalculate direction per station later)
-        const baseEnhancedVehicles = matchingVehicles.map(vehicle => {
-          const route = routesMap.get(vehicle.routeId || '');
+        // Step 8: Create enhanced vehicles for favorite routes
+        const baseEnhancedVehicles = favoriteVehicles.map(vehicle => {
+          const route = routeIdMap.get(vehicle.routeId || '');
           
           return {
             id: vehicle.id,
@@ -367,27 +425,24 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           };
         });
         
-        // Create station groups for display - properly assign vehicles to their actual stations
+        // Step 9: Create station groups for display
         const stationVehicleGroups = targetStations.map(stationInfo => {
-          // Filter vehicles that actually serve this specific station
           const vehiclesForThisStation = baseEnhancedVehicles.filter(baseVehicle => {
             if (!baseVehicle.vehicle?.tripId) return false;
             
-            // Check if this vehicle's trip serves this specific station
             const tripStops = tripStopSequenceMap.get(baseVehicle.vehicle.tripId);
             if (!tripStops) return false;
             
             return tripStops.some(stop => stop.stopId === stationInfo.station.id);
           });
 
-          // Calculate direction and timing for each vehicle relative to THIS specific station
           const enhancedVehiclesForStation: EnhancedVehicleInfoWithDirection[] = vehiclesForThisStation.map(baseVehicle => {
             const { directionStatus, estimatedMinutes } = analyzeVehicleDirection(
-              matchingVehicles.find(v => v.id === baseVehicle.id)!,
+              favoriteVehicles.find(v => v.id === baseVehicle.id)!,
               stationInfo.station
             );
 
-            // Build stop sequence for this vehicle's trip
+            // Build stop sequence for this vehicle's trip (short version for favorite routes)
             const vehicleTripStops = tripStopSequenceMap.get(baseVehicle.vehicle?.tripId || '');
             let stopSequence: Array<{
               stopId: string;
@@ -398,11 +453,9 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             }> = [];
 
             if (vehicleTripStops) {
-              // Sort stops by sequence
               const sortedStops = vehicleTripStops.sort((a, b) => a.sequence - b.sequence);
               
-              // Find current vehicle position (closest stop)
-              const vehicle = matchingVehicles.find(v => v.id === baseVehicle.id)!;
+              const vehicle = favoriteVehicles.find(v => v.id === baseVehicle.id)!;
               const vehiclePosition = { latitude: vehicle.position.latitude, longitude: vehicle.position.longitude };
               let closestStopSequence = 0;
               let closestStopDistance = Infinity;
@@ -418,7 +471,6 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                 }
               }
 
-              // Build the stop sequence with markers
               stopSequence = sortedStops.map(tripStop => {
                 const stop = allStations.find(s => s.id === tripStop.stopId);
                 return {
@@ -441,21 +493,9 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             };
           });
           
-          // Get max vehicles setting from config (default: 5)
-          const maxVehicles = config?.maxVehiclesPerStation || 5;
+          // No vehicle limit for favorite routes view - show all vehicles
           
-          // Debug logging for vehicle processing
-          logger.debug('Vehicle processing for station', {
-            stationId: stationInfo.station.id,
-            stationName: stationInfo.station.name,
-            vehiclesForThisStation: vehiclesForThisStation.length,
-            enhancedVehiclesForStation: enhancedVehiclesForStation.length,
-            maxVehicles,
-            configMaxVehicles: config?.maxVehiclesPerStation,
-            configExists: !!config
-          }, 'COMPONENT');
-
-          // Group vehicles by route_id and select the best one per route
+          // Group vehicles by route_id and select the best one per route (same logic as station display)
           const routeGroups = new Map<string, EnhancedVehicleInfoWithDirection[]>();
           
           enhancedVehiclesForStation.forEach(vehicle => {
@@ -466,61 +506,49 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             routeGroups.get(routeId)!.push(vehicle);
           });
 
-          // Select the best vehicle per route based on priority
           const bestVehiclePerRoute = Array.from(routeGroups.entries()).map(([routeId, vehicles]) => {
-            // Sort vehicles within this route by priority
             const sortedVehicles = vehicles.sort((a, b) => {
-              // Priority 1: At station (minutesAway = 0 and arriving)
               const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
               const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
               
               if (aAtStation && !bAtStation) return -1;
               if (!aAtStation && bAtStation) return 1;
               
-              // Priority 2: Arriving vehicles (sorted by minutes ascending)
               const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
               const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
               
               if (aArriving && !bArriving) return -1;
               if (!aArriving && bArriving) return 1;
               
-              // If both are arriving, sort by minutes (closest first)
               if (aArriving && bArriving) {
                 return a.minutesAway - b.minutesAway;
               }
               
-              // Priority 3: Departed vehicles (at the end)
               const aDeparted = a._internalDirection === 'departing';
               const bDeparted = b._internalDirection === 'departing';
               
               if (aDeparted && !bDeparted) return 1;
               if (!aDeparted && bDeparted) return -1;
               
-              // If both departed, sort by vehicle ID for consistency
               if (aDeparted && bDeparted) {
                 return String(a.id).localeCompare(String(b.id));
               }
               
-              // Fallback: sort by minutes away
               return a.minutesAway - b.minutesAway;
             });
             
-            // Return the best vehicle for this route
             return sortedVehicles[0];
           });
 
           // Check if a specific route is selected for this station
           const selectedRoute = selectedRoutePerStation.get(stationInfo.station.id);
           
-          // If a route is selected, show ALL vehicles from that route (no deduplication, no limit)
           let finalVehicles: EnhancedVehicleInfoWithDirection[];
           
           if (selectedRoute) {
-            // Show all vehicles from the selected route
             finalVehicles = enhancedVehiclesForStation
               .filter(vehicle => vehicle.routeId === selectedRoute)
               .sort((a, b) => {
-                // Same priority sorting as before
                 const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
                 const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
                 
@@ -537,97 +565,23 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                   return a.minutesAway - b.minutesAway;
                 }
                 
-                const aDeparted = a._internalDirection === 'departing';
-                const bDeparted = b._internalDirection === 'departing';
-                
-                if (aDeparted && !bDeparted) return 1;
-                if (!aDeparted && bDeparted) return -1;
-                
-                if (aDeparted && bDeparted) {
-                  return String(a.id).localeCompare(String(b.id));
-                }
-                
                 return a.minutesAway - b.minutesAway;
               });
           } else {
-            // Check if there's only one route at this station
             const uniqueRoutes = Array.from(new Set(enhancedVehiclesForStation.map(v => v.routeId)));
             
             if (uniqueRoutes.length === 1) {
-              // Single route: show all vehicles from that route (up to maxVehicles limit)
+              // Single route: show all vehicles from that route (no limit)
               finalVehicles = enhancedVehiclesForStation
-                .sort((a, b) => {
-                  // Same priority sorting as before
-                  const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-                  const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-                  
-                  if (aAtStation && !bAtStation) return -1;
-                  if (!aAtStation && bAtStation) return 1;
-                  
-                  const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-                  const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-                  
-                  if (aArriving && !bArriving) return -1;
-                  if (!aArriving && bArriving) return 1;
-                  
-                  if (aArriving && bArriving) {
-                    return a.minutesAway - b.minutesAway;
-                  }
-                  
-                  const aDeparted = a._internalDirection === 'departing';
-                  const bDeparted = b._internalDirection === 'departing';
-                  
-                  if (aDeparted && !bDeparted) return 1;
-                  if (!aDeparted && bDeparted) return -1;
-                  
-                  if (aDeparted && bDeparted) {
-                    return String(a.id).localeCompare(String(b.id));
-                  }
-                  
-                  return a.minutesAway - b.minutesAway;
-                })
-                .slice(0, maxVehicles);
+                .sort((a, b) => a.minutesAway - b.minutesAway);
             } else {
-              // Multiple routes: deduplicate by route and limit to maxVehicles
-              finalVehicles = bestVehiclePerRoute
-                .sort((a, b) => {
-                  // Priority 1: At station
-                  const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-                  const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-                  
-                  if (aAtStation && !bAtStation) return -1;
-                  if (!aAtStation && bAtStation) return 1;
-                  
-                  // Priority 2: Arriving vehicles (sorted by minutes ascending)
-                  const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-                  const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-                  
-                  if (aArriving && !bArriving) return -1;
-                  if (!aArriving && bArriving) return 1;
-                  
-                  if (aArriving && bArriving) {
-                    return a.minutesAway - b.minutesAway;
-                  }
-                  
-                  // Priority 3: Departed vehicles
-                  const aDeparted = a._internalDirection === 'departing';
-                  const bDeparted = b._internalDirection === 'departing';
-                  
-                  if (aDeparted && !bDeparted) return 1;
-                  if (!aDeparted && bDeparted) return -1;
-                  
-                  // If both departed, sort by route name
-                  if (aDeparted && bDeparted) {
-                    return (a.route || '').localeCompare(b.route || '');
-                  }
-                  
-                  return a.minutesAway - b.minutesAway;
-                })
-                .slice(0, maxVehicles);
+              // Multiple routes: show all vehicles (no deduplication, no limit)
+              finalVehicles = enhancedVehiclesForStation
+                .sort((a, b) => a.minutesAway - b.minutesAway);
             }
           }
           
-          // Collect all unique routes for this station (for the header chips)
+          // Collect all unique routes for this station
           const allRoutesAtStation = Array.from(new Set(
             enhancedVehiclesForStation.map(v => v.routeId)
           )).map(routeId => {
@@ -646,52 +600,23 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           };
         });
 
-        logger.debug('Trip-based vehicle filtering completed', {
-          targetStations: targetStations.map(ts => ({
-            id: ts.station.id,
-            name: ts.station.name,
-            distance: Math.round(ts.distance)
-          })),
-          totalStopTimes: allStopTimes.length,
-          stopTimesForStations: allStopTimes.filter(st => stationIds.includes(st.stopId)).length,
-          relevantTripIds: relevantTripIds.size,
-          totalVehicles: vehicles.length,
-          vehiclesWithTripId: vehicles.filter(v => v.tripId).length,
-          matchingVehicles: matchingVehicles.length,
+        logger.debug('Favorite routes processing completed', {
+          closestStation: targetStations.length > 0 ? {
+            id: targetStations[0].station.id,
+            name: targetStations[0].station.name,
+            distance: Math.round(targetStations[0].distance)
+          } : null,
+          favoriteVehicles: favoriteVehicles.length,
           stationGroups: stationVehicleGroups.length,
           vehiclesByStation: stationVehicleGroups.map(group => ({
             stationName: group.station.station.name,
-            vehicleCount: group.vehicles.length,
-            vehicles: group.vehicles.map(v => ({
-              id: v.id,
-              route: v.route,
-              direction: v._internalDirection,
-              minutesAway: v.minutesAway
-            }))
+            vehicleCount: group.vehicles.length
           }))
         });
-
-        // Debug logging for station groups
-        logger.debug('Station groups processing completed', {
-          totalGroups: stationVehicleGroups.length,
-          totalMatchingVehicles: matchingVehicles.length,
-          groupDetails: stationVehicleGroups.map(group => ({
-            stationId: group.station.station.id,
-            stationName: group.station.station.name,
-            vehicleCount: group.vehicles.length,
-            vehicles: group.vehicles.map(v => ({
-              id: v.id,
-              route: v.route,
-              direction: v.direction,
-              minutesAway: v.minutesAway
-            }))
-          }))
-        }, 'COMPONENT');
         
-        // Store grouped vehicles
         setStationVehicleGroups(stationVehicleGroups);
       } catch (error) {
-        logger.error('Failed to process vehicles for stations', { error }, 'COMPONENT');
+        logger.error('Failed to process vehicles for favorite routes', { error }, 'COMPONENT');
         setStationVehicleGroups([]);
       } finally {
         setIsProcessingVehicles(false);
@@ -699,7 +624,58 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     };
 
     processVehicles();
-  }, [targetStations, vehicles, config?.agencyId, config?.maxVehiclesPerStation, selectedRoutePerStation]);
+  }, [effectiveLocationForDisplay, vehicles, config?.agencyId, favoriteRoutes, allStations, selectedRoutePerStation]);
+
+  // Show setup required if no favorite routes configured
+  if (!favoriteRoutes.length) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Card sx={{ 
+          bgcolor: 'rgba(30, 41, 59, 0.3)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(100, 116, 139, 0.2)'
+        }}>
+          <CardContent>
+            <Stack spacing={3} alignItems="center" sx={{ py: 8 }}>
+              <Box sx={{ 
+                width: 64, 
+                height: 64, 
+                borderRadius: 3,
+                bgcolor: 'rgba(71, 85, 105, 0.5)',
+                border: '1px solid rgba(100, 116, 139, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <BusIcon size={28} className="text-gray-400" />
+              </Box>
+              <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
+                No Favorite Routes
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
+                Add some favorite routes to see buses at nearby stations
+              </Typography>
+              
+              <Button
+                variant="contained"
+                onClick={onNavigateToSettings}
+                sx={{
+                  mt: 2,
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                }}
+              >
+                Add Favorite Routes
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  }
 
   if (!effectiveLocationForDisplay) {
     return (
@@ -727,7 +703,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                 Location Required
               </Typography>
               <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                Please enable location services to see nearby station buses
+                Please enable location services to see favorite route buses at nearby stations
               </Typography>
             </Stack>
           </CardContent>
@@ -748,10 +724,10 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             <Stack spacing={3} alignItems="center" sx={{ py: 8 }}>
               <CircularProgress size={48} sx={{ color: 'primary.main' }} />
               <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
-                Loading Station Data
+                Loading Favorite Routes
               </Typography>
               <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                Finding buses that serve nearby stations...
+                Finding buses for your favorite routes at nearby stations...
               </Typography>
             </Stack>
           </CardContent>
@@ -760,7 +736,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     );
   }
 
-  if (!targetStations.length) {
+  if (!stationVehicleGroups.length) {
     return (
       <Box sx={{ p: 3 }}>
         <Card sx={{ 
@@ -780,13 +756,13 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <MapPinIcon size={28} className="text-gray-400" />
+                <BusIcon size={28} className="text-gray-400" />
               </Box>
               <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
                 No nearby stations
               </Typography>
               <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                No bus stations found within 2km of your location
+                No stations found that serve your favorite routes
               </Typography>
             </Stack>
           </CardContent>
@@ -798,117 +774,96 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={4}>
-        {/* Always show stations, even if they have no vehicles */}
-        {targetStations.map((stationInfo, stationIndex) => {
-          // Find the corresponding group for this station
-          const stationGroup = stationVehicleGroups.find(
-            group => group.station.station.id === stationInfo.station.id
-          );
-          
-          // Debug logging to understand the issue
-          logger.debug('Station display rendering', {
-            stationId: stationInfo.station.id,
-            stationName: stationInfo.station.name,
-            stationGroupFound: !!stationGroup,
-            stationGroupVehicleCount: stationGroup?.vehicles.length || 0,
-            allStationGroups: stationVehicleGroups.map(g => ({
-              id: g.station.station.id,
-              name: g.station.station.name,
-              vehicleCount: g.vehicles.length
-            }))
-          }, 'COMPONENT');
-          
-          return (
-            <Box key={stationInfo.station.id}>
-              {/* Station Section Header - Always show */}
-              <Box sx={{ mb: 2 }}>
-                <StationHeader
-                  stationName={stationInfo.station.name}
-                  distance={stationInfo.distance}
-                  isClosest={stationIndex === 0}
-                />
-                
-                {/* Route filter buttons */}
-                {stationGroup && stationGroup.allRoutes && stationGroup.allRoutes.length > 0 && (
-                  <Box sx={{ mt: 1 }}>
-                    <RouteFilterChips
-                      routes={stationGroup.allRoutes}
-                      selectedRouteId={selectedRoutePerStation.get(stationInfo.station.id)}
-                      onRouteSelect={(routeId) => {
-                        const newSelection = new Map(selectedRoutePerStation);
-                        if (routeId) {
-                          newSelection.set(stationInfo.station.id, routeId);
-                        } else {
-                          newSelection.delete(stationInfo.station.id);
-                        }
-                        setSelectedRoutePerStation(newSelection);
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
+        {stationVehicleGroups.map((stationGroup, stationIndex) => (
+          <Box key={stationGroup.station.station.id}>
+            {/* Station Section Header */}
+            <Box sx={{ mb: 2 }}>
+              <StationHeader
+                stationName={stationGroup.station.station.name}
+                distance={stationGroup.station.distance}
+                isClosest={stationIndex === 0}
+              />
               
-              {/* Vehicles for this station or "No buses" message */}
-              {stationGroup && stationGroup.vehicles.length > 0 ? (
-                <Stack spacing={2}>
-                  {stationGroup.vehicles.map((vehicle, index) => (
-                    <VehicleCard
-                      key={`${vehicle.id}-${stationInfo.station.id}-${index}`}
-                      vehicle={vehicle}
-                      stationId={stationInfo.station.id}
-                      isExpanded={expandedVehicles.has(vehicle.id)}
-                      onToggleExpanded={() => {
-                        const newExpanded = new Set(expandedVehicles);
-                        if (expandedVehicles.has(vehicle.id)) {
-                          newExpanded.delete(vehicle.id);
-                        } else {
-                          newExpanded.add(vehicle.id);
-                        }
-                        setExpandedVehicles(newExpanded);
-                      }}
-                      onShowMap={() => {
-                        setSelectedVehicleForMap(vehicle);
-                        setTargetStationId(stationInfo.station.id);
-                        setMapModalOpen(true);
-                      }}
-                      onRouteClick={() => {
-                        const newSelection = new Map(selectedRoutePerStation);
-                        const isSelected = selectedRoutePerStation.get(stationInfo.station.id) === vehicle.routeId;
-                        
-                        if (isSelected) {
-                          newSelection.delete(stationInfo.station.id);
-                        } else {
-                          newSelection.set(stationInfo.station.id, vehicle.routeId);
-                        }
-                        setSelectedRoutePerStation(newSelection);
-                      }}
-                      showShortStopList={false} // Don't show short stop list in station view
-                      showFullStopsButton={true} // Show "Show all stops" button
-                    />
-                  ))}
-                </Stack>
-              ) : (
-                <Card sx={{ 
-                  bgcolor: 'rgba(30, 41, 59, 0.3)',
-                  backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(100, 116, 139, 0.2)'
-                }}>
-                  <CardContent>
-                    <Stack spacing={2} alignItems="center" sx={{ py: 4 }}>
-                      <BusIcon size={24} className="text-gray-500" />
-                      <Typography variant="body1" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                        No buses currently at this station
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'grey.500', textAlign: 'center' }}>
-                        Check back in a few minutes or try refreshing
-                      </Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
+              {/* Route filter buttons */}
+              {stationGroup.allRoutes && stationGroup.allRoutes.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <RouteFilterChips
+                    routes={stationGroup.allRoutes}
+                    selectedRouteId={selectedRoutePerStation.get(stationGroup.station.station.id)}
+                    onRouteSelect={(routeId) => {
+                      const newSelection = new Map(selectedRoutePerStation);
+                      if (routeId) {
+                        newSelection.set(stationGroup.station.station.id, routeId);
+                      } else {
+                        newSelection.delete(stationGroup.station.station.id);
+                      }
+                      setSelectedRoutePerStation(newSelection);
+                    }}
+                  />
+                </Box>
               )}
             </Box>
-          );
-        })}
+            
+            {/* Vehicles for this station */}
+            {stationGroup.vehicles.length > 0 ? (
+              <Stack spacing={2}>
+                {stationGroup.vehicles.map((vehicle, index) => (
+                  <VehicleCard
+                    key={`${vehicle.id}-${stationGroup.station.station.id}-${index}`}
+                    vehicle={vehicle}
+                    stationId={stationGroup.station.station.id}
+                    isExpanded={expandedVehicles.has(vehicle.id)}
+                    onToggleExpanded={() => {
+                      const newExpanded = new Set(expandedVehicles);
+                      if (expandedVehicles.has(vehicle.id)) {
+                        newExpanded.delete(vehicle.id);
+                      } else {
+                        newExpanded.add(vehicle.id);
+                      }
+                      setExpandedVehicles(newExpanded);
+                    }}
+                    onShowMap={() => {
+                      setSelectedVehicleForMap(vehicle);
+                      setTargetStationId(stationGroup.station.station.id);
+                      setMapModalOpen(true);
+                    }}
+                    onRouteClick={() => {
+                      const newSelection = new Map(selectedRoutePerStation);
+                      const isSelected = selectedRoutePerStation.get(stationGroup.station.station.id) === vehicle.routeId;
+                      
+                      if (isSelected) {
+                        newSelection.delete(stationGroup.station.station.id);
+                      } else {
+                        newSelection.set(stationGroup.station.station.id, vehicle.routeId);
+                      }
+                      setSelectedRoutePerStation(newSelection);
+                    }}
+                    showShortStopList={true} // Show short stop list always visible
+                    showFullStopsButton={true} // Show "Show all stops" button
+                  />
+                ))}
+              </Stack>
+            ) : (
+              <Card sx={{ 
+                bgcolor: 'rgba(30, 41, 59, 0.3)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(100, 116, 139, 0.2)'
+              }}>
+                <CardContent>
+                  <Stack spacing={2} alignItems="center" sx={{ py: 4 }}>
+                    <BusIcon size={24} className="text-gray-500" />
+                    <Typography variant="body1" sx={{ color: 'grey.400', textAlign: 'center' }}>
+                      No favorite route buses currently at this station
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'grey.500', textAlign: 'center' }}>
+                      Check back in a few minutes or try refreshing
+                    </Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            )}
+          </Box>
+        ))}
       </Stack>
       
       {/* Map Modal */}
@@ -921,7 +876,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
             setTargetStationId('');
           }}
           bus={convertVehicleToFavoriteBusInfo(selectedVehicleForMap, targetStationId)}
-          userLocation={null} // Don't show user location as requested
+          userLocation={null}
           cityName={config?.city || 'Cluj-Napoca'}
         />
       )}
@@ -929,7 +884,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   );
 };
 
-export const StationDisplay = withPerformanceMonitoring(
-  StationDisplayComponent,
-  'StationDisplay'
+export const FavoriteRoutesView = withPerformanceMonitoring(
+  FavoriteRoutesViewComponent,
+  'FavoriteRoutesView'
 );

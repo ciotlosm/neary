@@ -105,11 +105,11 @@ export const VersionControl: React.FC<VersionControlProps> = ({
 
   return (
     <>
-      <Tooltip title={hasUpdate ? 'Update available' : `Version ${versionInfo?.current || '1.0.0'}`}>
+      <Tooltip title={hasUpdate ? 'Update available' : versionInfo?.current ? `Version ${versionInfo.current}` : 'Version info'}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {showLabel && (
+          {showLabel && versionInfo?.current && (
             <Typography variant="caption" color="text.secondary">
-              v{versionInfo?.current || '1.0.0'}
+              v{versionInfo.current}
             </Typography>
           )}
           
@@ -177,7 +177,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
               Current
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {versionInfo?.current || '1.0.0'}
+              {versionInfo?.current || 'Loading...'}
             </Typography>
           </Box>
           

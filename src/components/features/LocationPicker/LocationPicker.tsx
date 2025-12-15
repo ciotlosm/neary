@@ -90,6 +90,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      disableRestoreFocus
+      keepMounted={false}
       PaperProps={{
         sx: {
           borderRadius: 3,

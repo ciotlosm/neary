@@ -16,6 +16,7 @@ import {
   Upload as UploadIcon,
   Backup as BackupIcon,
   Key as KeyIcon,
+  Favorite as FavoriteIcon,
 } from '@mui/icons-material';
 
 import { useConfigStore } from '../../../stores/configStore';
@@ -25,6 +26,7 @@ import ApiConfigurationPanel from './ApiConfigurationPanel';
 import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
 import { VersionControl } from '../../ui/VersionControl';
+import FavoriteBusManager from '../FavoriteBuses/FavoriteBusManager';
 import type { UserConfig } from '../../../types';
 
 interface SettingsProps {
@@ -135,6 +137,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
 
   const tabs = [
+    { label: 'Favorites', icon: <FavoriteIcon /> },
     { label: 'Config', icon: <SettingsIcon /> },
     { label: 'API Keys', icon: <KeyIcon /> },
     { label: 'Cache', icon: <DatabaseIcon /> },
@@ -177,24 +180,28 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
           </Tabs>
           
           {/* Version Control in Header */}
-          <VersionControl size="medium" showLabel />
+          <VersionControl size="medium" />
         </Box>
       </Card>
 
       {/* Tab Panels */}
       <TabPanel value={activeTab} index={0}>
-        <ConfigurationManager />
+        <FavoriteBusManager />
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
-        <ApiConfigurationPanel />
+        <ConfigurationManager />
       </TabPanel>
 
       <TabPanel value={activeTab} index={2}>
-        <CacheManagerPanel />
+        <ApiConfigurationPanel />
       </TabPanel>
 
       <TabPanel value={activeTab} index={3}>
+        <CacheManagerPanel />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={4}>
         <InfoCard
           title="Backup & Restore"
           subtitle="Export, import, and reset your configuration"

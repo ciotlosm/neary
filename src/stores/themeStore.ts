@@ -29,22 +29,52 @@ export const useThemeStore = create<ThemeStore>()(
         set({ mode }),
     }),
     {
-      name: 'theme',
+      name: 'cluj-bus-theme',
       storage: createJSONStorage(() => localStorage),
-      // Only persist if user has manually changed theme
+      // Always persist the theme preference for PWA consistency
       partialize: (state) => ({ mode: state.mode }),
+      // Force rehydration on every load to ensure PWA consistency
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Apply theme immediately to prevent flash
+          document.documentElement.setAttribute('data-theme', state.mode);
+        }
+      },
     }
   )
 );
 
-// Listen for system theme changes
-if (typeof window !== 'undefined' && window.matchMedia) {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  mediaQuery.addEventListener('change', (e) => {
-    // Only auto-update if user hasn't manually set a preference
-    const stored = localStorage.getItem('theme-store');
-    if (!stored) {
-      useThemeStore.getState().setTheme(e.matches ? 'dark' : 'light');
+// Initialize theme immediately to prevent flash
+if (typeof window !== 'undefined') {
+  // Check for stored theme preference first
+  const stored = localStorage.getItem('cluj-bus-theme');
+  let initialTheme: ThemeMode;
+  
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      initialTheme = parsed.state?.mode || getSystemTheme();
+    } catch {
+      initialTheme = getSystemTheme();
     }
-  });
+  } else {
+    initialTheme = getSystemTheme();
+  }
+  
+  // Apply theme immediately to prevent flash
+  document.documentElement.setAttribute('data-theme', initialTheme);
+  
+  // Listen for system theme changes
+  if (window.matchMedia) {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', (e) => {
+      // Only auto-update if user hasn't manually set a preference
+      const currentStored = localStorage.getItem('cluj-bus-theme');
+      if (!currentStored) {
+        const newTheme = e.matches ? 'dark' : 'light';
+        useThemeStore.getState().setTheme(newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    });
+  }
 }

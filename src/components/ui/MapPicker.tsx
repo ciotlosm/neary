@@ -177,6 +177,8 @@ export const MapPicker: React.FC<MapPickerProps> = ({
       maxWidth="md"
       fullWidth
       fullScreen
+      disableRestoreFocus
+      keepMounted={false}
       sx={{
         '& .MuiDialog-paper': {
           margin: 0,

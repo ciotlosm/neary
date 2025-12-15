@@ -267,6 +267,8 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
       onClose={onClose}
       maxWidth="lg"
       fullWidth
+      disableRestoreFocus
+      keepMounted={false}
       slotProps={{
         paper: {
           sx: { height: '80vh', maxHeight: '600px' }
