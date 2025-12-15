@@ -70,7 +70,7 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
         const { config } = useConfigStore.getState();
         const { currentLocation, requestLocation } = useLocationStore.getState();
         
-        if (!config?.homeLocation || !config?.favoriteBuses || config.favoriteBuses.length === 0) {
+        if (!config?.favoriteBuses || config.favoriteBuses.length === 0) {
           set({
             favoriteBusResult: null,
             error: null
@@ -84,14 +84,25 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
           // Set API key in enhanced API service
           enhancedTranzyApi.setApiKey(config.apiKey);
 
-          // Get current location if not available
+          // Get location for direction detection (priority: current -> home -> work -> default Cluj center)
           let location = currentLocation;
           if (!location) {
             try {
               location = await requestLocation();
             } catch (locationError) {
-              logger.warn('Could not get current location, using home as fallback');
-              location = config.homeLocation;
+              logger.warn('Could not get current location, trying saved locations');
+              // Fallback to saved locations
+              if (config.homeLocation) {
+                location = config.homeLocation;
+                logger.info('Using home location as fallback');
+              } else if (config.workLocation) {
+                location = config.workLocation;
+                logger.info('Using work location as fallback');
+              } else {
+                // Default to Cluj-Napoca city center if no locations are set
+                location = { latitude: 46.7712, longitude: 23.6236 };
+                logger.info('Using Cluj-Napoca center as default location');
+              }
             }
           }
 
