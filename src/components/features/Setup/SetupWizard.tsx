@@ -122,6 +122,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         apiKey: apiKey.trim(),
         city: selectedCity.value,
         agencyId: selectedCity.agencyId,
+        refreshRate: 30000, // Default 30 seconds
+        staleDataThreshold: 2, // Default 2 minutes
       });
       
       onComplete();

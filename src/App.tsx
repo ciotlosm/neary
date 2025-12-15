@@ -330,6 +330,7 @@ function AppMaterial() {
         <SetupWizard onComplete={() => {
           logger.info('Setup wizard completed, user can now access the app');
           // Configuration is automatically saved by the wizard
+          // The component should automatically re-render when config store updates
         }} />
       </ErrorBoundary>
     );
