@@ -94,7 +94,7 @@ export const useBusDataStore = create<BusDataStore>((set, get) => ({
         throw new Error('Configuration not available');
       }
 
-      const fetchBusData = async (): Promise<BusInfo[]> => {
+      const fetchBusData = async (): Promise<VehicleInfo[]> => {
         const { tranzyApiService } = await import('../services/tranzyApiService');
         const apiService = tranzyApiService();
         
@@ -105,7 +105,7 @@ export const useBusDataStore = create<BusDataStore>((set, get) => ({
         return await apiService.getBusesForCity(config.city);
       };
 
-      let buses: BusInfo[];
+      let buses: VehicleInfo[];
 
       try {
         const cacheKey = CacheKeys.vehicleInfo(config.city);

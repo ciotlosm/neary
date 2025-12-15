@@ -274,7 +274,7 @@ class RoutePlanningService {
   ): boolean {
     // This is a simplified version - in reality, you'd need route shape data
     // For now, we'll use a heuristic based on destination name
-    const destination = bus.destination.toLowerCase();
+    const destination = vehicle.destination.toLowerCase();
     
     // Common patterns for work destinations
     const workKeywords = ['centru', 'center', 'piata', 'unirii', 'office', 'business'];
@@ -330,15 +330,15 @@ class RoutePlanningService {
     destination: 'work' | 'home',
     targetLocation: Coordinates
   ): DirectRoute[] {
-    return buses
-      .filter(bus => {
-        // Filter buses going in the right direction
-        return this.determineRouteDirection(bus, targetLocation);
+    return vehicles
+      .filter(vehicle => {
+        // Filter vehicles going in the right direction
+        return this.determineRouteDirection(vehicle, targetLocation);
       })
-      .slice(0, 3) // Take first 3 buses
-      .map(bus => ({
-        bus,
-        arrivalTime: new Date(bus.estimatedArrival.getTime() + 30 * 60000) // Assume 30min travel time
+      .slice(0, 3) // Take first 3 vehicles
+      .map(vehicle => ({
+        vehicle,
+        arrivalTime: new Date(vehicle.estimatedArrival.getTime() + 30 * 60000) // Assume 30min travel time
       }));
   }
 
@@ -353,7 +353,7 @@ class RoutePlanningService {
     // Get stations near target location
     const targetStations = await this.getNearbyStations(targetLocation, cityName, 1000);
     
-    for (const firstBus of originBuses.slice(0, 3)) {
+    for (const firstBus of originVehicles.slice(0, 3)) {
       // Simulate finding connection stations (in reality, you'd use route data)
       const connectionStations = targetStations.slice(0, 2); // Take first 2 stations
       
@@ -369,9 +369,9 @@ class RoutePlanningService {
           
           if (transferTime >= 1 && transferTime <= 5) {
             connections.push({
-              firstBus,
+              firstVehicle: firstBus,
               connectionStation,
-              secondBus,
+              secondVehicle: secondBus,
               transferTime,
               totalTravelTime: 45, // Assume 45min total
               arrivalTime: new Date(secondDeparture.getTime() + 30 * 60000)
