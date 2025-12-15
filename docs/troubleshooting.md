@@ -4,6 +4,18 @@
 
 ### Build & Development Issues
 
+#### Setup Wizard Complete Button Not Working
+**Problem**: Clicking "Complete Setup" after city selection doesn't transition to main app
+
+**Root Cause**: Setup wizard wasn't saving complete configuration - missing `refreshRate` required for `isConfigured` state
+
+**Solution**: Added default configuration values to setup wizard
+- Added `refreshRate: 30000` (30 seconds default)
+- Added `staleDataThreshold: 2` (2 minutes default)
+- Ensures `isConfigured` state becomes true after setup completion
+
+**Prevention**: Always verify complete configuration requirements when updating setup flow
+
 #### MUI Menu Fragment Warning
 **Problem**: `The Menu component doesn't accept a Fragment as a child. Consider providing an array instead.`
 

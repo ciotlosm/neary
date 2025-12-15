@@ -69,8 +69,6 @@ export const useConfigStore = create<ConfigStore>()(
         const isFullyConfigured = !!(
           updatedConfig.city &&
           updatedConfig.agencyId &&
-          updatedConfig.homeLocation &&
-          updatedConfig.workLocation &&
           updatedConfig.apiKey &&
           updatedConfig.refreshRate
         );

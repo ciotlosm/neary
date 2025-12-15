@@ -34,6 +34,7 @@
 #### ✅ Major Fixes & CTP Cluj Integration
 
 #### ✅ Critical Issues Resolved
+- **Fixed Setup Wizard completion** - Complete Setup button now properly transitions to main app
 - **Fixed MUI Menu Fragment warning** - Replaced Fragment children with arrays in VersionControl Menu component
 - **Fixed Settings component export error** - Resolved "Indirectly exported binding name 'Settings' is not found" build issue
 - **Fixed "No schedule data available" error** - Station name mismatch between CTP Cluj and Tranzy API resolved

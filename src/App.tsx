@@ -256,7 +256,6 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 
 function AppMaterial() {
   const [currentView, setCurrentView] = useState<'buses' | 'favorites' | 'settings'>('buses');
-  const [showSetupPrompt, setShowSetupPrompt] = useState(true);
   const { config, isConfigured, isFullyConfigured } = useConfigStore();
 
   const { isAutoRefreshEnabled } = useRefreshSystem();
@@ -336,69 +335,7 @@ function AppMaterial() {
     );
   }
 
-  // Show setup completion prompt with Material Design
-  if (isConfigured && !isFullyConfigured && showSetupPrompt) {
-    return (
-      <ErrorBoundary>
-        <Box
-          sx={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'background.default',
-            p: 3,
-          }}
-        >
-          <Card
-            sx={{
-              maxWidth: 400,
-              textAlign: 'center',
-              p: 4,
-              boxShadow: theme.shadows[8],
-            }}
-          >
-            <Avatar
-              sx={{
-                bgcolor: theme.palette.success.main,
-                width: 64,
-                height: 64,
-                mx: 'auto',
-                mb: 3,
-              }}
-            >
-              <CheckIcon sx={{ fontSize: 32 }} />
-            </Avatar>
-            <Typography variant="h5" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-              API Key Validated
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              Your Tranzy.ai API key is working. Complete your setup to start tracking buses.
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              onClick={() => {
-                setShowSetupPrompt(false);
-                isFromSetupFlow.current = true; // Mark that we're coming from setup
-                setCurrentView('settings');
-              }}
-              sx={{
-                py: 1.5,
-                borderRadius: 3,
-                textTransform: 'none',
-                fontSize: '1rem',
-                fontWeight: 600,
-              }}
-            >
-              Complete Setup
-            </Button>
-          </Card>
-        </Box>
-      </ErrorBoundary>
-    );
-  }
+
 
   const renderContent = () => {
     // Show global error if present
