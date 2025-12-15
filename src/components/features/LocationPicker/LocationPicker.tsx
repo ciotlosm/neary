@@ -34,7 +34,7 @@ interface LocationPickerProps {
   onClose: () => void;
   onLocationSelected: (location: Coordinates) => void;
   title: string;
-  type: 'home' | 'work' | 'default'; // Support for default location
+  type: 'home' | 'work' | 'fallback'; // Support for fallback location
   currentLocation?: Coordinates;
 }
 
@@ -113,8 +113,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
       <DialogContent sx={{ pt: 1 }}>
         <Stack spacing={3}>
-          {/* Current Location Section - Hidden for default location since it's a fallback */}
-          {type !== 'default' && (
+          {/* Current Location Section - Hidden for fallback location since it's a fallback */}
+          {type !== 'fallback' && (
             <Box>
               <CurrentLocationSection
                 onUseCurrentLocation={handleUseCurrentLocation}
@@ -198,7 +198,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
           }}
           disabled={!selectedLocation}
         >
-          Set {type === 'home' ? 'Home' : type === 'work' ? 'Work' : 'Default'} Location
+          Set {type === 'home' ? 'Home' : type === 'work' ? 'Work' : 'Fallback'} Location
         </Button>
       </DialogActions>
     </Dialog>

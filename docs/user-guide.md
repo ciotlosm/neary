@@ -102,7 +102,7 @@ The app uses your location to:
 ### Common Settings (Top of Settings)
 - **Refresh Rate** - how often to update bus data (5-300 seconds)
 - **Stale Data Threshold** - when to consider data outdated (1-30 minutes)
-- **Default Location (Fallback)** - configurable location used when GPS and saved locations unavailable
+- **Fallback Location** - configurable location used when GPS and saved locations unavailable
 - **Valid Config indicator** - green chip shows when setup is complete
 
 ### Location Settings
@@ -127,10 +127,10 @@ The app uses your location to:
 - Used for intelligent route direction detection
 - Optional but recommended for better suggestions
 
-**4. Default Location (Fallback)**
+**4. Fallback Location**
 - Configurable fallback location for direction detection
 - Used when GPS permission denied and no saved locations available
-- Set in Settings > Config > Common Settings
+- Set in Settings > Config > Location Settings
 - Defaults to Cluj-Napoca center but can be customized to your preferred area
 
 #### Location Priority System
@@ -138,12 +138,14 @@ The app uses locations in this priority order for route suggestions:
 1. **Current GPS** (if permission granted and available)
 2. **Home Location** (if saved and GPS unavailable)
 3. **Work Location** (if saved and no home location)
-4. **Default Location** (configurable fallback, defaults to Cluj center)
+4. **Fallback Location** (configurable fallback, defaults to Cluj center)
 
 #### Location Settings Interface
-- **Compact 3-column layout** - Home, Work, and Default locations in one view
+- **Adaptive 3-column layout** - Home, Work, and Fallback locations in one view
 - **GPS status indicator** - Shows "GPS Disabled" chip when location permission denied
-- **Smart location picker** - Default location doesn't offer "Use Current Location" (it's fallback-only)
+- **Smart location picker** - Fallback location doesn't offer "Use Current Location" (it's fallback-only)
+- **Coordinate chips** - GPS coordinates displayed as styled chips for better visual appeal
+- **Adaptive prominence** - Fallback location becomes less prominent when GPS is available
 - **Optional settings** - All locations are optional, app works without any saved locations
 
 #### GPS Permission Management:

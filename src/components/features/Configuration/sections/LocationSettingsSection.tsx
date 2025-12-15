@@ -23,7 +23,7 @@ interface LocationSettingsSectionProps {
   homeLocation?: Coordinates;
   workLocation?: Coordinates;
   defaultLocation?: Coordinates;
-  onLocationPicker: (type: 'home' | 'work' | 'default') => void;
+  onLocationPicker: (type: 'home' | 'work' | 'fallback') => void;
   formatLocationDisplay: (location: Coordinates | undefined) => string | null;
 }
 
@@ -35,7 +35,30 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
   formatLocationDisplay,
 }) => {
   const theme = useTheme();
-  const { locationPermission } = useLocationStore();
+  const { locationPermission, currentLocation } = useLocationStore();
+
+  // Helper function to render coordinates as chips
+  const renderCoordinatesChip = (location: Coordinates | undefined) => {
+    if (!location) return null;
+    
+    return (
+      <Chip
+        label={formatLocationDisplay(location)}
+        size="small"
+        variant="outlined"
+        sx={{ 
+          mt: 0.5, 
+          fontSize: '0.65rem', 
+          height: 20,
+          bgcolor: alpha(theme.palette.primary.main, 0.05),
+          borderColor: alpha(theme.palette.primary.main, 0.2),
+        }}
+      />
+    );
+  };
+
+  // Determine if GPS is available (less prominent fallback when GPS works)
+  const isGpsAvailable = locationPermission === 'granted' && currentLocation;
 
   return (
     <Card variant="outlined" sx={{ bgcolor: alpha(theme.palette.info.main, 0.02) }}>
@@ -61,8 +84,14 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
             Configure locations for intelligent route suggestions (all optional)
           </Typography>
           
-          {/* Location Grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
+          {/* Location Grid - Dynamic layout based on GPS availability */}
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: isGpsAvailable 
+              ? { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 0.8fr' } // Smaller fallback column when GPS available
+              : { xs: '1fr', sm: '1fr 1fr 1fr' }, // Equal columns when GPS unavailable
+            gap: 2 
+          }}>
             {/* Home Location */}
             <Box>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -88,11 +117,7 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
               >
                 {homeLocation ? 'Change' : 'Set Home'}
               </Button>
-              {homeLocation && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.7rem', display: 'block' }}>
-                  {formatLocationDisplay(homeLocation)}
-                </Typography>
-              )}
+              {renderCoordinatesChip(homeLocation)}
             </Box>
             
             {/* Work Location */}
@@ -120,25 +145,31 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
               >
                 {workLocation ? 'Change' : 'Set Work'}
               </Button>
-              {workLocation && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.7rem', display: 'block' }}>
-                  {formatLocationDisplay(workLocation)}
-                </Typography>
-              )}
+              {renderCoordinatesChip(workLocation)}
             </Box>
 
-            {/* Default Location */}
-            <Box>
+            {/* Fallback Location - Less prominent when GPS available */}
+            <Box sx={{ 
+              opacity: isGpsAvailable ? 0.7 : 1,
+              transform: isGpsAvailable ? 'scale(0.95)' : 'scale(1)',
+              transition: 'all 0.2s ease-in-out'
+            }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                <LocationOnIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Default
+                <LocationOnIcon sx={{ 
+                  fontSize: 16, 
+                  color: isGpsAvailable ? 'text.disabled' : 'text.secondary' 
+                }} />
+                <Typography variant="body2" sx={{ 
+                  fontWeight: 600,
+                  color: isGpsAvailable ? 'text.disabled' : 'text.primary'
+                }}>
+                  Fallback
                 </Typography>
                 {defaultLocation && (
                   <Chip
                     label="Set"
                     size="small"
-                    color="info"
+                    color={isGpsAvailable ? "default" : "warning"}
                     sx={{ height: 18, fontSize: '0.65rem' }}
                   />
                 )}
@@ -147,13 +178,23 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                 variant="outlined"
                 size="small"
                 fullWidth
-                onClick={() => onLocationPicker('default')}
+                onClick={() => onLocationPicker('fallback')}
+                sx={{
+                  color: isGpsAvailable ? 'text.disabled' : 'primary.main',
+                  borderColor: isGpsAvailable ? 'divider' : 'primary.main',
+                }}
               >
-                {defaultLocation ? 'Change' : 'Set Default'}
+                {defaultLocation ? 'Change' : 'Set Fallback'}
               </Button>
-              {defaultLocation && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.7rem', display: 'block' }}>
-                  {formatLocationDisplay(defaultLocation)}
+              {renderCoordinatesChip(defaultLocation)}
+              {!isGpsAvailable && (
+                <Typography variant="caption" color="warning.main" sx={{ 
+                  fontSize: '0.65rem', 
+                  display: 'block', 
+                  mt: 0.5,
+                  fontStyle: 'italic' 
+                }}>
+                  Used when GPS unavailable
                 </Typography>
               )}
             </Box>

@@ -26,12 +26,13 @@
 - **Filling Circle Animation** - Progress ring empties as refresh approaches, fills after successful update
 - **Cleaner Header** - Removed text labels, replaced with intuitive visual indicators
 
-#### 📍 Simplified Location Settings & Default Location Configuration
+#### 📍 Simplified Location Settings & Fallback Location Configuration
 - **Streamlined Location UI** - Consolidated all location settings into compact 3-column grid layout
 - **Removed Redundant Status** - Eliminated duplicate GPS status indicators and verbose descriptions
-- **Configurable Default Location** - Added setting to customize fallback location instead of hardcoded Cluj center
-- **Smart Location Picker** - Hides "Use Current Location" for default location (since it's fallback-only)
-- **Cleaner Interface** - GPS disabled warning only shown when relevant, removed confusing direction detection status
+- **Configurable Fallback Location** - Added setting to customize fallback location instead of hardcoded Cluj center
+- **Smart Location Picker** - Hides "Use Current Location" for fallback location (since it's fallback-only)
+- **Adaptive Layout** - Fallback location becomes less prominent when GPS is available
+- **Coordinate Chips** - GPS coordinates now displayed as styled chips for better visual appeal
 - **GPS Permission Display** - Settings now show device GPS permission status with clear descriptions
 - **Smart Button States** - "Use Current Location" buttons disabled when GPS permission denied
 - **Header Status Accuracy** - Status indicators now only show current device GPS, not saved locations

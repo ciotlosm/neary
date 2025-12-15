@@ -7,7 +7,7 @@ import type { Coordinates } from '../../../../types';
 interface SelectedLocationDisplayProps {
   selectedLocation: Coordinates;
   userCurrentLocation: Coordinates | null;
-  locationType: 'home' | 'work' | 'default';
+  locationType: 'home' | 'work' | 'fallback';
   getLocationColor: () => string;
   calculateDistance: (from: Coordinates, to: Coordinates) => number;
 }
@@ -56,7 +56,7 @@ export const SelectedLocationDisplay: React.FC<SelectedLocationDisplayProps> = (
       
       <Box sx={{ mt: 1 }}>
         <Chip
-          label={locationType === 'home' ? 'Home Location' : locationType === 'work' ? 'Work Location' : 'Default Location'}
+          label={locationType === 'home' ? 'Home Location' : locationType === 'work' ? 'Work Location' : 'Fallback Location'}
           size="small"
           sx={{
             bgcolor: alpha(getLocationColor(), 0.2),

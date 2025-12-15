@@ -184,7 +184,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
               <Button
                 variant="outlined"
                 size="small"
-                onClick={() => handleLocationPicker('default')}
+                onClick={() => handleLocationPicker('fallback')}
               >
                 {formData.defaultLocation ? 'Change Default' : 'Set Default Location'}
               </Button>
@@ -251,7 +251,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
               ? 'Set Home Location' 
               : locationPickerType === 'work' 
                 ? 'Set Work Location'
-                : 'Set Default Location'
+                : 'Set Fallback Location'
           }
           type={locationPickerType}
           currentLocation={

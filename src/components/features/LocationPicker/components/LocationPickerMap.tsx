@@ -8,7 +8,7 @@ interface LocationPickerMapProps {
   onMapClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   onCoordinatesSelect?: (coordinates: Coordinates) => void;
   mapLocation: Coordinates | null;
-  locationType: 'home' | 'work' | 'default';
+  locationType: 'home' | 'work' | 'fallback';
   getLocationColor: () => string;
 }
 
