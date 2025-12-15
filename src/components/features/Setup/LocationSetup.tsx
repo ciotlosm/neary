@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { MaterialLocationPicker } from '../LocationPicker/MaterialLocationPicker';
-import { logger } from '../../../utils/loggerFixed';
+import { LocationPicker } from '../LocationPicker/LocationPicker';
+import { logger } from '../../../utils/logger';
 import type { Coordinates } from '../../../types';
 
 interface LocationSetupProps {
@@ -55,7 +55,7 @@ export const LocationSetup: React.FC<LocationSetupProps> = ({ onLocationsSet, on
       </div>
 
       <div className="mb-6">
-        <MaterialLocationPicker
+        <LocationPicker
           open={true}
           onClose={() => {}}
           title="Select Location"

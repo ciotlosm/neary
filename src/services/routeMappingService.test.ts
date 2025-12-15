@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { routeMappingService } from './routeMappingService';
-import { enhancedTranzyApi } from './enhancedTranzyApi';
+import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
 
 // Mock dependencies

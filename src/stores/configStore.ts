@@ -91,7 +91,7 @@ export const useConfigStore = create<ConfigStore>()(
       },
     }),
     {
-      name: 'bus-tracker-config',
+      name: 'config',
       storage: createJSONStorage(() => createEncryptedStorage()),
       version: 2, // Increment version for migration
       migrate: (persistedState: any, version: number) => {

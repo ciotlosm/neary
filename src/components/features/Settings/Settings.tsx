@@ -5,35 +5,27 @@ import {
   Tab,
   Typography,
   Card,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
   Snackbar,
-  Divider,
   useTheme,
-  alpha,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
   Storage as DatabaseIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
-  Warning as AlertIcon,
   Backup as BackupIcon,
-  DeleteForever as ResetIcon,
 } from '@mui/icons-material';
 
 import { useConfigStore } from '../../../stores/configStore';
-import MaterialConfigurationManager from '../Configuration/MaterialConfigurationManager';
-import { SimplifiedCacheManager } from './SimplifiedCacheManager';
-import { MaterialButton } from '../../ui/Button';
+import ConfigurationManager from '../Configuration/ConfigurationManager';
+import { CacheManagerPanel } from './CacheManagerPanel';
+import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
+import { VersionControl } from '../../ui/VersionControl';
 import type { UserConfig } from '../../../types';
 
-interface MaterialSettingsProps {
+interface SettingsProps {
   onClose?: () => void;
 }
 
@@ -69,10 +61,9 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) => {
-  const { config, resetConfig, updateConfig } = useConfigStore();
+export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
+  const { config, updateConfig } = useConfigStore();
   const [activeTab, setActiveTab] = useState(0);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
   const theme = useTheme();
@@ -139,11 +130,7 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
     event.target.value = '';
   };
 
-  const handleResetConfig = () => {
-    resetConfig();
-    setShowResetConfirm(false);
-    if (onClose) onClose();
-  };
+
 
   const tabs = [
     { label: 'Config', icon: <SettingsIcon /> },
@@ -153,40 +140,51 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
 
   return (
     <Box>
-      {/* Tabs */}
+      {/* Header with Tabs and Version Control */}
       <Card sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            '& .MuiTab-root': {
-              minHeight: 64,
-              textTransform: 'none',
-              fontWeight: 500,
-            },
-          }}
-        >
-          {tabs.map((tab, index) => (
-            <Tab
-              key={index}
-              label={tab.label}
-              icon={tab.icon}
-              iconPosition="start"
-              sx={{ gap: 1 }}
-            />
-          ))}
-        </Tabs>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          pr: 2 
+        }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              flex: 1,
+              '& .MuiTab-root': {
+                minHeight: 64,
+                textTransform: 'none',
+                fontWeight: 500,
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                label={tab.label}
+                icon={tab.icon}
+                iconPosition="start"
+                sx={{ gap: 1 }}
+              />
+            ))}
+          </Tabs>
+          
+          {/* Version Control in Header */}
+          <VersionControl size="medium" showLabel />
+        </Box>
       </Card>
 
       {/* Tab Panels */}
       <TabPanel value={activeTab} index={0}>
-        <MaterialConfigurationManager />
+        <ConfigurationManager />
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
-        <SimplifiedCacheManager />
+        <CacheManagerPanel />
       </TabPanel>
 
       <TabPanel value={activeTab} index={2}>
@@ -196,16 +194,16 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
           icon={<BackupIcon />}
         >
           <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-            <MaterialButton
+            <Button
               variant="outlined"
               icon={<DownloadIcon />}
               onClick={handleExportConfig}
               disabled={!config}
             >
               Export Config
-            </MaterialButton>
+            </Button>
             
-            <MaterialButton
+            <Button
               variant="outlined"
               icon={<UploadIcon />}
               component="label"
@@ -217,7 +215,7 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
                 onChange={handleImportConfig}
                 style={{ display: 'none' }}
               />
-            </MaterialButton>
+            </Button>
           </Box>
 
           <Alert severity="info" sx={{ mb: 3 }}>
@@ -227,83 +225,13 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
             </Typography>
           </Alert>
 
-          <Divider sx={{ my: 3 }} />
 
-          {/* Reset Section */}
-          <Alert severity="error" sx={{ borderRadius: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ResetIcon />
-                Reset All Settings
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                This will permanently delete all your configuration, favorites, and cached data.
-              </Typography>
-              <MaterialButton
-                variant="outlined"
-                color="error"
-                onClick={() => setShowResetConfirm(true)}
-                icon={<ResetIcon />}
-                size="small"
-              >
-                Reset Everything
-              </MaterialButton>
-            </Box>
-          </Alert>
         </InfoCard>
       </TabPanel>
 
-      {/* Subtle version footer */}
-      <Box sx={{ 
-        textAlign: 'center', 
-        py: 2, 
-        mt: 4,
-        borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}` 
-      }}>
-        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.7rem' }}>
-          Cluj Bus Tracker v1.0.0
-        </Typography>
-      </Box>
 
-      {/* Reset Confirmation Dialog */}
-      <Dialog
-        open={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AlertIcon color="warning" />
-          Reset All Settings
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to reset all settings? This will:
-          </Typography>
-          <Box component="ul" sx={{ mt: 2, pl: 2 }}>
-            <li>Clear your API key</li>
-            <li>Remove city and location settings</li>
-            <li>Delete all favorite buses</li>
-            <li>Clear all cached data</li>
-          </Box>
-          <Typography sx={{ mt: 2, fontWeight: 600, color: 'error.main' }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowResetConfirm(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleResetConfig}
-            color="error"
-            variant="contained"
-            startIcon={<ResetIcon />}
-          >
-            Reset Everything
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+
 
       {/* Success/Error Snackbars */}
       <Snackbar
@@ -337,4 +265,4 @@ export const MaterialSettings: React.FC<MaterialSettingsProps> = ({ onClose }) =
   );
 };
 
-export default MaterialSettings;
+export default Settings;

@@ -17,17 +17,17 @@ import {
 } from '@mui/icons-material';
 
 import { useFavoriteBusManager } from '../../../hooks/useFavoriteBusManager';
-import { MaterialButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
 import { RouteTypeFilters } from './components/RouteTypeFilters';
 import { RoutesList } from './components/RoutesList';
 import { StatusMessages } from './components/StatusMessages';
 
-interface MaterialFavoriteBusManagerProps {
+interface FavoriteBusManagerProps {
   className?: string;
 }
 
-export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProps> = ({ className = '' }) => {
+export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ className = '' }) => {
   const {
     // State
     selectedRoutes,
@@ -101,7 +101,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
                   sx={{ fontSize: '0.7rem', height: 20 }}
                 />
               </Box>
-              <MaterialButton
+              <Button
                 variant="filled"
                 size="small"
                 onClick={handleSaveChanges}
@@ -109,7 +109,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
                 sx={{ ml: 2 }}
               >
                 Save All
-              </MaterialButton>
+              </Button>
             </Alert>
           )}
 
@@ -124,7 +124,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
             {/* Save button for favorites section */}
             {hasChanges && favoriteRoutes.length > 0 && (
               <Box sx={{ mt: 2 }}>
-                <MaterialButton
+                <Button
                   variant="outlined"
                   size="small"
                   onClick={handleSaveChanges}
@@ -132,7 +132,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
                   fullWidth
                 >
                   Save Favorite Routes ({favoriteRoutes.length})
-                </MaterialButton>
+                </Button>
               </Box>
             )}
           </Box>
@@ -205,7 +205,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
             {/* Save button for available routes section */}
             {hasChanges && (
               <Box sx={{ mt: 2 }}>
-                <MaterialButton
+                <Button
                   variant="outlined"
                   size="small"
                   onClick={handleSaveChanges}
@@ -213,7 +213,7 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
                   fullWidth
                 >
                   Save Changes ({selectedRoutes.length} total selected)
-                </MaterialButton>
+                </Button>
               </Box>
             )}
           </Box>
@@ -236,4 +236,4 @@ export const MaterialFavoriteBusManager: React.FC<MaterialFavoriteBusManagerProp
   );
 };
 
-export default MaterialFavoriteBusManager;
+export default FavoriteBusManager;

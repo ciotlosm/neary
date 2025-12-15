@@ -1,2 +1,2 @@
-export { MaterialSettings } from './MaterialSettings';
-export { SimplifiedCacheManager } from './SimplifiedCacheManager';
+export { Settings } from './Settings';
+export { CacheManagerPanel } from './CacheManagerPanel';

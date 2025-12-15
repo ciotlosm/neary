@@ -1,8 +1,8 @@
-import { enhancedTranzyApi } from './enhancedTranzyApi';
+import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
 import { routeMappingService } from './routeMappingService';
-import { vehicleCacheService } from './vehicleCacheService';
-import { logger } from '../utils/loggerFixed';
+import { liveVehicleService } from './liveVehicleService';
+import { logger } from '../utils/logger';
 
 export interface BusStopInfo {
   id: string;
@@ -467,9 +467,9 @@ class FavoriteBusService {
       let vehiclesByRoute: Map<string, any[]>;
       
       try {
-        vehiclesByRoute = await vehicleCacheService.getVehiclesForRoutes(agencyId, favoriteRouteIds);
+        vehiclesByRoute = await liveVehicleService.getVehiclesForRoutes(agencyId, favoriteRouteIds);
         
-        const cacheStats = vehicleCacheService.getCacheStats();
+        const cacheStats = liveVehicleService.getCacheStats();
         console.log('📊 VEHICLE CACHE STATS:', cacheStats);
         
         console.log('🔍 VEHICLES FOR FAVORITE ROUTES:', {

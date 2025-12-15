@@ -1,2 +1,2 @@
-export { TranzyApiServiceImpl, tranzyApiService, createTranzyApiService } from './tranzyApiService';
-export type { TranzyApiService } from '../types';
+export { TranzyApiService, tranzyApiService, createTranzyApiService, enhancedTranzyApi } from './tranzyApiService';
+export type { TranzyApiService as TranzyApiServiceInterface } from '../types';

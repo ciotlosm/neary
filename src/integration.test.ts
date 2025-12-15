@@ -113,7 +113,7 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Verify localStorage was called
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'bus-tracker-config',
+        'config',
         expect.stringContaining(mockConfig.city)
       );
     });
@@ -374,7 +374,7 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Verify localStorage calls for stores
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'bus-tracker-config',
+        'config',
         expect.stringContaining(mockConfig.city)
       );
       // Favorites store also persists via Zustand

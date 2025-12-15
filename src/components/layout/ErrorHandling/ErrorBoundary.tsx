@@ -1,7 +1,7 @@
 import React, { Component, type ReactNode } from 'react';
 import { ErrorDisplay } from './ErrorDisplay';
 import type { ErrorState } from '../../../types';
-import { logger } from '../../../utils/loggerFixed';
+import { logger } from '../../../utils/logger';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

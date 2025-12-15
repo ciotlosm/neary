@@ -1,5 +1,5 @@
-import { unifiedCache, CacheKeys } from './unifiedCache';
-import { logger } from '../utils/loggerFixed';
+import { cacheManager as unifiedCache, CacheKeys } from './cacheManager';
+import { logger } from '../utils/logger';
 import { useConfigStore } from '../stores/configStore';
 
 export interface TransitEstimate {
@@ -38,7 +38,7 @@ class GoogleTransitService {
   async calculateTransitTime(request: TransitRequest): Promise<TransitEstimate> {
     const cacheKey = this.getCacheKey(request);
     
-    return unifiedCache.get(
+    return unifiedCache.getLive(
       cacheKey,
       async () => {
         const apiKey = this.getApiKey();

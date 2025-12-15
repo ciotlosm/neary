@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { useFavoriteBusStore } from '../stores/favoriteBusStore';
 import { getUniqueRouteTypes } from '../utils/routeUtils';
-import { logger } from '../utils/loggerFixed';
+import { logger } from '../utils/logger';
 
 import type { FavoriteRoute } from '../types';
 

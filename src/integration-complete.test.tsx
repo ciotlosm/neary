@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { useConfigStore, useBusStore, useFavoritesStore, useLocationStore, useOfflineStore } from './stores';
-import { MaterialConfigurationManager } from './components/features/Configuration';
+import { ConfigurationManager } from './components/features/Configuration';
 import { BusDisplay } from './components/features/BusDisplay';
-import { MaterialSettings } from './components/features/Settings';
+import { Settings } from './components/features/Settings';
 import App from './AppMaterial';
 import type { UserConfig, BusInfo, ErrorState } from './types';
 
@@ -224,7 +224,7 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Step 6: Verify persistence
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'bus-tracker-config',
+        'config',
         expect.stringContaining(mockConfig.city)
       );
     });
@@ -550,7 +550,7 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Verify persistence
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'bus-tracker-config',
+        'config',
         expect.stringContaining('60000')
       );
     });
@@ -602,7 +602,7 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Verify API key is stored (would be encrypted in real implementation)
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'bus-tracker-config',
+        'config',
         expect.stringContaining(mockConfig.city)
       );
 

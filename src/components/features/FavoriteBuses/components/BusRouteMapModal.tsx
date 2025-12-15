@@ -12,9 +12,9 @@ import {
 import { Close } from '@mui/icons-material';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
-import { enhancedTranzyApi } from '../../../../services/enhancedTranzyApi';
+import { enhancedTranzyApi } from '../../../../services/tranzyApiService';
 import { agencyService } from '../../../../services/agencyService';
-import { logger } from '../../../../utils/loggerFixed';
+import { logger } from '../../../../utils/logger';
 import type { FavoriteBusInfo } from '../../../../services/favoriteBusService';
 
 // Import Leaflet CSS

@@ -1,2 +1,2 @@
-export { BusCard, InfoCard } from './MaterialCard';
-export { default as MaterialCard } from './MaterialCard';
+export { BusCard, InfoCard } from './Card';
+export { default as Card } from './Card';

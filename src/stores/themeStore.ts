@@ -29,7 +29,7 @@ export const useThemeStore = create<ThemeStore>()(
         set({ mode }),
     }),
     {
-      name: 'theme-store',
+      name: 'theme',
       storage: createJSONStorage(() => localStorage),
       // Only persist if user has manually changed theme
       partialize: (state) => ({ mode: state.mode }),

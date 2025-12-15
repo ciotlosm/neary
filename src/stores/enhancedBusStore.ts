@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ErrorState, EnhancedBusInfo } from '../types';
 import { useConfigStore } from './configStore';
-import { enhancedTranzyApi } from '../services/enhancedTranzyApi';
-import { logger } from '../utils/loggerFixed';
+import { enhancedTranzyApi } from '../services/tranzyApiService';
+import { logger } from '../utils/logger';
 
 export interface EnhancedBusStore {
   // Data
@@ -19,6 +19,8 @@ export interface EnhancedBusStore {
     totalEntries: number;
     totalSize: number;
     entriesByType: Record<string, number>;
+    entriesWithTimestamps: Record<string, { createdAt: number; updatedAt: number; age: number }>;
+    lastCacheUpdate: number;
     lastRefresh?: Date;
   };
   
@@ -60,6 +62,8 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
         totalEntries: 0,
         totalSize: 0,
         entriesByType: {},
+        entriesWithTimestamps: {},
+        lastCacheUpdate: 0,
       },
       isAutoRefreshEnabled: false,
 
@@ -315,6 +319,8 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
             totalEntries: 0,
             totalSize: 0,
             entriesByType: {},
+            entriesWithTimestamps: {},
+            lastCacheUpdate: 0,
           },
         });
         logger.info('Cache cleared from store', {}, 'BUS_STORE');
@@ -336,7 +342,7 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
       },
     }),
     {
-      name: 'enhanced-bus-tracker-store',
+      name: 'bus-store',
       storage: createJSONStorage(() => localStorage),
       // Only persist non-sensitive data
       partialize: (state) => ({

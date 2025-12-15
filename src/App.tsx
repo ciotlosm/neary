@@ -34,19 +34,19 @@ import {
   ErrorBoundary, 
   ErrorDisplay
 } from './components';
-import MaterialRefreshControl from './components/layout/Indicators/MaterialRefreshControl';
+import RefreshControl from './components/layout/Indicators/RefreshControl';
 
-import MaterialApiKeySetup from './components/features/Setup/MaterialApiKeySetup';
-import MaterialOfflineIndicator from './components/layout/Indicators/MaterialOfflineIndicator';
+import ApiKeySetup from './components/features/Setup/ApiKeySetup';
+import OfflineIndicator from './components/layout/Indicators/OfflineIndicator';
 import { useConfigStore, useOfflineStore, useAgencyStore } from './stores';
 import { useRefreshSystem } from './hooks/useRefreshSystem';
 import { useErrorHandler } from './hooks/useErrorHandler';
 
 import { useComponentLifecycle, logPerformanceMetrics } from './utils/performance';
-import { logger } from './utils/loggerFixed';
+import { logger } from './utils/logger';
 import { DebugPanel } from './components/features/Debug/DebugPanel';
-import MaterialFavoriteBusDisplay from './components/features/FavoriteBuses/MaterialFavoriteBusDisplay';
-import MaterialFavoriteBusManager from './components/features/FavoriteBuses/MaterialFavoriteBusManager';
+import FavoriteBusDisplay from './components/features/FavoriteBuses/FavoriteBusDisplay';
+import FavoriteBusManager from './components/features/FavoriteBuses/FavoriteBusManager';
 import UpdateNotification from './components/layout/UpdateNotification';
 import { useFavoriteBusStore } from './stores/favoriteBusStore';
 import { initializeServiceWorker } from './utils/serviceWorkerManager';
@@ -54,7 +54,7 @@ import { initializeServiceWorker } from './utils/serviceWorkerManager';
 
 
 // Import Settings component directly to avoid lazy loading issues
-import Settings from './components/features/Settings/MaterialSettings';
+import Settings from './components/features/Settings/Settings';
 
 
 
@@ -106,7 +106,7 @@ const MaterialHeader: React.FC<{
         {/* Manual Refresh Button */}
         {showRefresh && (
           <Box sx={{ ml: 1 }}>
-            <MaterialRefreshControl />
+            <RefreshControl />
           </Box>
         )}
       </Toolbar>
@@ -324,8 +324,8 @@ function AppMaterial() {
   if (!isConfigured) {
     return (
       <ErrorBoundary>
-        <MaterialApiKeySetup onApiKeyValidated={() => {
-          logger.info('API key validated, user can now access the app');
+        <ApiKeySetup onApiKeyValidated={(apiKey) => {
+          logger.info('API key validated, user can now access the app', { keyLength: apiKey.length });
         }} />
       </ErrorBoundary>
     );
@@ -450,12 +450,12 @@ function AppMaterial() {
           <Box sx={{ space: 3 }}>
             {/* Offline Indicator */}
             <Box sx={{ mb: 2 }}>
-              <MaterialOfflineIndicator />
+              <OfflineIndicator />
             </Box>
             
             {/* Favorite Buses */}
             <Box sx={{ mb: 3 }}>
-              <MaterialFavoriteBusDisplay />
+              <FavoriteBusDisplay />
             </Box>
           </Box>
         );
@@ -499,7 +499,7 @@ function AppMaterial() {
           );
         }
 
-        return <MaterialFavoriteBusManager />;
+        return <FavoriteBusManager />;
 
       case 'settings':
         return (

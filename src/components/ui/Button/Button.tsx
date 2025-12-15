@@ -3,7 +3,7 @@ import { Button as MuiButton, CircularProgress } from '@mui/material';
 import type { ButtonProps as MuiButtonProps } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
-interface MaterialButtonProps extends Omit<MuiButtonProps, 'variant'> {
+interface ButtonProps extends Omit<MuiButtonProps, 'variant'> {
   variant?: 'filled' | 'outlined' | 'text' | 'tonal';
   loading?: boolean;
   icon?: React.ReactNode;
@@ -61,7 +61,7 @@ const StyledButton = styled(MuiButton, {
   }),
 }));
 
-export const MaterialButton: React.FC<MaterialButtonProps> = ({
+export const Button: React.FC<ButtonProps> = ({
   variant = 'filled',
   loading = false,
   icon,
@@ -86,4 +86,4 @@ export const MaterialButton: React.FC<MaterialButtonProps> = ({
   );
 };
 
-export default MaterialButton;
+export default Button;

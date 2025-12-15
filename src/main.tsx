@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
 import './index.css'
-import App from './AppMaterial.tsx'
+import App from './App.tsx'
 import { getTheme } from './theme/materialTheme'
 import { useThemeStore } from './stores/themeStore'
-import { logger } from './utils/loggerFixed'
+import { logger } from './utils/logger'
 
 // Initialize logging
 logger.info('Application starting', { 

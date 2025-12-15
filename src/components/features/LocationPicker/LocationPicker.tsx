@@ -18,7 +18,7 @@ import {
   Business as WorkIcon,
 } from '@mui/icons-material';
 
-import { MaterialButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { useLocationPicker } from '../../../hooks/useLocationPicker';
 import {
   CurrentLocationSection,
@@ -28,7 +28,7 @@ import {
 } from './components';
 import type { Coordinates } from '../../../types';
 
-interface MaterialLocationPickerProps {
+interface LocationPickerProps {
   open: boolean;
   onClose: () => void;
   onLocationSelected: (location: Coordinates) => void;
@@ -37,7 +37,7 @@ interface MaterialLocationPickerProps {
   currentLocation?: Coordinates;
 }
 
-export const MaterialLocationPicker: React.FC<MaterialLocationPickerProps> = ({
+export const LocationPicker: React.FC<LocationPickerProps> = ({
   open,
   onClose,
   onLocationSelected,
@@ -132,7 +132,7 @@ export const MaterialLocationPicker: React.FC<MaterialLocationPickerProps> = ({
               Choose on Map
             </Typography>
             
-            <MaterialButton
+            <Button
               variant="outlined"
               fullWidth
               onClick={() => setShowMap(!showMap)}
@@ -140,7 +140,7 @@ export const MaterialLocationPicker: React.FC<MaterialLocationPickerProps> = ({
               sx={{ py: 1.5, mb: 2 }}
             >
               {showMap ? 'Hide Map' : 'Show Map'}
-            </MaterialButton>
+            </Button>
             
             {showMap && (
               <LocationPickerMap
@@ -175,14 +175,14 @@ export const MaterialLocationPicker: React.FC<MaterialLocationPickerProps> = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 3, pt: 1 }}>
-        <MaterialButton
+        <Button
           variant="outlined"
           onClick={onClose}
           sx={{ mr: 1 }}
         >
           Cancel
-        </MaterialButton>
-        <MaterialButton
+        </Button>
+        <Button
           variant="filled"
           onClick={() => {
             if (selectedLocation) {
@@ -192,10 +192,10 @@ export const MaterialLocationPicker: React.FC<MaterialLocationPickerProps> = ({
           disabled={!selectedLocation}
         >
           Set {type === 'home' ? 'Home' : 'Work'} Location
-        </MaterialButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default MaterialLocationPicker;
+export default LocationPicker;

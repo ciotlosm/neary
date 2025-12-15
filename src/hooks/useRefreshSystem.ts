@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useEnhancedBusStore } from '../stores/enhancedBusStore';
 import { useConfigStore } from '../stores/configStore';
 import { useDebounceCallback } from '../utils/debounce';
-import { logger } from '../utils/loggerFixed';
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook to manage the real-time refresh system

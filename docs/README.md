@@ -28,6 +28,7 @@ docs/
 - System architecture documentation
 - Code organization patterns
 - Legacy component analysis
+- **Cache Refresh System** - Real-time data updates with UI feedback
 
 ### **Design** (`docs/design/`)
 - Material Design implementation

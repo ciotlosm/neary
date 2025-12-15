@@ -1,4 +1,4 @@
-export { MaterialConfigurationManager } from './MaterialConfigurationManager';
+export { ConfigurationManager } from './ConfigurationManager';
 
 // Section exports
 export { ApiKeySection } from './sections/ApiKeySection';

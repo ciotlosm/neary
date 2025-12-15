@@ -1,6 +1,6 @@
-import { enhancedTranzyApi } from './enhancedTranzyApi';
+import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
-import { logger } from '../utils/loggerFixed';
+import { logger } from '../utils/logger';
 
 export interface RouteMapping {
   routeShortName: string; // What users see: "42", "43B", etc.

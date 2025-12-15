@@ -1,5 +1,4 @@
-// Fixed logging system - bypassing cached module
-console.log('🔧 NEW LOGGER MODULE LOADED - CACHE BYPASS');
+// Logging system for Cluj Bus App
 
 export const LogLevel = {
   DEBUG: 0,
@@ -26,6 +25,10 @@ class FixedLogger {
   private maxLogs = 1000;
   private sessionId: string;
   private currentLogLevel: LogLevel = LogLevel.INFO;
+  
+  // Message consolidation for spam prevention
+  private messageCounters = new Map<string, { count: number; lastLogged: number; data: any[] }>();
+  private consolidationInterval = 5000; // 5 seconds
 
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -79,9 +82,77 @@ class FixedLogger {
     }
   }
 
+  private shouldConsolidate(message: string, data?: any): boolean {
+    const key = message;
+    const now = Date.now();
+    const counter = this.messageCounters.get(key);
+
+    if (!counter) {
+      // First occurrence - log it and start tracking
+      this.messageCounters.set(key, { count: 1, lastLogged: now, data: data ? [data] : [] });
+      return false;
+    }
+
+    // Increment counter and collect data
+    counter.count++;
+    if (data) {
+      counter.data.push(data);
+    }
+
+    // Check if enough time has passed to log consolidated message
+    if (now - counter.lastLogged >= this.consolidationInterval) {
+      // Log consolidated message
+      const consolidatedMessage = `${message} (${counter.count} occurrences in last ${this.consolidationInterval/1000}s)`;
+      const consolidatedData = counter.data.length > 0 ? {
+        totalOccurrences: counter.count,
+        sampleData: counter.data.slice(0, 5), // Show first 5 examples
+        totalDataPoints: counter.data.length
+      } : { totalOccurrences: counter.count };
+
+      // Reset counter
+      this.messageCounters.set(key, { count: 0, lastLogged: now, data: [] });
+      
+      // Output consolidated message
+      this.addLog({
+        timestamp: new Date(),
+        level: LogLevel.INFO,
+        category: 'CONSOLIDATED',
+        message: consolidatedMessage,
+        data: consolidatedData,
+        userId: 'SYSTEM',
+        sessionId: this.sessionId,
+      });
+
+      return true; // Indicates we logged a consolidated message
+    }
+
+    return true; // Suppress this individual message
+  }
+
   debug(message: string, data?: any, category = 'APP'): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
     
+    this.addLog({
+      timestamp: new Date(),
+      level: LogLevel.DEBUG,
+      category,
+      message,
+      data,
+      userId: 'SYSTEM',
+      sessionId: this.sessionId,
+    });
+  }
+
+  // Consolidated debug logging for repetitive messages
+  debugConsolidated(message: string, data?: any, category = 'APP'): void {
+    if (!this.shouldLog(LogLevel.DEBUG)) return;
+    
+    // Check if this message should be consolidated
+    if (this.shouldConsolidate(message, data)) {
+      return; // Message was either consolidated or suppressed
+    }
+
+    // Log the first occurrence normally
     this.addLog({
       timestamp: new Date(),
       level: LogLevel.DEBUG,

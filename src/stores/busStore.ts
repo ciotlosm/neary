@@ -5,8 +5,8 @@ import { useConfigStore } from './configStore';
 import { useLocationStore } from './locationStore';
 import { useOfflineStore } from './offlineStore';
 import { withRetry, isRetryableError, RetryError } from '../utils/retryUtils';
-import { unifiedCache, CacheKeys } from '../services/unifiedCache';
-import { logger } from '../utils/loggerFixed';
+import { cacheManager as unifiedCache, CacheKeys } from '../services/cacheManager';
+import { logger } from '../utils/logger';
 
 // Global refresh interval management
 let refreshIntervalId: number | null = null;
@@ -48,7 +48,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
 
       try {
         // Use unified cache with automatic stale data fallback
-        buses = await unifiedCache.get(
+        buses = await unifiedCache.getLive(
           CacheKeys.busInfo(config.city),
           async () => {
             // Fetch fresh data with retry
@@ -127,10 +127,18 @@ export const useBusStore = create<BusStore>((set, get) => ({
         set({ buses });
       }
       
+      const now = new Date();
       set({
-        lastUpdate: new Date(),
+        lastUpdate: now,
         isLoading: false,
       });
+
+      // Trigger additional cache events for UI refresh indicators
+      // This ensures all UI components get notified of the data update
+      if (config) {
+        unifiedCache.set(CacheKeys.vehicles(2), buses); // Trigger vehicle cache event
+        unifiedCache.set(`busStore:lastUpdate:${config.city}`, now); // Trigger general update event
+      }
     } catch (error) {
       // Final fallback error handling
       const errorState: ErrorState = {

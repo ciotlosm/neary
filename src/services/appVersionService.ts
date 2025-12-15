@@ -1,4 +1,4 @@
-import { logger } from '../utils/loggerFixed';
+import { logger } from '../utils/logger';
 
 export interface VersionInfo {
   current: string;

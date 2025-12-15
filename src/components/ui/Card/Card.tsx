@@ -22,6 +22,7 @@ import {
   CloudOff as OfflineIcon,
   Schedule as StaleIcon,
 } from '@mui/icons-material';
+import { AutoRefreshIndicator } from '../RefreshIndicator';
 
 interface BusCardProps {
   routeId: string;
@@ -45,6 +46,7 @@ interface BusCardProps {
     lastUpdate?: Date;
   };
   children?: React.ReactNode;
+  cacheKeys?: string | string[]; // Cache keys to monitor for refresh indicators
 }
 
 export const BusCard: React.FC<BusCardProps> = ({
@@ -61,6 +63,7 @@ export const BusCard: React.FC<BusCardProps> = ({
   customContent,
   arrivalStatus,
   children,
+  cacheKeys,
 }) => {
   const theme = useTheme();
   
@@ -86,7 +89,7 @@ export const BusCard: React.FC<BusCardProps> = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  return (
+  const cardContent = (
     <Card
       sx={{
         mb: 1.5,
@@ -297,6 +300,17 @@ export const BusCard: React.FC<BusCardProps> = ({
       </CardContent>
     </Card>
   );
+
+  // Wrap with refresh indicator if cache keys are provided
+  if (cacheKeys) {
+    return (
+      <AutoRefreshIndicator cacheKeys={cacheKeys} position="top-right">
+        {cardContent}
+      </AutoRefreshIndicator>
+    );
+  }
+
+  return cardContent;
 };
 
 interface InfoCardProps {

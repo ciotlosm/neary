@@ -18,20 +18,20 @@ import {
 } from '@mui/icons-material';
 
 import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
-import { MaterialButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
-import MaterialLocationPicker from '../LocationPicker/MaterialLocationPicker';
+import LocationPicker from '../LocationPicker/LocationPicker';
 import { ApiKeySection } from './sections/ApiKeySection';
 import { CitySelectionSection } from './sections/CitySelectionSection';
 import { LocationSettingsSection } from './sections/LocationSettingsSection';
 import { AdvancedSettingsSection } from './sections/AdvancedSettingsSection';
 import { GoogleMapsApiKeySection } from './sections/GoogleMapsApiKeySection';
 
-interface MaterialConfigurationManagerProps {
+interface ConfigurationManagerProps {
   onConfigComplete?: () => void;
 }
 
-export const MaterialConfigurationManager: React.FC<MaterialConfigurationManagerProps> = ({
+export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
   onConfigComplete,
 }) => {
   const theme = useTheme();
@@ -127,7 +127,7 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
 
         {/* Save Button */}
         <CardActions sx={{ px: 0, pt: 2 }}>
-          <MaterialButton
+          <Button
             variant="filled"
             size="large"
             fullWidth
@@ -137,7 +137,7 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
             sx={{ py: 1.5 }}
           >
             {isConfigured ? 'Update Configuration' : 'Save Configuration'}
-          </MaterialButton>
+          </Button>
         </CardActions>
 
         {/* Status Information */}
@@ -150,7 +150,7 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
         )}
 
         {/* Location Picker Dialog */}
-        <MaterialLocationPicker
+        <LocationPicker
           open={locationPickerOpen}
           onClose={() => setLocationPickerOpen(false)}
           onLocationSelected={handleLocationSelected}
@@ -163,4 +163,4 @@ export const MaterialConfigurationManager: React.FC<MaterialConfigurationManager
   );
 };
 
-export default MaterialConfigurationManager;
+export default ConfigurationManager;

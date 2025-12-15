@@ -1,4 +1,3 @@
-export { MaterialApiKeySetup } from './MaterialApiKeySetup';
 export { ApiKeySetup } from './ApiKeySetup';
 export { ApiKeyOnlySetup } from './ApiKeyOnlySetup';
 export { SetupWizard } from './SetupWizard';

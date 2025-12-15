@@ -1,7 +1,7 @@
 import React from 'react';
 import { Typography, Alert } from '@mui/material';
 import { MyLocation as MyLocationIcon } from '@mui/icons-material';
-import { MaterialButton } from '../../../ui/Button';
+import { Button } from '../../../ui/Button';
 
 interface CurrentLocationSectionProps {
   onUseCurrentLocation: () => Promise<void>;
@@ -34,7 +34,7 @@ export const CurrentLocationSection: React.FC<CurrentLocationSectionProps> = ({
         </Alert>
       )}
       
-      <MaterialButton
+      <Button
         variant="outlined"
         fullWidth
         onClick={onUseCurrentLocation}
@@ -44,7 +44,7 @@ export const CurrentLocationSection: React.FC<CurrentLocationSectionProps> = ({
         sx={{ py: 1.5 }}
       >
         {isGettingLocation ? 'Getting Location...' : 'Use My Current Location'}
-      </MaterialButton>
+      </Button>
     </>
   );
 };

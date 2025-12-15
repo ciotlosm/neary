@@ -11,11 +11,11 @@ import { InfoCard } from '../../ui/Card';
 import { GroupedFavoriteBusDisplay } from './components/GroupedFavoriteBusDisplay';
 import { EmptyStates } from './components/EmptyStates';
 
-interface MaterialFavoriteBusDisplayProps {
+interface FavoriteBusDisplayProps {
   className?: string;
 }
 
-export const MaterialFavoriteBusDisplay: React.FC<MaterialFavoriteBusDisplayProps> = ({ className }) => {
+export const FavoriteBusDisplay: React.FC<FavoriteBusDisplayProps> = ({ className }) => {
   const {
     // Data
     favoriteBusResult,
@@ -71,4 +71,4 @@ export const MaterialFavoriteBusDisplay: React.FC<MaterialFavoriteBusDisplayProp
   );
 };
 
-export default MaterialFavoriteBusDisplay;
+export default FavoriteBusDisplay;

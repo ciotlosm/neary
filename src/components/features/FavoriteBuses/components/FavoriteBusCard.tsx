@@ -21,6 +21,7 @@ import { SimplifiedRouteDisplay } from './SimplifiedRouteDisplay';
 import { useConfigStore } from '../../../../stores/configStore';
 import { useLocationStore } from '../../../../stores/locationStore';
 import { googleTransitService } from '../../../../services/googleTransitService';
+import { CacheKeys } from '../../../../services/cacheManager';
 import type { FavoriteBusInfo } from '../../../../services/favoriteBusService';
 
 interface FavoriteBusCardProps {
@@ -223,6 +224,13 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
 
   const arrivalStatus = getArrivalStatus();
 
+  // Generate cache keys for this bus card
+  const cacheKeys = config ? [
+    CacheKeys.busInfo(config.city),
+    CacheKeys.vehicles(2), // CTP Cluj agency ID
+    ...(bus.routeName ? [CacheKeys.routeVehicles(2, bus.routeName)] : [])
+  ] : [];
+
   return (
     <Box sx={{ position: 'relative' }}>
       <BusCard
@@ -237,6 +245,7 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
         }}
         onMapClick={() => setShowMap(true)}
         arrivalStatus={arrivalStatus}
+        cacheKeys={cacheKeys}
         customContent={
           <Box>
             {/* Route display - either simplified or expanded */}

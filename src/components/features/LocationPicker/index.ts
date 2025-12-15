@@ -1,4 +1,4 @@
-export { MaterialLocationPicker } from './MaterialLocationPicker';
+export { LocationPicker } from './LocationPicker';
 
 // Component exports
 export { CurrentLocationSection } from './components/CurrentLocationSection';

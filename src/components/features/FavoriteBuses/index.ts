@@ -1,5 +1,5 @@
-export { MaterialFavoriteBusDisplay } from './MaterialFavoriteBusDisplay';
-export { MaterialFavoriteBusManager } from './MaterialFavoriteBusManager';
+export { FavoriteBusDisplay } from './FavoriteBusDisplay';
+export { FavoriteBusManager } from './FavoriteBusManager';
 
 // Component exports
 export { FavoriteBusCard } from './components/FavoriteBusCard';

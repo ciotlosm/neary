@@ -13,7 +13,7 @@ import {
   Home as HomeIcon,
   Business as WorkIcon,
 } from '@mui/icons-material';
-import { MaterialButton } from '../../../ui/Button';
+import { Button } from '../../../ui/Button';
 type Coordinates = { latitude: number; longitude: number; };
 
 interface LocationSettingsSectionProps {
@@ -62,13 +62,13 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                   />
                 )}
               </Stack>
-              <MaterialButton
+              <Button
                 variant="outlined"
                 fullWidth
                 onClick={() => onLocationPicker('home')}
               >
                 {homeLocation ? 'Change Home' : 'Set Home Location'}
-              </MaterialButton>
+              </Button>
               {homeLocation && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.75rem' }}>
                   {formatLocationDisplay(homeLocation)}
@@ -91,13 +91,13 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                   />
                 )}
               </Stack>
-              <MaterialButton
+              <Button
                 variant="outlined"
                 fullWidth
                 onClick={() => onLocationPicker('work')}
               >
                 {workLocation ? 'Change Work' : 'Set Work Location'}
-              </MaterialButton>
+              </Button>
               {workLocation && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.75rem' }}>
                   {formatLocationDisplay(workLocation)}

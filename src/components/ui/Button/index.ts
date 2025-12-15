@@ -1,1 +1,1 @@
-export { MaterialButton } from './MaterialButton';
+export { Button } from './Button';

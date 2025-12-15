@@ -1,5 +1,5 @@
 import React from 'react';
-import { MaterialButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 
 interface WelcomeScreenProps {
   onGetStarted: () => void;
@@ -62,7 +62,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) =>
         </div>
 
         {/* Get Started Button */}
-        <MaterialButton
+        <Button
           onClick={onGetStarted}
           variant="filled"
           size="large"
@@ -75,7 +75,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) =>
           }}
         >
           Get Started
-        </MaterialButton>
+        </Button>
 
         <p className="text-blue-200 text-xs mt-4">
           Powered by Tranzy.ai • Made with ❤️

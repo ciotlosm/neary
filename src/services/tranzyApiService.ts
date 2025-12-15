@@ -1,74 +1,42 @@
-import axios, { AxiosError } from 'axios';
-import type { AxiosInstance, AxiosResponse } from 'axios';
-import type { BusInfo, Station, Agency, TranzyApiService, ErrorState } from '../types';
-import { useOfflineStore } from '../stores/offlineStore';
-import { logger } from '../utils/loggerFixed';
+import axios from 'axios';
+import type { AxiosInstance } from 'axios';
+import type { 
+  TranzyAgencyResponse,
+  TranzyRouteResponse,
+  TranzyTripResponse,
+  TranzyStopResponse,
+  TranzyStopTimeResponse,
+  TranzyVehicleResponse,
+  Route,
+  Trip,
+  StopTime,
+  LiveVehicle,
+  EnhancedBusInfo
+} from '../types/tranzyApi';
+import type { Agency, Station, BusInfo, TranzyApiService as ITranzyApiService } from '../types';
+import { cacheManager as dataCacheManager, CACHE_CONFIGS } from './cacheManager';
+import { logger } from '../utils/logger';
 
-
-// Tranzy API response interfaces based on GTFS specification
-interface TranzyAgencyResponse {
-  agency_id: number;
-  agency_name: string;
-  agency_url?: string;
-  agency_timezone?: string;
-  agency_lang?: string;
-  agency_urls?: string[];
-}
-
-interface TranzyVehicleResponse {
-  id: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  vehicle_type: number;
-  bike_accessible: 'BIKE_INACCESSIBLE' | 'BIKE_ACCESSIBLE' | 'UNKNOWN';
-  wheelchair_accessible: 'NO_VALUE' | 'UNKNOWN' | 'WHEELCHAIR_ACCESSIBLE' | 'WHEELCHAIR_INACCESSIBLE';
-  speed: number;
-  route_id: number;
-  trip_id?: string;
-}
-
-interface TranzyStopResponse {
-  stop_id: number;
-  stop_name: string;
-  stop_desc?: string;
-  stop_lat: number;
-  stop_lon: number;
-  location_type?: number;
-  stop_code?: string;
-}
-
-// Removed unused TranzyRouteResponse interface
-
-export class TranzyApiServiceImpl implements TranzyApiService {
+export class TranzyApiService {
   private axiosInstance: AxiosInstance;
   private apiKey: string | null = null;
   private baseUrl = import.meta.env.DEV ? '/api/tranzy/v1' : 'https://api.tranzy.ai/v1';
   
-  // Request tracking to prevent excessive calls
+  // Request debouncing from legacy service
   private lastRequestTimes: Map<string, number> = new Map();
   private readonly REQUEST_DEBOUNCE_MS = 500;
 
-  constructor(customAxiosInstance?: AxiosInstance) {
-    if (customAxiosInstance) {
-      this.axiosInstance = customAxiosInstance;
-    } else {
-      // Use proxy in development, direct API in production
-      const baseURL = import.meta.env.DEV ? '/api/tranzy/v1' : 'https://api.tranzy.ai/v1';
-      
-      this.axiosInstance = axios.create({
-        baseURL,
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('🔧 API Service initialized with baseURL:', baseURL);
-    }
+  constructor() {
+    this.axiosInstance = axios.create({
+      baseURL: this.baseUrl,
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     this.setupInterceptors();
+    logger.info('Tranzy API Service initialized', { baseUrl: this.baseUrl }, 'API');
   }
 
   private shouldAllowRequest(key: string): boolean {
@@ -84,119 +52,790 @@ export class TranzyApiServiceImpl implements TranzyApiService {
   }
 
   private setupInterceptors(): void {
-    // Safety check for testing
-    if (!this.axiosInstance || !this.axiosInstance.interceptors) {
-      return;
-    }
-    
-    // Request interceptor for authentication
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        logger.apiRequest(config.url || 'unknown', config.method?.toUpperCase() || 'GET', {
-          hasApiKey: !!this.apiKey,
-          timeout: config.timeout,
-        });
-        
         if (this.apiKey) {
           config.headers.Authorization = `Bearer ${this.apiKey}`;
           config.headers['X-API-Key'] = this.apiKey;
           config.headers['X-Agency-Id'] = '2'; // CTP Cluj agency ID
+          logger.debug('API request with auth headers', {
+            url: config.url,
+            hasAuth: !!config.headers.Authorization,
+            hasApiKey: !!config.headers['X-API-Key'],
+            hasAgencyId: !!config.headers['X-Agency-Id'],
+            keyLength: this.apiKey.length
+          }, 'API');
+        } else {
+          logger.warn('API request without authentication', { url: config.url }, 'API');
         }
         return config;
       },
-      (error) => {
-        logger.apiError('request-setup', error);
-        return Promise.reject(this.createErrorState('network', 'Request setup failed', error));
-      }
+      (error) => Promise.reject(error)
     );
 
-    // Response interceptor for error handling and offline detection
     this.axiosInstance.interceptors.response.use(
-      (response: AxiosResponse) => {
-        logger.apiResponse(response.config.url || 'unknown', response.status, {
-          fromCache: response.headers['sw-from-cache'] === 'true',
-          cachedAt: response.headers['sw-cached-at'],
-          dataSize: JSON.stringify(response.data).length,
-        });
-        
-        // Check if response came from service worker cache
-        const fromCache = response.headers['sw-from-cache'] === 'true';
-        const cachedAt = response.headers['sw-cached-at'];
-        
-        if (fromCache && cachedAt) {
-          logger.info('Using cached API response', { url: response.config.url, cachedAt }, 'API');
-          // Update offline store to indicate we're using cached data
-          const offlineStore = useOfflineStore.getState();
-          offlineStore.setUsingCachedData(true, new Date(cachedAt));
-        } else {
-          logger.debug('Fresh API response received', { url: response.config.url }, 'API');
-          // Fresh data received, clear cached data flag
-          const offlineStore = useOfflineStore.getState();
-          offlineStore.setUsingCachedData(false);
-        }
-        
-        return response;
-      },
-      (error: AxiosError) => {
-        const url = error.config?.url || 'unknown';
-        const status = error.response?.status || 0;
-        
-        logger.apiResponse(url, status, {
-          error: error.message,
-          code: error.code,
-          responseData: error.response?.data,
-        });
-        
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          logger.warn('API authentication failed', { url, status }, 'API');
-          throw this.createErrorState('authentication', 'Invalid API key or unauthorized access', error);
-        }
-        
-        if (error.response?.status === 429) {
-          logger.warn('API rate limit exceeded', { url, status }, 'API');
-          throw this.createErrorState('network', 'Rate limit exceeded. Please try again later.', error);
-        }
-        
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          logger.warn('API request timeout', { url, timeout: error.config?.timeout }, 'API');
-          throw this.createErrorState('network', 'Request timeout. Please check your connection.', error);
-        }
-        
-        if (!error.response) {
-          logger.error('Network error - no response', { url, error: error.message }, 'API');
-          throw this.createErrorState('network', 'Network error. Please check your internet connection.', error);
-        }
-        
-        logger.error('API request failed', { url, status, error: error.message }, 'API');
-        throw this.createErrorState('network', `API request failed: ${error.response.status}`, error);
+      (response) => response,
+      (error) => {
+        logger.error('API request failed', {
+          url: error.config?.url,
+          status: error.response?.status,
+          message: error.message,
+        }, 'API');
+        return Promise.reject(error);
       }
     );
   }
 
-  private createErrorState(type: ErrorState['type'], message: string, _originalError?: any): ErrorState {
-    return {
-      type,
-      message,
-      timestamp: new Date(),
-      retryable: type === 'network' || type === 'authentication',
-    };
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
+    logger.debug('API key updated', { hasKey: !!apiKey }, 'API');
   }
 
-  public setApiKey(apiKey: string): void {
-    this.apiKey = apiKey;
+  /**
+   * Get agencies with caching
+   */
+  async getAgencies(forceRefresh = false): Promise<Agency[]> {
+    const cacheKey = 'agencies:all';
+    const fetcher = async () => {
+      const response = await this.axiosInstance.get<TranzyAgencyResponse[]>('/opendata/agency');
+      return this.transformAgencies(response.data);
+    };
+
+    const data = forceRefresh
+      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.agencies)
+      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.agencies);
+
+    return data;
+  }
+
+  /**
+   * Get routes for an agency with caching
+   */
+  async getRoutes(agencyId: number, forceRefresh = false): Promise<Route[]> {
+    const cacheKey = `routes:agency:${agencyId}`;
+    const fetcher = async () => {
+      const response = await this.axiosInstance.get<TranzyRouteResponse[]>('/opendata/routes', {
+        headers: { 'X-Agency-Id': agencyId },
+      });
+      return this.transformRoutes(response.data);
+    };
+
+    const data = forceRefresh
+      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.routes)
+      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+
+    return data;
+  }
+
+  /**
+   * Get stops for an agency with caching
+   */
+  async getStops(agencyId: number, forceRefresh = false): Promise<Station[]> {
+    const cacheKey = `stops:agency:${agencyId}`;
+    const fetcher = async () => {
+      const response = await this.axiosInstance.get<TranzyStopResponse[]>('/opendata/stops', {
+        headers: { 'X-Agency-Id': agencyId },
+      });
+      return this.transformStops(response.data);
+    };
+
+    const data = forceRefresh
+      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stops)
+      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stops);
+
+    return data;
+  }
+
+  /**
+   * Get trips for a route with caching
+   */
+  async getTrips(agencyId: number, routeId?: number, forceRefresh = false): Promise<Trip[]> {
+    const cacheKey = routeId 
+      ? `trips:agency:${agencyId}:route:${routeId}`
+      : `trips:agency:${agencyId}`;
+    
+    const fetcher = async () => {
+      const params: any = {};
+      if (routeId) params.route_id = routeId;
+      
+      const response = await this.axiosInstance.get<TranzyTripResponse[]>('/opendata/trips', {
+        headers: { 'X-Agency-Id': agencyId },
+        params,
+      });
+      return this.transformTrips(response.data);
+    };
+
+    const data = forceRefresh
+      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.schedules)
+      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.schedules);
+
+    return data;
+  }
+
+  /**
+   * Get stop times (schedule) with caching
+   */
+  async getStopTimes(agencyId: number, stopId?: number, tripId?: string, forceRefresh = false): Promise<StopTime[]> {
+    const cacheKey = `stop_times:agency:${agencyId}${stopId ? `:stop:${stopId}` : ''}${tripId ? `:trip:${tripId}` : ''}`;
+    
+    const fetcher = async () => {
+      const params: any = {};
+      if (stopId) params.stop_id = stopId;
+      if (tripId) params.trip_id = tripId;
+      
+      const response = await this.axiosInstance.get<TranzyStopTimeResponse[]>('/opendata/stop_times', {
+        headers: { 'X-Agency-Id': agencyId },
+        params,
+      });
+      return this.transformStopTimes(response.data);
+    };
+
+    const data = forceRefresh
+      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stopTimes)
+      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stopTimes);
+
+    return data;
+  }
+
+  /**
+   * Get shapes for route paths with caching
+   */
+  async getShapes(agencyId: number, shapeId?: string, forceRefresh = false): Promise<any[]> {
+    const cacheKey = shapeId 
+      ? `shapes:agency:${agencyId}:shape:${shapeId}`
+      : `shapes:agency:${agencyId}`;
+    
+    const fetcher = async () => {
+      const params: any = {};
+      if (shapeId) params.shape_id = shapeId;
+      
+      const response = await this.axiosInstance.get<any[]>('/opendata/shapes', {
+        headers: { 'X-Agency-Id': agencyId },
+        params,
+      });
+      return this.transformShapes(response.data);
+    };
+
+    const data = await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+    return data;
+  }
+
+  /**
+   * Get live vehicles (always fresh, but cached for offline)
+   */
+  async getVehicles(agencyId: number, routeId?: number): Promise<LiveVehicle[]> {
+    const cacheKey = routeId 
+      ? `vehicles:agency:${agencyId}:route:${routeId}`
+      : `vehicles:agency:${agencyId}`;
+    
+    const fetcher = async () => {
+      const params: any = {};
+      if (routeId) params.route_id = routeId;
+      
+      const response = await this.axiosInstance.get<TranzyVehicleResponse[]>('/opendata/vehicles', {
+        headers: { 'X-Agency-Id': agencyId },
+        params,
+      });
+      return this.transformVehicles(response.data);
+    };
+
+    // Always try to get fresh vehicle data, but use cache as fallback
+    try {
+      const data = await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.vehicles);
+      return data;
+    } catch (error) {
+      logger.warn('Failed to get live vehicles, trying cache', { agencyId, routeId, error }, 'API');
+      throw error;
+    }
+  }
+
+  /**
+   * Get enhanced bus information combining schedule and live data
+   */
+  async getEnhancedBusInfo(
+    agencyId: number,
+    stopId?: number,
+    routeId?: number,
+    forceRefresh = false
+  ): Promise<EnhancedBusInfo[]> {
+    try {
+      // Get all required data in parallel
+      const [stops, routes, vehicles, stopTimes] = await Promise.allSettled([
+        this.getStops(agencyId, forceRefresh),
+        this.getRoutes(agencyId, forceRefresh),
+        this.getVehicles(agencyId, routeId),
+        stopId ? this.getStopTimes(agencyId, stopId, undefined, forceRefresh) : Promise.resolve([]),
+      ]);
+
+      const stopsData = stops.status === 'fulfilled' ? stops.value : [];
+      const routesData = routes.status === 'fulfilled' ? routes.value : [];
+      const vehiclesData = vehicles.status === 'fulfilled' ? vehicles.value : [];
+      const stopTimesData = stopTimes.status === 'fulfilled' ? stopTimes.value : [];
+
+      // Combine the data
+      return this.combineScheduleAndLiveData(
+        stopsData,
+        routesData,
+        vehiclesData,
+        stopTimesData,
+        stopId,
+        routeId
+      );
+    } catch (error) {
+      logger.error('Failed to get enhanced bus info', { agencyId, stopId, routeId, error }, 'API');
+      throw error;
+    }
+  }
+
+  /**
+   * Force refresh all cached data
+   */
+  async forceRefreshAll(agencyId: number): Promise<void> {
+    logger.info('Force refreshing all data', { agencyId }, 'API');
+    
+    try {
+      await Promise.allSettled([
+        this.getAgencies(true),
+        this.getRoutes(agencyId, true),
+        this.getStops(agencyId, true),
+        this.getTrips(agencyId, undefined, true),
+        this.getStopTimes(agencyId, undefined, undefined, true),
+      ]);
+      
+      logger.info('Force refresh completed', { agencyId }, 'API');
+    } catch (error) {
+      logger.error('Force refresh failed', { agencyId, error }, 'API');
+      throw error;
+    }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return dataCacheManager.getStats();
+  }
+
+  /**
+   * Clear all cached data
+   */
+  clearCache(): void {
+    dataCacheManager.clearAll();
+    logger.info('All cache cleared', {}, 'API');
+  }
+
+  // Transformation methods
+  private transformAgencies(data: TranzyAgencyResponse[]): Agency[] {
+    return data.map(agency => ({
+      id: agency.agency_id.toString(),
+      name: agency.agency_name,
+      country: 'Romania',
+      timezone: agency.agency_timezone,
+    }));
+  }
+
+  private transformRoutes(data: TranzyRouteResponse[]): Route[] {
+    return data.map(route => ({
+      id: route.route_id.toString(),
+      agencyId: route.agency_id.toString(),
+      shortName: route.route_short_name,
+      longName: route.route_long_name,
+      type: this.getRouteType(route.route_type),
+      color: route.route_color,
+      textColor: route.route_text_color,
+      url: route.route_url,
+    }));
+  }
+
+  private transformStops(data: TranzyStopResponse[]): Station[] {
+    return data.map(stop => ({
+      id: stop.stop_id.toString(),
+      name: stop.stop_name,
+      coordinates: {
+        latitude: stop.stop_lat,
+        longitude: stop.stop_lon,
+      },
+      isFavorite: false,
+    }));
+  }
+
+  private transformTrips(data: TranzyTripResponse[]): Trip[] {
+    return data.map(trip => ({
+      id: trip.trip_id,
+      routeId: trip.route_id.toString(),
+      serviceId: trip.service_id,
+      headsign: trip.trip_headsign,
+      shortName: trip.trip_short_name,
+      direction: trip.direction_id === 0 ? 'inbound' : 'outbound',
+      blockId: trip.block_id,
+      shapeId: trip.shape_id,
+      isWheelchairAccessible: trip.wheelchair_accessible === 1,
+      areBikesAllowed: trip.bikes_allowed === 1,
+    }));
+  }
+
+  private transformStopTimes(data: TranzyStopTimeResponse[]): StopTime[] {
+    return data.map(stopTime => ({
+      tripId: stopTime.trip_id,
+      stopId: stopTime.stop_id.toString(),
+      arrivalTime: stopTime.arrival_time,
+      departureTime: stopTime.departure_time,
+      sequence: stopTime.stop_sequence,
+      headsign: stopTime.stop_headsign,
+      isPickupAvailable: (stopTime.pickup_type || 0) === 0,
+      isDropOffAvailable: (stopTime.drop_off_type || 0) === 0,
+    }));
+  }
+
+  private transformVehicles(data: TranzyVehicleResponse[]): LiveVehicle[] {
+    return data
+      .filter(vehicle => 
+        vehicle.latitude != null && 
+        vehicle.longitude != null &&
+        vehicle.route_id != null
+      )
+      .map(vehicle => ({
+        id: vehicle.id,
+        routeId: vehicle.route_id.toString(),
+        tripId: vehicle.trip_id,
+        label: vehicle.label,
+        position: {
+          latitude: vehicle.latitude,
+          longitude: vehicle.longitude,
+          bearing: vehicle.bearing,
+        },
+        timestamp: vehicle.timestamp ? new Date(vehicle.timestamp) : new Date(),
+        speed: vehicle.speed,
+        occupancy: vehicle.occupancy_status,
+        isWheelchairAccessible: vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE',
+        isBikeAccessible: vehicle.bike_accessible === 'BIKE_ACCESSIBLE',
+      }));
+  }
+
+  private transformShapes(data: any[]): any[] {
+    return data
+      .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+      .map(shape => ({
+        id: shape.shape_id,
+        latitude: shape.shape_pt_lat,
+        longitude: shape.shape_pt_lon,
+        sequence: shape.shape_pt_sequence,
+        distanceTraveled: shape.shape_dist_traveled,
+      }));
+  }
+
+  private combineScheduleAndLiveData(
+    stops: Station[],
+    routes: Route[],
+    vehicles: LiveVehicle[],
+    stopTimes: StopTime[],
+    stopId?: number,
+    routeId?: number
+  ): EnhancedBusInfo[] {
+    const enhancedBuses: EnhancedBusInfo[] = [];
+    const now = new Date();
+
+    // Create a map for quick lookups
+    const stopsMap = new Map(stops.map(stop => [stop.id, stop]));
+    const routesMap = new Map(routes.map(route => [route.id, route]));
+
+    // Process live vehicles
+    for (const vehicle of vehicles) {
+      if (routeId && vehicle.routeId !== routeId.toString()) continue;
+
+      const route = routesMap.get(vehicle.routeId);
+      if (!route) continue;
+
+      // Find the closest stop for this vehicle using intelligent sequence logic
+      const closestStop = this.findClosestStop(vehicle.position, stops, vehicle, stopTimes);
+      if (!closestStop) continue;
+
+      // Skip if we're filtering by stop and this isn't it
+      if (stopId && closestStop.id !== stopId.toString()) continue;
+
+      // Find corresponding schedule data
+      const scheduleData = stopTimes.find(st => 
+        st.stopId === closestStop.id && 
+        st.tripId === vehicle.tripId
+      );
+
+      // Calculate arrival estimates
+      const estimatedArrival = this.calculateArrivalTime(vehicle, closestStop, scheduleData);
+      const minutesAway = Math.max(0, Math.round((estimatedArrival.getTime() - now.getTime()) / 60000));
+
+      enhancedBuses.push({
+        vehicle,
+        schedule: scheduleData ? {
+          stopId: scheduleData.stopId,
+          routeId: vehicle.routeId,
+          tripId: scheduleData.tripId,
+          direction: 'inbound', // This would need more logic to determine
+          headsign: scheduleData.headsign || route.longName,
+          scheduledTimes: [{
+            arrival: this.parseTimeToDate(scheduleData.arrivalTime),
+            departure: this.parseTimeToDate(scheduleData.departureTime),
+          }],
+        } : undefined,
+        id: vehicle.id,
+        route: route.shortName,
+        routeId: vehicle.routeId,
+        destination: route.longName,
+        direction: this.determineDirection(vehicle, closestStop), // Simplified
+        scheduledArrival: scheduleData ? this.parseTimeToDate(scheduleData.arrivalTime) : undefined,
+        liveArrival: estimatedArrival,
+        estimatedArrival,
+        minutesAway,
+        delay: scheduleData ? this.calculateDelay(scheduleData, estimatedArrival) : undefined,
+        isLive: true,
+        isScheduled: !!scheduleData,
+        confidence: this.calculateConfidence(vehicle, scheduleData),
+        station: {
+          id: closestStop.id,
+          name: closestStop.name,
+          coordinates: closestStop.coordinates,
+          isFavorite: closestStop.isFavorite,
+        },
+      });
+    }
+
+    // Add schedule-only data for stops without live vehicles
+    if (stopId) {
+      const relevantStopTimes = stopTimes.filter(st => st.stopId === stopId.toString());
+      
+      for (const stopTime of relevantStopTimes) {
+        // Skip if we already have live data for this trip
+        if (enhancedBuses.some(bus => bus.schedule?.tripId === stopTime.tripId)) continue;
+
+        const route = routesMap.get(stopTime.tripId.split('_')[0]); // Simplified route extraction
+        if (!route) continue;
+
+        const stop = stopsMap.get(stopTime.stopId);
+        if (!stop) continue;
+
+        const scheduledArrival = this.parseTimeToDate(stopTime.arrivalTime);
+        const minutesAway = Math.max(0, Math.round((scheduledArrival.getTime() - now.getTime()) / 60000));
+
+        enhancedBuses.push({
+          schedule: {
+            stopId: stopTime.stopId,
+            routeId: route.id,
+            tripId: stopTime.tripId,
+            direction: 'inbound',
+            headsign: stopTime.headsign || route.longName,
+            scheduledTimes: [{
+              arrival: scheduledArrival,
+              departure: this.parseTimeToDate(stopTime.departureTime),
+            }],
+          },
+          id: `schedule-${stopTime.tripId}-${stopTime.stopId}`,
+          route: route.shortName,
+          routeId: route.id,
+          destination: route.longName,
+          direction: 'unknown',
+          scheduledArrival,
+          estimatedArrival: scheduledArrival,
+          minutesAway,
+          isLive: false,
+          isScheduled: true,
+          confidence: 'medium',
+          station: {
+            id: stop.id,
+            name: stop.name,
+            coordinates: stop.coordinates,
+            isFavorite: stop.isFavorite,
+          },
+        });
+      }
+    }
+
+    return enhancedBuses.sort((a, b) => a.minutesAway - b.minutesAway);
+  }
+
+  private getRouteType(type: number): Route['type'] {
+    switch (type) {
+      case 0: return 'tram';
+      case 1: return 'metro';
+      case 2: return 'rail';
+      case 3: return 'bus';
+      case 4: return 'ferry';
+      case 11: return 'trolleybus';
+      default: return 'other';
+    }
+  }
+
+  private findClosestStop(
+    position: { latitude: number; longitude: number }, 
+    stops: Station[], 
+    vehicle?: LiveVehicle,
+    stopTimes?: StopTime[]
+  ): Station | null {
+    // If we have trip information, use intelligent stop sequence logic
+    if (vehicle?.tripId && stopTimes) {
+      return this.findNextStopInSequence(position, vehicle.tripId, stops, stopTimes);
+    }
+
+    // Fallback to simple distance-based logic
+    let closest: Station | null = null;
+    let minDistance = Infinity;
+
+    for (const stop of stops) {
+      const distance = this.calculateDistance(position, stop.coordinates);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = stop;
+      }
+    }
+
+    return minDistance < 1000 ? closest : null; // Within 1km
+  }
+
+  /**
+   * Finds the next stop in the trip sequence based on vehicle position and direction of travel
+   * This method implements intelligent stop detection by:
+   * 1. Getting the stop sequence for the vehicle's trip_id
+   * 2. Finding the two closest stops to the vehicle
+   * 3. Determining which stop is next based on sequence and direction
+   */
+  private findNextStopInSequence(
+    vehiclePosition: { latitude: number; longitude: number },
+    tripId: string,
+    allStops: Station[],
+    stopTimes: StopTime[]
+  ): Station | null {
+    // Get stop times for this specific trip, sorted by sequence
+    const tripStopTimes = stopTimes
+      .filter(st => st.tripId === tripId)
+      .sort((a, b) => a.sequence - b.sequence);
+
+    if (tripStopTimes.length === 0) {
+      logger.debugConsolidated('No stop times found for trip', { tripId });
+      return null;
+    }
+
+    logger.debug('Finding next stop in sequence', { 
+      tripId, 
+      stopCount: tripStopTimes.length,
+      vehiclePosition 
+    });
+
+    // Create a map for quick stop lookup
+    const stopsMap = new Map(allStops.map(stop => [stop.id, stop]));
+
+    // Get coordinates for stops in this trip sequence
+    const tripStopsWithCoords = tripStopTimes
+      .map(stopTime => {
+        const stop = stopsMap.get(stopTime.stopId);
+        return stop ? {
+          stopTime,
+          stop,
+          distance: this.calculateDistance(vehiclePosition, stop.coordinates)
+        } : null;
+      })
+      .filter(item => item !== null);
+
+    if (tripStopsWithCoords.length === 0) {
+      return null;
+    }
+
+    // Find the two closest stops
+    const sortedByDistance = [...tripStopsWithCoords].sort((a, b) => a.distance - b.distance);
+    
+    if (sortedByDistance.length === 1) {
+      return sortedByDistance[0].distance < 1000 ? sortedByDistance[0].stop : null;
+    }
+
+    const closestTwo = sortedByDistance.slice(0, 2);
+    const [first, second] = closestTwo;
+
+    // If both stops are too far, return null
+    if (first.distance > 1000) {
+      return null;
+    }
+
+    // Determine which stop is next in the sequence
+    const firstSequence = first.stopTime.sequence;
+    const secondSequence = second.stopTime.sequence;
+
+    // If the vehicle is between two stops, choose the one with higher sequence (next stop)
+    if (Math.abs(firstSequence - secondSequence) === 1) {
+      // Adjacent stops - choose the one with higher sequence number (next in route)
+      return firstSequence > secondSequence ? first.stop : second.stop;
+    }
+
+    // If stops are not adjacent, use additional logic
+    return this.determineNextStopByDirection(vehiclePosition, closestTwo, tripStopsWithCoords);
+  }
+
+  /**
+   * Determines the next stop by analyzing vehicle movement direction
+   */
+  private determineNextStopByDirection(
+    vehiclePosition: { latitude: number; longitude: number },
+    closestTwo: Array<{ stopTime: StopTime; stop: Station; distance: number }>,
+    allTripStops: Array<{ stopTime: StopTime; stop: Station; distance: number }>
+  ): Station {
+    const [first, second] = closestTwo;
+
+    // If one stop is significantly closer, prefer it
+    if (first.distance < second.distance * 0.5) {
+      return first.stop;
+    }
+
+    // Look at the sequence numbers to determine direction
+    const firstSequence = first.stopTime.sequence;
+    const secondSequence = second.stopTime.sequence;
+
+    // Find the vehicle's approximate position in the sequence
+    const avgSequence = (firstSequence + secondSequence) / 2;
+    
+    // Get stops before and after to understand the route direction
+    const stopsBefore = allTripStops.filter(s => s.stopTime.sequence < avgSequence);
+    const stopsAfter = allTripStops.filter(s => s.stopTime.sequence > avgSequence);
+
+    // If we have stops in both directions, calculate which direction the vehicle is likely heading
+    if (stopsBefore.length > 0 && stopsAfter.length > 0) {
+      const avgDistanceBefore = stopsBefore.reduce((sum, s) => sum + s.distance, 0) / stopsBefore.length;
+      const avgDistanceAfter = stopsAfter.reduce((sum, s) => sum + s.distance, 0) / stopsAfter.length;
+
+      // If the vehicle is closer to stops ahead in sequence, it's likely moving forward
+      if (avgDistanceAfter < avgDistanceBefore) {
+        return firstSequence > secondSequence ? first.stop : second.stop;
+      }
+    }
+
+    // Default to the stop with higher sequence (next in route)
+    const nextStop = firstSequence > secondSequence ? first.stop : second.stop;
+    logger.debug('Selected next stop by sequence', { 
+      selectedStop: nextStop.name,
+      sequence: firstSequence > secondSequence ? firstSequence : secondSequence
+    });
+    return nextStop;
+  }
+
+  private calculateDistance(
+    pos1: { latitude: number; longitude: number },
+    pos2: { latitude: number; longitude: number }
+  ): number {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = pos1.latitude * Math.PI / 180;
+    const φ2 = pos2.latitude * Math.PI / 180;
+    const Δφ = (pos2.latitude - pos1.latitude) * Math.PI / 180;
+    const Δλ = (pos2.longitude - pos1.longitude) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c;
+  }
+
+  private calculateArrivalTime(
+    vehicle: LiveVehicle,
+    stop: Station,
+    scheduleData?: StopTime
+  ): Date {
+    const now = new Date();
+    
+    if (scheduleData) {
+      // Use schedule as base and adjust for current time
+      const scheduledTime = this.parseTimeToDate(scheduleData.arrivalTime);
+      return scheduledTime > now ? scheduledTime : new Date(now.getTime() + 5 * 60000); // 5 min default
+    }
+
+    // Estimate based on distance and speed
+    const distance = this.calculateDistance(vehicle.position, stop.coordinates);
+    const estimatedMinutes = vehicle.speed > 0 
+      ? Math.max(1, distance / (vehicle.speed * 16.67)) // speed in m/s
+      : Math.random() * 15 + 5; // 5-20 minutes random
+
+    return new Date(now.getTime() + estimatedMinutes * 60000);
+  }
+
+  private parseTimeToDate(timeStr: string): Date {
+    const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, seconds || 0, 0);
+    
+    // Handle times after midnight (e.g., 25:30:00)
+    if (hours >= 24) {
+      date.setDate(date.getDate() + 1);
+      date.setHours(hours - 24, minutes, seconds || 0, 0);
+    }
+    
+    return date;
+  }
+
+  private calculateDelay(scheduleData: StopTime, estimatedArrival: Date): number {
+    const scheduledTime = this.parseTimeToDate(scheduleData.arrivalTime);
+    return Math.round((estimatedArrival.getTime() - scheduledTime.getTime()) / 60000);
+  }
+
+  private calculateConfidence(vehicle: LiveVehicle, scheduleData?: StopTime): 'high' | 'medium' | 'low' {
+    try {
+      const timestamp = vehicle.timestamp instanceof Date ? vehicle.timestamp : new Date(vehicle.timestamp);
+      const age = Date.now() - timestamp.getTime();
+      
+      if (age < 60000 && scheduleData) return 'high'; // Fresh live data + schedule
+      if (age < 300000) return 'medium'; // Live data within 5 minutes
+      return 'low'; // Old or no live data
+    } catch (error) {
+      console.warn('Invalid timestamp in vehicle data:', vehicle.timestamp);
+      return 'low'; // Default to low confidence if timestamp is invalid
+    }
+  }
+
+  private determineDirection(_vehicle: LiveVehicle, _stop: Station): 'work' | 'home' | 'unknown' {
+    // This is a simplified implementation
+    // In reality, you'd use the user's home/work locations and route analysis
+    return 'unknown';
+  }
+
+  // Legacy interface compatibility methods
+  
+  /**
+   * Get agency ID from configuration store
+   * Falls back to CTP Cluj (ID: 2) if not configured
+   */
+  private async getConfiguredAgencyId(): Promise<number> {
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { useConfigStore } = await import('../stores/configStore');
+      const config = useConfigStore.getState().config;
+      
+      if (config?.agencyId) {
+        const agencyId = parseInt(config.agencyId);
+        logger.debug('Using configured agency ID', { agencyId }, 'API');
+        return agencyId;
+      }
+    } catch (error) {
+      logger.debug('Could not get agency ID from config store', { error }, 'API');
+    }
+    
+    // Fallback to CTP Cluj agency ID
+    logger.debug('Using fallback agency ID for CTP Cluj', { agencyId: 2 }, 'API');
+    return 2;
   }
 
   async validateApiKey(key: string): Promise<boolean> {
+    const requestKey = 'validate-api-key';
+    if (!this.shouldAllowRequest(requestKey)) {
+      logger.debug('API key validation request debounced', { keyLength: key.length }, 'API');
+      return false;
+    }
+
     logger.info('Validating API key', { keyLength: key.length }, 'API');
     
     try {
+      const agencyId = await this.getConfiguredAgencyId();
+      
       const tempInstance = axios.create({
         baseURL: this.baseUrl,
         timeout: 10000,
         headers: {
           'Authorization': `Bearer ${key}`,
           'X-API-Key': key,
-          'X-Agency-Id': '2', // Required for CTP Cluj
+          'X-Agency-Id': agencyId.toString(),
           'Content-Type': 'application/json',
         },
       });
@@ -206,357 +845,143 @@ export class TranzyApiServiceImpl implements TranzyApiService {
       
       // Check if we got a valid response with agencies
       if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        logger.info('API key validation successful', { agencyCount: response.data.length }, 'API');
+        logger.info('API key validation successful', { 
+          agencyCount: response.data.length, 
+          agencyId 
+        }, 'API');
         return true;
       } else {
-        logger.warn('API key validation failed - no agencies returned', undefined, 'API');
+        logger.warn('API key validation failed - no agencies returned', { agencyId }, 'API');
         return false;
       }
     } catch (error) {
       logger.error('API key validation failed', { 
         error: error instanceof Error ? error.message : String(error),
-        status: error instanceof AxiosError ? error.response?.status : 'unknown'
+        status: error instanceof axios.AxiosError ? error.response?.status : 'unknown'
       }, 'API');
       
-      if (error instanceof AxiosError) {
+      if (error instanceof axios.AxiosError) {
         if (error.response?.status === 401 || error.response?.status === 403) {
           logger.warn('API key is invalid or expired', { status: error.response.status }, 'API');
           return false;
         }
       }
-      // If it's not an auth error, assume the key might be valid but there's another issue
       return false;
-    }
-  }
-
-  async getAgencies(): Promise<Agency[]> {
-    const requestKey = 'agencies';
-    logger.info('Fetching agencies', { requestKey }, 'API');
-    
-    if (!this.shouldAllowRequest(requestKey)) {
-      logger.warn('Request rate limited', { requestKey }, 'API');
-      throw this.createErrorState('network', 'Request rate limited. Please wait before making another request.');
-    }
-    
-    try {
-      if (!this.apiKey) {
-        logger.error('API key not configured for getAgencies', undefined, 'API');
-        throw this.createErrorState('authentication', 'API key not configured');
-      }
-
-      const response = await this.axiosInstance.get<TranzyAgencyResponse[]>('/opendata/agency');
-      
-      logger.info('Raw API response', { 
-        data: response.data, 
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data),
-        length: Array.isArray(response.data) ? response.data.length : 'N/A',
-        firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : null
-      }, 'API');
-      
-      if (!response.data || !Array.isArray(response.data)) {
-        logger.error('Invalid API response format', { responseType: typeof response.data }, 'API');
-        throw this.createErrorState('parsing', 'Invalid response format from API');
-      }
-
-      const agencies = this.transformAgencyData(response.data);
-      logger.info('Successfully fetched agencies', { 
-        agencyCount: agencies.length,
-        sampleAgency: agencies[0] || null,
-        rawSample: response.data[0] || null,
-        allAgencies: agencies
-      }, 'API');
-      return agencies;
-    } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error && 'message' in error && 'timestamp' in error) {
-        throw error;
-      }
-      logger.error('Failed to fetch agencies', error, 'API');
-      throw this.createErrorState('network', 'Failed to fetch agencies', error);
     }
   }
 
   async getBusesForCity(city: string): Promise<BusInfo[]> {
     const requestKey = `vehicles-${city}`;
-    logger.info('Fetching vehicles for city', { city, requestKey }, 'API');
-    
     if (!this.shouldAllowRequest(requestKey)) {
-      logger.warn('Request rate limited', { requestKey }, 'API');
-      throw this.createErrorState('network', 'Request rate limited. Please wait before making another request.');
+      logger.debug('Vehicles request debounced', { city }, 'API');
+      return [];
     }
+
+    logger.info('Fetching vehicles for city', { city }, 'API');
     
     try {
-      if (!this.apiKey) {
-        logger.error('API key not configured for getBusesForCity', { city }, 'API');
-        throw this.createErrorState('authentication', 'API key not configured');
-      }
-
-      // First, get all agencies to find the one matching the city
-      const agencies = await this.getAgencies();
-      const agency = agencies.find(a => a.name === city);
-      
-      if (!agency) {
-        logger.error('Agency not found for city', { city, availableAgencies: agencies.map(a => a.name) }, 'API');
-        throw this.createErrorState('parsing', `No agency found for city: ${city}`);
-      }
-
-      // Get vehicles for this agency
-      const response = await this.axiosInstance.get<TranzyVehicleResponse[]>('/opendata/vehicles', {
-        headers: {
-          'X-Agency-Id': parseInt(agency.id), // Convert string ID back to number for API
-        },
-      });
-      
-      if (!response.data || !Array.isArray(response.data)) {
-        logger.error('Invalid API response format', { city, responseType: typeof response.data }, 'API');
-        throw this.createErrorState('parsing', 'Invalid response format from API');
-      }
-
-      console.log('Raw vehicle data:', { 
-        responseLength: response.data.length, 
-        firstVehicle: response.data[0],
-        sampleVehicles: response.data.slice(0, 3)
-      });
-      
-      const buses = this.transformVehicleData(response.data);
-      console.log('Transformed buses:', { 
-        originalCount: response.data.length, 
-        transformedCount: buses.length,
-        firstBus: buses[0]
-      });
-      
-      logger.info('Successfully fetched vehicles', { city, agencyId: agency.id, vehicleCount: buses.length }, 'API');
-      return buses;
+      const agencyId = await this.getConfiguredAgencyId();
+      const vehicles = await this.getVehicles(agencyId);
+      return this.transformVehiclesToBusInfo(vehicles, city);
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error && 'message' in error && 'timestamp' in error) {
-        throw error;
-      }
-      logger.error('Failed to fetch vehicles for city', error, 'API');
-      throw this.createErrorState('network', 'Failed to fetch vehicles for city', error);
+      logger.error('Failed to fetch vehicles for city', { city, error }, 'API');
+      return [];
     }
   }
 
   async getStationsForCity(city: string): Promise<Station[]> {
     const requestKey = `stops-${city}`;
-    logger.info('Fetching stops for city', { city, requestKey }, 'API');
-    
     if (!this.shouldAllowRequest(requestKey)) {
-      logger.warn('Request rate limited', { requestKey }, 'API');
-      throw this.createErrorState('network', 'Request rate limited. Please wait before making another request.');
+      logger.debug('Stops request debounced', { city }, 'API');
+      return [];
     }
+
+    logger.info('Fetching stops for city', { city }, 'API');
     
     try {
-      if (!this.apiKey) {
-        logger.error('API key not configured for getStationsForCity', { city }, 'API');
-        throw this.createErrorState('authentication', 'API key not configured');
-      }
-
-      // First, get all agencies to find the one matching the city
-      const agencies = await this.getAgencies();
-      const agency = agencies.find(a => a.name === city);
-      
-      if (!agency) {
-        logger.error('Agency not found for city', { city, availableAgencies: agencies.map(a => a.name) }, 'API');
-        throw this.createErrorState('parsing', `No agency found for city: ${city}`);
-      }
-
-      // Get stops for this agency
-      const response = await this.axiosInstance.get<TranzyStopResponse[]>('/opendata/stops', {
-        headers: {
-          'X-Agency-Id': parseInt(agency.id), // Convert string ID back to number for API
-        },
-      });
-      
-      if (!response.data || !Array.isArray(response.data)) {
-        logger.error('Invalid API response format', { city, responseType: typeof response.data }, 'API');
-        throw this.createErrorState('parsing', 'Invalid response format from API');
-      }
-
-      const stations = this.transformStopData(response.data);
-      logger.info('Successfully fetched stops', { city, agencyId: agency.id, stopCount: stations.length }, 'API');
-      return stations;
+      const agencyId = await this.getConfiguredAgencyId();
+      const stops = await this.getStops(agencyId);
+      return stops; // Already in Station format
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error && 'message' in error && 'timestamp' in error) {
-        throw error;
-      }
-      logger.error('Failed to fetch stops for city', error, 'API');
-      throw this.createErrorState('network', 'Failed to fetch stops for city', error);
+      logger.error('Failed to fetch stops for city', { city, error }, 'API');
+      return [];
     }
   }
 
   async getBusesAtStation(stationId: string): Promise<BusInfo[]> {
     const requestKey = `station-vehicles-${stationId}`;
-    
     if (!this.shouldAllowRequest(requestKey)) {
-      throw this.createErrorState('network', 'Request rate limited. Please wait before making another request.');
+      logger.debug('Station vehicles request debounced', { stationId }, 'API');
+      return [];
     }
+
+    logger.info('Fetching vehicles at station', { stationId }, 'API');
     
     try {
-      if (!this.apiKey) {
-        throw this.createErrorState('authentication', 'API key not configured');
+      const agencyId = await this.getConfiguredAgencyId();
+      
+      // Get all vehicles and filter by proximity to station
+      const vehicles = await this.getVehicles(agencyId);
+      const stops = await this.getStops(agencyId);
+      
+      const station = stops.find(stop => stop.id === stationId);
+      if (!station) {
+        logger.warn('Station not found', { stationId, agencyId }, 'API');
+        return [];
       }
 
-      // For now, we'll return vehicles near the station
-      // In a real implementation, we'd need to calculate which vehicles are near this stop
-      // This is a simplified version that returns empty array
-      logger.info('Getting vehicles at station', { stationId }, 'API');
-      
-      // TODO: Implement proper logic to find vehicles near a specific station
-      // This would require getting all vehicles and filtering by proximity to the station
-      return [];
+      // Filter vehicles within reasonable distance of the station
+      const nearbyVehicles = vehicles.filter(vehicle => {
+        const distance = this.calculateDistance(
+          { latitude: vehicle.position.latitude, longitude: vehicle.position.longitude },
+          station.coordinates
+        );
+        return distance <= 0.5; // Within 500 meters
+      });
+
+      return this.transformVehiclesToBusInfo(nearbyVehicles, 'Cluj-Napoca');
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error && 'message' in error && 'timestamp' in error) {
-        throw error;
-      }
-      throw this.createErrorState('network', 'Failed to fetch vehicles at station', error);
+      logger.error('Failed to fetch vehicles at station', { stationId, error }, 'API');
+      return [];
     }
   }
 
-  private transformVehicleData(data: TranzyVehicleResponse[]): BusInfo[] {
-    console.log('Filtering vehicles:', {
-      totalVehicles: data.length,
-      validCoords: data.filter(v => v.latitude != null && v.longitude != null).length,
-      hasRouteId: data.filter(v => v.route_id != null).length,
-      hasLabel: data.filter(v => v.label).length
-    });
-    
-    return data
-      .filter(vehicle => {
-        const isValid = vehicle.latitude != null && 
-                        vehicle.longitude != null &&
-                        vehicle.route_id != null &&
-                        vehicle.label;
-        
-        if (!isValid) {
-          console.log('Filtered out vehicle:', {
-            id: vehicle.id,
-            hasLat: vehicle.latitude != null,
-            hasLon: vehicle.longitude != null,
-            hasRoute: vehicle.route_id != null,
-            hasLabel: !!vehicle.label
-          });
-        }
-        
-        return isValid;
-      })
-      .map((vehicle, index) => {
-        // Calculate estimated arrival time based on vehicle speed and timestamp
-        const now = new Date();
-        const lastUpdate = new Date(vehicle.timestamp);
-        const timeSinceUpdate = (now.getTime() - lastUpdate.getTime()) / 1000 / 60; // minutes
-        
-        // Estimate arrival time based on speed and recent activity
-        let estimatedMinutesAway: number;
-        if (vehicle.speed > 0) {
-          // Moving vehicle - estimate 5-25 minutes based on speed
-          estimatedMinutesAway = Math.max(5, Math.min(25, Math.floor(30 - vehicle.speed / 2)));
-        } else if (timeSinceUpdate < 10) {
-          // Stationary but recently updated - likely at a stop
-          estimatedMinutesAway = Math.floor(Math.random() * 10) + 2; // 2-12 minutes
-        } else {
-          // Old data - longer estimate
-          estimatedMinutesAway = Math.floor(Math.random() * 20) + 10; // 10-30 minutes
-        }
-        
-        const arrivalTime = new Date(now.getTime() + estimatedMinutesAway * 60000);
-        
-        // Determine vehicle type description
-        const getVehicleTypeDescription = (type: number): string => {
-          switch (type) {
-            case 0: return 'Tram';
-            case 1: return 'Metro';
-            case 2: return 'Rail';
-            case 3: return 'Bus';
-            case 4: return 'Ferry';
-            case 11: return 'Trolleybus';
-            default: return 'Transit';
-          }
-        };
-        
-        const vehicleType = getVehicleTypeDescription(vehicle.vehicle_type);
-        
-        // Simple direction assignment for testing - alternate between work and home
-        const direction = index % 2 === 0 ? 'work' : 'home';
-        
-        return {
-          id: vehicle.id,
-          route: vehicle.label,
-          destination: `${vehicleType} ${vehicle.label} - Route ${vehicle.route_id}`,
-          arrivalTime,
-          isLive: timeSinceUpdate < 15, // Consider live if updated within 15 minutes
-          minutesAway: estimatedMinutesAway,
-          station: {
-            id: `route-${vehicle.route_id}`,
-            name: `${vehicleType} Route ${vehicle.route_id}`,
-            coordinates: { 
-              latitude: vehicle.latitude, 
-              longitude: vehicle.longitude 
-            },
-            isFavorite: false,
-          },
-          direction: direction as 'work' | 'home' | 'unknown',
-        };
-      })
-      .sort((a, b) => a.minutesAway - b.minutesAway); // Sort by arrival time
-  }
-
-  private transformStopData(data: TranzyStopResponse[]): Station[] {
-    return data.map(stop => ({
-      id: stop.stop_id.toString(),
-      name: stop.stop_name,
-      coordinates: {
-        latitude: stop.stop_lat,
-        longitude: stop.stop_lon,
+  // Helper methods for legacy compatibility
+  private transformVehiclesToBusInfo(vehicles: LiveVehicle[], city: string): BusInfo[] {
+    return vehicles.map(vehicle => ({
+      id: vehicle.id,
+      route: vehicle.routeId?.toString() || 'Unknown',
+      destination: 'Unknown', // Would need route data to determine
+      arrivalTime: new Date(Date.now() + Math.random() * 30 * 60 * 1000), // Estimated
+      isLive: true,
+      minutesAway: Math.floor(Math.random() * 30), // Estimated
+      station: {
+        id: 'unknown',
+        name: 'Unknown Station',
+        coordinates: { latitude: vehicle.position.latitude, longitude: vehicle.position.longitude },
+        isFavorite: false
       },
-      isFavorite: false, // Will be set by favorites store
+      direction: 'unknown' as const
     }));
   }
 
-  private transformAgencyData(data: TranzyAgencyResponse[]): Agency[] {
-    logger.info('Transforming agency data', { 
-      inputData: data,
-      inputLength: data.length,
-      firstItem: data[0] || null
-    }, 'API');
-    
-    const transformed = data.map(agency => {
-      const result: Agency = {
-        id: agency.agency_id.toString(), // Keep as string for UI consistency
-        name: agency.agency_name,
-        country: 'Romania', // All agencies appear to be Romanian based on timezone
-        timezone: agency.agency_timezone,
-      };
-      
-      // Only add region if it exists (avoid undefined fields that might cause serialization issues)
-      // Currently not provided in API response, so we skip it
-      
-      logger.debug('Transformed agency', { 
-        input: agency, 
-        output: result 
-      }, 'API');
-      
-      return result;
-    });
-    
-    logger.info('Agency transformation complete', { 
-      outputLength: transformed.length,
-      outputData: transformed
-    }, 'API');
-    
-    return transformed;
-  }
+
 }
 
-// Factory function to create service instance
-export const createTranzyApiService = (): TranzyApiServiceImpl => {
-  return new TranzyApiServiceImpl();
-};
-
-// Export singleton instance (lazy initialization)
-let _instance: TranzyApiServiceImpl | null = null;
-export const tranzyApiService = (): TranzyApiServiceImpl => {
+// Singleton instance and factory function for compatibility
+export const tranzyApiService = (): TranzyApiService => {
   if (!_instance) {
-    _instance = new TranzyApiServiceImpl();
+    _instance = new TranzyApiService();
   }
   return _instance;
 };
+
+export const createTranzyApiService = (): TranzyApiService => {
+  return new TranzyApiService();
+};
+
+// Enhanced API singleton (for services that were using enhancedTranzyApi)
+export const enhancedTranzyApi = new TranzyApiService();
+
+// Private singleton instance
+let _instance: TranzyApiService | null = null;

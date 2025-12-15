@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { logger, LogLevel } from '../../../utils/loggerFixed';
-import { MaterialButton } from '../../ui/Button';
+import { logger, LogLevel } from '../../../utils/logger';
+import { Button } from '../../ui/Button';
 
 export const DebugPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,7 +77,7 @@ export const DebugPanel: React.FC = () => {
                     <option value={LogLevel.WARN}>Warn+</option>
                     <option value={LogLevel.ERROR}>Error</option>
                   </select>
-                  <MaterialButton
+                  <Button
                     size="small"
                     variant="outlined"
                     onClick={() => {
@@ -86,8 +86,8 @@ export const DebugPanel: React.FC = () => {
                     }}
                   >
                     Clear
-                  </MaterialButton>
-                  <MaterialButton
+                  </Button>
+                  <Button
                     size="small"
                     variant="outlined"
                     onClick={() => {
@@ -96,7 +96,7 @@ export const DebugPanel: React.FC = () => {
                     }}
                   >
                     Copy
-                  </MaterialButton>
+                  </Button>
                   <button
                     onClick={() => setIsOpen(false)}
                     className="text-gray-400 hover:text-gray-600"

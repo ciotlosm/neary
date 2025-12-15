@@ -1,8 +1,8 @@
-import { enhancedTranzyApi } from './enhancedTranzyApi';
-import { unifiedCache, CacheKeys } from './unifiedCache';
-import { logger } from '../utils/loggerFixed';
+import { enhancedTranzyApi } from './tranzyApiService';
+import { cacheManager as unifiedCache, CacheKeys } from './cacheManager';
+import { logger } from '../utils/logger';
 
-class VehicleCacheService {
+class LiveVehicleService {
 
   /**
    * Get vehicles for specific routes, using unified cache
@@ -14,7 +14,7 @@ class VehicleCacheService {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
     // First attempt: get from cache
-    const allVehiclesRaw = await unifiedCache.get(
+    const allVehiclesRaw = await unifiedCache.getLive(
       cacheKey,
       () => this.fetchAllVehicles(agencyId)
     );
@@ -49,7 +49,7 @@ class VehicleCacheService {
         
         try {
           // Force refresh and try again
-          const freshVehiclesRaw = await unifiedCache.get(
+          const freshVehiclesRaw = await unifiedCache.getLive(
             cacheKey,
             () => this.fetchAllVehicles(agencyId),
             true // Force refresh
@@ -99,7 +99,7 @@ class VehicleCacheService {
   async getAllVehicles(agencyId: number): Promise<Map<string, any[]>> {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
-    const allVehiclesRaw = await unifiedCache.get(
+    const allVehiclesRaw = await unifiedCache.getLive(
       cacheKey,
       () => this.fetchAllVehicles(agencyId)
     );
@@ -115,7 +115,7 @@ class VehicleCacheService {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
     try {
-      const vehiclesByRouteRaw = await unifiedCache.get(
+      const vehiclesByRouteRaw = await unifiedCache.getLive(
         cacheKey,
         () => this.fetchAllVehicles(agencyId),
         true // Force refresh
@@ -241,4 +241,4 @@ class VehicleCacheService {
   }
 }
 
-export const vehicleCacheService = new VehicleCacheService();
+export const liveVehicleService = new LiveVehicleService();

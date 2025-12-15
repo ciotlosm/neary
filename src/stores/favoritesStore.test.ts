@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
-import { useFavoritesStore } from './favoritesStore';
+import { useFavoriteBusStore as useFavoritesStore } from './favoriteBusStore';
 import { useBusStore } from './busStore';
 import type { BusInfo, Station, Coordinates } from '../types';
 

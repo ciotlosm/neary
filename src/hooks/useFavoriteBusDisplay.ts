@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useFavoriteBusStore } from '../stores/favoriteBusStore';
 import { useConfigStore } from '../stores/configStore';
 import { getRouteLabel, getRouteTypeInfoById } from '../utils/busDisplayUtils';
-import { logger } from '../utils/loggerFixed';
+import { logger } from '../utils/logger';
 
 export interface UseFavoriteBusDisplayReturn {
   // Data
