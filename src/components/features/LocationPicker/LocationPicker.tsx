@@ -16,6 +16,7 @@ import {
   Close as CloseIcon,
   Home as HomeIcon,
   Business as WorkIcon,
+  LocationOn as LocationOnIcon,
 } from '@mui/icons-material';
 
 import { Button } from '../../ui/Button';
@@ -72,11 +73,15 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   });
 
   const getLocationIcon = () => {
-    return type === 'home' ? <HomeIcon /> : <WorkIcon />;
+    if (type === 'home') return <HomeIcon />;
+    if (type === 'work') return <WorkIcon />;
+    return <LocationOnIcon />;
   };
 
   const getLocationColor = () => {
-    return type === 'home' ? theme.palette.info.main : theme.palette.warning.main;
+    if (type === 'home') return theme.palette.info.main;
+    if (type === 'work') return theme.palette.warning.main;
+    return theme.palette.primary.main;
   };
 
   return (
@@ -108,15 +113,17 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
       <DialogContent sx={{ pt: 1 }}>
         <Stack spacing={3}>
-          {/* Current Location Section */}
-          <Box>
-            <CurrentLocationSection
-              onUseCurrentLocation={handleUseCurrentLocation}
-              isGettingLocation={isGettingLocation}
-              locationPermission={locationPermission}
-              error={error}
-            />
-          </Box>
+          {/* Current Location Section - Hidden for default location since it's a fallback */}
+          {type !== 'default' && (
+            <Box>
+              <CurrentLocationSection
+                onUseCurrentLocation={handleUseCurrentLocation}
+                isGettingLocation={isGettingLocation}
+                locationPermission={locationPermission}
+                error={error}
+              />
+            </Box>
+          )}
 
           {/* Popular Locations Section */}
           <Box>
@@ -191,7 +198,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
           }}
           disabled={!selectedLocation}
         >
-          Set {type === 'home' ? 'Home' : 'Work'} Location
+          Set {type === 'home' ? 'Home' : type === 'work' ? 'Work' : 'Default'} Location
         </Button>
       </DialogActions>
     </Dialog>
