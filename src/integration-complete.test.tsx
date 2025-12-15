@@ -326,7 +326,7 @@ describe('Integration Tests - Complete User Flows', () => {
       // Verify immediate update
       expect(useFavoritesStore.getState().favorites.buses).toContain('24');
 
-      // Verify filtered stations would only show stations for favorite buses
+      // Verify filtered stations would only show stations for favorite routes
       const filteredStations = favoritesStore.getFilteredStations();
       // This should filter to only stations where bus '24' stops
       expect(filteredStations.every(station => 

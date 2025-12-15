@@ -6,15 +6,13 @@ import {
   Stack,
   useTheme,
   alpha,
-  IconButton,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
-  Tooltip,
 } from '@mui/material';
 import { logger } from '../../../../utils/logger';
-import { ExpandMore, ExpandLess, LocationOn, RadioButtonUnchecked, PersonPin, DirectionsBus } from '@mui/icons-material';
+import { ExpandMore, ExpandLess, PersonPin, DirectionsBus, Map as MapIcon } from '@mui/icons-material';
 
 import { BusCard } from '../../../ui/Card';
 import { BusRouteMapModal } from './BusRouteMapModal';
@@ -176,7 +174,7 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
       // Bus has passed the user's stop
       return { 
         status: 'missed', 
-        message: `You missed this one (${updateText})`,
+        message: `Already left (${updateText})`,
         color: theme.palette.error.main,
         isOffline: false,
         isStale,
@@ -193,9 +191,13 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
       // Add confidence indicator to message
       const confidenceIndicator = confidence === 'high' ? '' : confidence === 'medium' ? '~' : '≈';
       
+      const arrivalMessage = estimatedMinutes === 1 
+        ? `Arriving next (${updateText})`
+        : `Arriving in ${confidenceIndicator}${estimatedMinutes}min (${updateText})`;
+      
       return { 
         status: 'arriving', 
-        message: `Arriving in ${confidenceIndicator}${estimatedMinutes} min (${updateText})`,
+        message: arrivalMessage,
         color: theme.palette.success.main,
         isOffline: !hasGoogleMaps || !transitEstimate,
         isStale,
@@ -207,7 +209,7 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
       // Bus is at the user's stop
       return { 
         status: 'at-stop', 
-        message: `Bus is at your stop! (${updateText})`,
+        message: `At station (${updateText})`,
         color: theme.palette.warning.main,
         isOffline: false,
         isStale,
@@ -244,8 +246,6 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
         onToggleFavorite={() => {
           logger.debug('Toggle favorite for route', { routeName: bus.routeName });
         }}
-        onMapClick={() => setShowMap(true)}
-        mapButtonStyle="corner"
         arrivalStatus={arrivalStatus}
         cacheKeys={cacheKeys}
         customContent={
@@ -256,7 +256,6 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                 <SimplifiedRouteDisplay 
                   stopSequence={bus.stopSequence || []}
                   destination={bus.destination}
-                  onMapClick={() => setShowMap(true)}
                 />
               ) : (
                 <Box>
@@ -374,16 +373,10 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                               size="small"
                               color="primary"
                               variant="outlined"
-                              clickable
-                              onClick={() => setShowMap(true)}
                               sx={{
                                 height: 16,
                                 fontSize: '0.6rem',
                                 '& .MuiChip-label': { px: 0.5 },
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                }
                               }}
                             />
                           )}
@@ -413,23 +406,26 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                 </Box>
               )}
               
-              {/* Consistent toggle control - always in the same position */}
+              {/* Stops toggle and map buttons - matching StationDisplay design */}
               {bus.stopSequence && bus.stopSequence.length > 0 && (
-                <Box sx={{ mt: 1 }}>
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  {/* Stops toggle button */}
                   <Box
                     onClick={() => setShowStops(!showStops)}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       cursor: 'pointer',
-                      p: 0.5,
+                      py: 0.5,
+                      px: 1,
                       borderRadius: 1,
-                      transition: 'background-color 0.2s',
+                      bgcolor: 'rgba(100, 116, 139, 0.1)',
+                      flex: 1,
                       '&:hover': {
-                        bgcolor: alpha(theme.palette.action.hover, 0.5),
+                        bgcolor: 'rgba(100, 116, 139, 0.2)',
                       },
                       '&:active': {
-                        bgcolor: alpha(theme.palette.action.selected, 0.5),
+                        bgcolor: 'rgba(100, 116, 139, 0.3)',
                       }
                     }}
                   >
@@ -443,6 +439,29 @@ export const FavoriteBusCard: React.FC<FavoriteBusCardProps> = ({ bus }) => {
                     <Typography variant="caption" color="text.secondary">
                       {showStops ? 'Hide' : 'Show'} stops ({bus.stopSequence.length})
                     </Typography>
+                  </Box>
+                  
+                  {/* Map button */}
+                  <Box
+                    onClick={() => setShowMap(true)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      py: 0.5,
+                      px: 1,
+                      borderRadius: 1,
+                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      '&:hover': {
+                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:active': {
+                        bgcolor: 'rgba(59, 130, 246, 0.3)',
+                      }
+                    }}
+                  >
+                    <MapIcon fontSize="small" sx={{ color: 'rgb(147, 197, 253)' }} />
                   </Box>
                 </Box>
               )}

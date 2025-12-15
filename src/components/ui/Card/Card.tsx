@@ -104,8 +104,8 @@ export const BusCard: React.FC<BusCardProps> = ({
         },
       }}
     >
-      <CardContent sx={{ pb: 1, pt: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
+      <CardContent sx={{ pb: 0.25, pt: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 0.5 }}>
           <Box sx={{ position: 'relative', mr: 2 }}>
             <Avatar
               sx={{
@@ -150,101 +150,85 @@ export const BusCard: React.FC<BusCardProps> = ({
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             {/* Arrival Status */}
             {arrivalStatus && (
-              <Box sx={{ mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 600,
-                    color: arrivalStatus.color,
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  {(() => {
-                    // Parse message to style time portion (text in parentheses)
-                    const message = arrivalStatus.message;
-                    const timeMatch = message.match(/^(.+?)(\s*\([^)]+\))$/);
-                    
-                    if (timeMatch) {
-                      const [, mainMessage, timeText] = timeMatch;
+              <Box sx={{ mb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: arrivalStatus.color,
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {(() => {
+                      // Parse message to extract main message without time portion
+                      const message = arrivalStatus.message;
+                      const timeMatch = message.match(/^(.+?)(\s*\([^)]+\))$/);
                       
-                      // Check if we should show tooltip (over 10 minutes)
-                      const shouldShowTooltip = arrivalStatus.lastUpdate && 
-                        Math.floor((Date.now() - arrivalStatus.lastUpdate.getTime()) / 1000 / 60) > 10;
+                      if (timeMatch) {
+                        const [, mainMessage] = timeMatch;
+                        return mainMessage;
+                      }
                       
-                      const timeElement = (
-                        <Box
-                          component="span"
-                          sx={{
-                            // Highlight timestamp in red if data is stale, otherwise gray
-                            color: arrivalStatus.isStale 
-                              ? theme.palette.error.main 
-                              : theme.palette.text.secondary,
-                            fontWeight: arrivalStatus.isStale ? 600 : 400,
-                            textDecoration: shouldShowTooltip ? 'underline dotted' : 'none',
-                            cursor: shouldShowTooltip ? 'help' : 'default',
-                          }}
-                        >
-                          {timeText}
-                        </Box>
-                      );
-                      
-                      return (
-                        <>
-                          {mainMessage}
-                          {shouldShowTooltip ? (
-                            <Tooltip 
-                              title={`Vehicle ID: ${arrivalStatus.vehicleId || 'Unknown'}\nLabel: ${arrivalStatus.vehicleLabel || 'Unknown'}`}
-                              placement="top"
-                              sx={{
-                                '& .MuiTooltip-tooltip': {
-                                  whiteSpace: 'pre-line', // Allow line breaks in tooltip
-                                }
-                              }}
-                            >
-                              {timeElement}
-                            </Tooltip>
-                          ) : (
-                            timeElement
-                          )}
-                        </>
-                      );
-                    }
-                    
-                    return message;
-                  })()}
-                </Typography>
-                {arrivalStatus.isOffline && (
-                  <OfflineIcon 
-                    sx={{ 
-                      fontSize: 14, 
-                      color: theme.palette.text.secondary,
-                      opacity: 0.7 
-                    }} 
-                    titleAccess="Using offline estimates - Configure Google Maps API key for accurate ETAs"
-                  />
-                )}
-                {arrivalStatus.isStale && (
-                  <StaleIcon 
-                    sx={{ 
-                      fontSize: 14, 
-                      color: theme.palette.warning.main,
-                      opacity: 0.8 
-                    }} 
-                    titleAccess="Vehicle data is older than 2 minutes - Information may be outdated"
-                  />
+                      return message;
+                    })()}
+                  </Typography>
+                  {arrivalStatus.isOffline && (
+                    <OfflineIcon 
+                      sx={{ 
+                        fontSize: 14, 
+                        color: theme.palette.text.secondary,
+                        opacity: 0.7 
+                      }} 
+                      titleAccess="Using offline estimates - Configure Google Maps API key for accurate ETAs"
+                    />
+                  )}
+                  {arrivalStatus.isStale && (
+                    <StaleIcon 
+                      sx={{ 
+                        fontSize: 14, 
+                        color: theme.palette.warning.main,
+                        opacity: 0.8 
+                      }} 
+                      titleAccess="Vehicle data is older than 2 minutes - Information may be outdated"
+                    />
+                  )}
+                </Box>
+                
+                {/* Live status with timestamp in top right corner */}
+                {arrivalStatus.lastUpdate && (
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600, fontSize: '0.75rem' }}>
+                      Live
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.7rem' }}>
+                      {(() => {
+                        const timestamp = arrivalStatus.lastUpdate instanceof Date 
+                          ? arrivalStatus.lastUpdate 
+                          : new Date(arrivalStatus.lastUpdate);
+                        
+                        // Format as HH:MM
+                        return timestamp.toLocaleTimeString('en-US', { 
+                          hour12: false, 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        });
+                      })()}
+                    </Typography>
+                  </Box>
                 )}
               </Box>
             )}
             
             {/* Custom content or default destination/location display */}
             {customContent ? (
-              <Box sx={{ mb: 1 }}>
+              <Box sx={{ mb: 0.5 }}>
                 {customContent}
               </Box>
             ) : (
               <>
                 {destination && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <LocationIcon sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
                     <Typography
                       variant="body2"
@@ -261,7 +245,7 @@ export const BusCard: React.FC<BusCardProps> = ({
                 )}
                 
                 {location && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <BusIcon sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
                       {location}

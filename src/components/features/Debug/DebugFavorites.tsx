@@ -12,7 +12,7 @@ export const DebugFavorites: React.FC = () => {
     logger.debug('='.repeat(50));
     
     logger.debug('Config', config);
-    logger.debug('Favorite Buses', config?.favoriteBuses);
+    logger.debug('Favorite Routes', config?.favoriteBuses);
     logger.debug('Available Routes Count', { count: availableRoutes.length });
     
     if (availableRoutes.length > 0) {
@@ -73,7 +73,7 @@ export const DebugFavorites: React.FC = () => {
     logger.debug('Attempting to fix route mapping...');
     
     if (!config?.favoriteBuses) {
-      logger.warn('No favorite buses to fix');
+      logger.warn('No favorite routes to fix');
       return;
     }
     

@@ -107,191 +107,157 @@ export const SimplifiedRouteDisplay: React.FC<SimplifiedRouteDisplayProps> = ({
   }
 
   return (
-    <Box sx={{ py: 1, mb: 1 }}>
-      {/* Bus Stop Sequence */}
-      <Stack direction="column" spacing={1}>
+    <Box sx={{ py: 0.25, mb: 0.5 }}>
+      {/* Compact Horizontal Route Progress */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 0.5,
+        overflowX: 'auto',
+        py: 0.5,
+        '&::-webkit-scrollbar': {
+          display: 'none',
+        },
+        scrollbarWidth: 'none',
+      }}>
         {keyStops.map((stop, index) => {
           const isCurrent = stop.type === 'bus';
           const isClosestToUser = stop.type === 'user';
           const isBusAtUser = stop.type === 'bus-at-user';
           
           return (
-            <Box 
-              key={`simplified-${stop.id}-${stop.type}-${index}`}
-              sx={{
-                py: 1,
-                px: 1.5,
-                borderRadius: 1,
-                bgcolor: isCurrent
-                  ? alpha(theme.palette.primary.main, 0.1)
-                  : (isClosestToUser || isBusAtUser)
-                  ? alpha(theme.palette.info.main, 0.1)
-                  : 'transparent',
-                border: isCurrent
-                  ? `1px solid ${alpha(theme.palette.primary.main, 0.3)}`
-                  : (isClosestToUser || isBusAtUser)
-                  ? `1px solid ${alpha(theme.palette.info.main, 0.3)}`
-                  : '1px solid transparent',
-              }}
-            >
-              {/* Stop Item */}
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                {/* Icon with connecting line */}
-                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 36 }}>
-                  {/* Vertical connecting line (except for last item) */}
-                  {index < keyStops.length - 1 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: '28px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: '2px',
-                        height: '28px',
-                        bgcolor: theme.palette.divider,
-                        zIndex: 0,
-                      }}
+            <React.Fragment key={`simplified-${stop.id}-${stop.type}-${index}`}>
+              {/* Compact Stop Indicator */}
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  minWidth: 'fit-content',
+                  maxWidth: 140,
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  bgcolor: isCurrent
+                    ? alpha(theme.palette.primary.main, 0.15)
+                    : (isClosestToUser || isBusAtUser)
+                    ? alpha(theme.palette.info.main, 0.15)
+                    : alpha(theme.palette.divider, 0.05),
+                  border: `1px solid ${
+                    isCurrent
+                      ? alpha(theme.palette.primary.main, 0.3)
+                      : (isClosestToUser || isBusAtUser)
+                      ? alpha(theme.palette.info.main, 0.3)
+                      : 'transparent'
+                  }`,
+                }}
+              >
+                {/* Compact Icon */}
+                <Box
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: isCurrent
+                      ? theme.palette.primary.main
+                      : (isClosestToUser || isBusAtUser)
+                      ? theme.palette.info.main
+                      : theme.palette.divider,
+                    flexShrink: 0,
+                  }}
+                >
+                  {stop.type === 'bus' ? (
+                    <DirectionsBus 
+                      sx={{ 
+                        fontSize: 10, 
+                        color: 'white'
+                      }} 
+                    />
+                  ) : stop.type === 'user' || stop.type === 'bus-at-user' ? (
+                    <PersonPin 
+                      sx={{ 
+                        fontSize: 10, 
+                        color: 'white'
+                      }} 
+                    />
+                  ) : (
+                    <LocationOn 
+                      sx={{ 
+                        fontSize: 10, 
+                        color: 'white'
+                      }} 
                     />
                   )}
-                  
-                  {/* Stop Icon */}
+                </Box>
+                
+                {/* Compact Stop Name */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.7rem',
+                    fontWeight: isCurrent ? 600 : (isClosestToUser || isBusAtUser) ? 500 : 400,
+                    color: isCurrent 
+                      ? theme.palette.primary.main 
+                      : (isClosestToUser || isBusAtUser)
+                      ? theme.palette.info.main 
+                      : theme.palette.text.secondary,
+                    lineHeight: 1.1,
+                    whiteSpace: 'nowrap',
+                    maxWidth: 120,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {stop.name}
+                </Typography>
+                
+                {/* Special State Indicators */}
+                {stop.type === 'bus-at-user' && (
                   <Box
                     sx={{
-                      width: 24,
-                      height: 24,
+                      width: 6,
+                      height: 6,
                       borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: theme.palette.background.paper,
-                      border: `1px solid ${theme.palette.divider}`,
-                      zIndex: 1,
+                      bgcolor: theme.palette.warning.main,
+                      flexShrink: 0,
                     }}
-                  >
-                    {stop.type === 'bus' ? (
-                      <DirectionsBus 
-                        sx={{ 
-                          fontSize: 14, 
-                          color: theme.palette.primary.main
-                        }} 
-                      />
-                    ) : stop.type === 'user' ? (
-                      <PersonPin 
-                        sx={{ 
-                          fontSize: 14, 
-                          color: theme.palette.info.main
-                        }} 
-                      />
-                    ) : stop.type === 'bus-at-user' ? (
-                      <PersonPin 
-                        sx={{ 
-                          fontSize: 14, 
-                          color: theme.palette.info.main
-                        }} 
-                      />
-                    ) : (
-                      <LocationOn 
-                        sx={{ 
-                          fontSize: 14, 
-                          color: theme.palette.text.secondary
-                        }} 
-                      />
-                    )}
-                  </Box>
-                </Box>
+                  />
+                )}
                 
-                {/* Stop Information */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
+                {(stop.type === 'user' || stop.type === 'bus-at-user') && stop.isFinalDestination && (
+                  <Box
                     sx={{
-                      fontSize: '0.8rem',
-                      fontWeight: stop.type === 'bus' ? 600 : (stop.type === 'user' || stop.type === 'bus-at-user') ? 500 : 400,
-                      color: stop.type === 'bus' 
-                        ? theme.palette.primary.main 
-                        : (stop.type === 'user' || stop.type === 'bus-at-user')
-                        ? theme.palette.info.main 
-                        : theme.palette.text.primary,
-                      lineHeight: 1.2,
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      bgcolor: theme.palette.success.main,
+                      flexShrink: 0,
                     }}
-                  >
-                    {stop.name}
-                  </Typography>
-                  
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontSize: '0.65rem',
-                      color: theme.palette.text.secondary,
-                      display: 'block',
-                      mt: 0.25,
-                    }}
-                  >
-                    {stop.type === 'bus' 
-                      ? 'Current bus location' 
-                      : stop.type === 'user' 
-                      ? 'Your stop'
-                      : stop.type === 'bus-at-user'
-                      ? 'Bus at your stop'
-                      : 'Final destination'}
-                  </Typography>
-                </Box>
-                
-                {/* Chips for user stop */}
-                <Stack direction="row" spacing={0.5}>
-                  {/* Bus at stop chip */}
-                  {stop.type === 'bus-at-user' && (
-                    <Chip
-                      icon={<DirectionsBus sx={{ fontSize: '12px !important' }} />}
-                      label="Bus Here"
-                      size="small"
-                      variant="outlined"
-                      clickable
-                      onClick={onMapClick}
-                      sx={{
-                        height: 20,
-                        fontSize: '0.6rem',
-                        '& .MuiChip-label': { px: 0.5 },
-                        '& .MuiChip-icon': { 
-                          fontSize: 12,
-                          color: theme.palette.primary.main 
-                        },
-                        borderColor: theme.palette.primary.main,
-                        color: theme.palette.primary.main,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        }
-                      }}
-                    />
-                  )}
-                  
-                  {/* Final destination chip */}
-                  {(stop.type === 'user' || stop.type === 'bus-at-user') && stop.isFinalDestination && (
-                    <Chip
-                      icon={<LocationOn sx={{ fontSize: '12px !important' }} />}
-                      label="Final"
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        height: 20,
-                        fontSize: '0.6rem',
-                        '& .MuiChip-label': { px: 0.5 },
-                        '& .MuiChip-icon': { 
-                          fontSize: 12,
-                          color: theme.palette.text.secondary 
-                        },
-                        borderColor: theme.palette.text.disabled,
-                        color: theme.palette.text.secondary,
-                      }}
-                    />
-                  )}
-                </Stack>
-              </Stack>
-            </Box>
+                  />
+                )}
+              </Box>
+              
+              {/* Connecting Arrow (except for last item) */}
+              {index < keyStops.length - 1 && (
+                <Box
+                  sx={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '4px solid',
+                    borderTop: '3px solid transparent',
+                    borderBottom: '3px solid transparent',
+                    borderLeftColor: theme.palette.divider,
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </React.Fragment>
           );
         })}
-      </Stack>
+      </Box>
     </Box>
   );
 };

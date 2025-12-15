@@ -97,11 +97,13 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
 
   const handleToggleRoute = async (routeName: string): Promise<void> => {
     const isCurrentlySelected = selectedRoutes.some(r => r.routeName === routeName);
+    let newSelectedRoutes: FavoriteRoute[];
     
     if (isCurrentlySelected) {
       // Remove from favorites
-      const newSelectedRoutes = selectedRoutes.filter(r => r.routeName !== routeName);
+      newSelectedRoutes = selectedRoutes.filter(r => r.routeName !== routeName);
       setSelectedRoutes(newSelectedRoutes);
+      logger.info('Removed route from favorites', { routeName }, 'FAVORITES');
     } else {
       // Add to favorites - find the complete route object and get proper route ID
       const routeToAdd = availableRoutes.find(r => r.routeName === routeName);
@@ -122,7 +124,7 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
             longName: routeToAdd.routeDesc || routeMapping.routeDesc || `Route ${routeName}`,
             type: routeToAdd.type
           };
-          const newSelectedRoutes = [...selectedRoutes, favoriteRoute];
+          newSelectedRoutes = [...selectedRoutes, favoriteRoute];
           setSelectedRoutes(newSelectedRoutes);
           logger.info('Added route to favorites', { favoriteRoute }, 'FAVORITES');
         } catch (error) {
@@ -131,10 +133,25 @@ export const useFavoriteBusManager = (): UseFavoriteBusManagerReturn => {
           logger.warn('Skipping route addition - route mapping service failed', { routeName }, 'FAVORITES');
           return;
         }
+      } else {
+        return; // Exit early if route not found or no city configured
       }
     }
     
-    setHasChanges(true);
+    // Auto-save changes immediately
+    try {
+      await updateConfig({ favoriteBuses: newSelectedRoutes });
+      setHasChanges(false);
+      logger.info('Auto-saved favorite routes', { 
+        action: isCurrentlySelected ? 'removed' : 'added',
+        routeName,
+        totalFavorites: newSelectedRoutes.length 
+      }, 'FAVORITES');
+    } catch (error) {
+      logger.error('Failed to auto-save favorite routes', { error, routeName }, 'FAVORITES');
+      // Set hasChanges to true if auto-save failed, so user can manually save
+      setHasChanges(true);
+    }
   };
 
   const handleSaveChanges = async (): Promise<void> => {

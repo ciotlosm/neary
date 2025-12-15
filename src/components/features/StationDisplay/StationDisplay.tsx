@@ -880,6 +880,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                             setSelectedRoutePerStation(newSelection);
                           }}
                           sx={{
+                            position: 'relative',
                             minWidth: 48,
                             height: 48,
                             borderRadius: 2,
@@ -908,6 +909,37 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                           >
                             {route.routeName}
                           </Typography>
+                          
+                          {/* Vehicle count badge */}
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: -6,
+                              right: -6,
+                              minWidth: 18,
+                              height: 18,
+                              borderRadius: '50%',
+                              bgcolor: isSelected ? 'primary.main' : 'success.main',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '2px solid',
+                              borderColor: 'background.paper',
+                              boxShadow: 1,
+                            }}
+                          >
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.65rem',
+                                lineHeight: 1,
+                              }}
+                            >
+                              {route.vehicleCount}
+                            </Typography>
+                          </Box>
                         </Box>
                       );
                     })}

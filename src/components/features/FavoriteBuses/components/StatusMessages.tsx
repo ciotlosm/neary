@@ -71,19 +71,7 @@ export const StatusMessages: React.FC<StatusMessagesProps> = ({
     );
   }
 
-  // Current Favorites Summary (when no changes)
-  if (selectedCount > 0 && !hasChanges) {
-    return (
-      <Alert severity="success" sx={{ borderRadius: 2 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-          You have {selectedCount} favorite bus route{selectedCount !== 1 ? 's' : ''}
-        </Typography>
-        <Typography variant="body2">
-          These routes will appear in your favorites section for quick access to real-time information.
-        </Typography>
-      </Alert>
-    );
-  }
+
 
   return null;
 };

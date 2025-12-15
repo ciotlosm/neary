@@ -17,6 +17,7 @@ import {
 
 import { useOfflineStore } from '../../../stores/offlineStore';
 import { useLocationStore } from '../../../stores/locationStore';
+import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
 
 interface StatusIndicatorsProps {
   compact?: boolean;
@@ -25,6 +26,7 @@ interface StatusIndicatorsProps {
 export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = false }) => {
   const { isOnline } = useOfflineStore();
   const { currentLocation, locationPermission } = useLocationStore();
+  const { handleLocationPicker } = useConfigurationManager();
   const theme = useTheme();
 
   const getLocationStatus = () => {
@@ -34,7 +36,7 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
         label: compact ? 'GPS Off' : 'GPS Disabled',
         color: theme.palette.error.main,
         bgColor: alpha(theme.palette.error.main, 0.1),
-        tooltip: 'GPS access denied. Enable location services to use location features.',
+        tooltip: 'GPS access denied. Click to set an offline location.',
       };
     }
     
@@ -53,7 +55,7 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       label: compact ? 'No GPS' : 'GPS Inactive',
       color: theme.palette.warning.main,
       bgColor: alpha(theme.palette.warning.main, 0.1),
-      tooltip: 'GPS location not available. Click to enable location services.',
+      tooltip: 'GPS location not available. Click to set an offline location.',
     };
   };
 
@@ -115,6 +117,7 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
           icon={locationStatus.icon}
           label={locationStatus.label}
           size={compact ? 'small' : 'medium'}
+          onClick={(locationPermission === 'denied' || !currentLocation) ? () => handleLocationPicker('offline') : undefined}
           sx={{
             bgcolor: locationStatus.bgColor,
             color: locationStatus.color,
@@ -122,6 +125,12 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
             fontWeight: 600,
             fontSize: compact ? '0.7rem' : '0.75rem',
             height: compact ? 24 : 32,
+            cursor: (locationPermission === 'denied' || !currentLocation) ? 'pointer' : 'default',
+            '&:hover': (locationPermission === 'denied' || !currentLocation) ? {
+              bgcolor: alpha(locationStatus.color, 0.2),
+              transform: 'scale(1.02)',
+            } : {},
+            transition: 'all 0.2s ease-in-out',
             '& .MuiChip-icon': {
               color: locationStatus.color,
             },

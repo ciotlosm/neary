@@ -3,11 +3,7 @@ import {
   Box,
   Stack,
 } from '@mui/material';
-import { formatTime24, formatRefreshTime } from '../../../utils/timeFormat';
-import { RadioButtonChecked as LiveIcon } from '@mui/icons-material';
-
 import { useFavoriteBusDisplay } from '../../../hooks/useFavoriteBusDisplay';
-import { InfoCard } from '../../ui/Card';
 import { GroupedFavoriteBusDisplay } from './components/GroupedFavoriteBusDisplay';
 import { EmptyStates } from './components/EmptyStates';
 
@@ -60,13 +56,7 @@ export const FavoriteBusDisplay: React.FC<FavoriteBusDisplayProps> = ({ classNam
 
   return (
     <Box className={className}>
-      <InfoCard
-        title="Favorite Buses"
-        subtitle={lastUpdate && lastUpdate instanceof Date ? `Last cache update ${formatRefreshTime(lastUpdate)}` : 'Real-time updates'}
-        icon={<LiveIcon sx={{ color: 'success.main' }} />}
-      >
-        <GroupedFavoriteBusDisplay buses={favoriteBusResult?.favoriteBuses || []} />
-      </InfoCard>
+      <GroupedFavoriteBusDisplay buses={favoriteBusResult?.favoriteBuses || []} />
     </Box>
   );
 };

@@ -31,7 +31,7 @@ export const EmptyStates: React.FC<EmptyStatesProps> = ({
     return (
       <InfoCard
         title="Favorites Error"
-        subtitle="Unable to load favorite buses"
+        subtitle="Unable to load favorite routes"
         icon={<FavoriteIcon />}
       >
         <Typography variant="body2" color="error.main">
@@ -44,12 +44,12 @@ export const EmptyStates: React.FC<EmptyStatesProps> = ({
   if (type === 'no-favorites') {
     return (
       <InfoCard
-        title="No Favorite Buses"
-        subtitle="Add buses to your favorites to see them here"
+        title="No Favorite Routes"
+        subtitle="Add routes to your favorites to see them here"
         icon={<FavoriteIcon />}
       >
         <Typography variant="body2" color="text.secondary">
-          Go to Settings → Favorites to select your favorite bus routes.
+          Go to Settings → Favorites to select your favorite routes.
         </Typography>
       </InfoCard>
     );
@@ -73,7 +73,7 @@ export const EmptyStates: React.FC<EmptyStatesProps> = ({
             }}
           />
           <Typography variant="body2" color="text.secondary">
-            Loading favorite buses...
+            Loading favorite routes...
           </Typography>
         </Box>
       </InfoCard>
@@ -83,7 +83,7 @@ export const EmptyStates: React.FC<EmptyStatesProps> = ({
   if (type === 'no-data' && config && getRouteLabel && getRouteTypeInfo) {
     return (
       <InfoCard
-        title="Favorite Buses"
+        title="Favorite Routes"
         subtitle={`${config?.favoriteBuses?.length || 0} favorite route${(config?.favoriteBuses?.length || 0) !== 1 ? 's' : ''} configured`}
         icon={<FavoriteIcon />}
       >

@@ -198,6 +198,8 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
               sx={{
                 bgcolor: alpha(routeTypeInfo.color, 0.05),
                 borderRadius: isExpanded ? '8px 8px 0 0' : 2,
+                px: 2, // Add horizontal padding
+                py: 1.5, // Add vertical padding
                 '&.Mui-expanded': {
                   minHeight: 48,
                 },
@@ -216,23 +218,56 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
                 gap: 2,
                 overflow: 'hidden' // Prevent content from overflowing
               }}>
-                {/* Route Avatar */}
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    bgcolor: routeTypeInfo.color,
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem',
-                    flexShrink: 0, // Don't shrink the avatar
-                  }}
-                >
-                  {routeKey}
+                {/* Route Avatar with Status Badges */}
+                <Box sx={{ position: 'relative', flexShrink: 0, p: 1 }}>
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      bgcolor: routeTypeInfo.color,
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {routeKey}
+                  </Box>
+                  
+                  {/* Total vehicle count badge */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      bgcolor: 'success.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '2px solid',
+                      borderColor: 'background.paper',
+                      boxShadow: 1,
+                      zIndex: 2,
+                    }}
+                  >
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '0.65rem',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {busGroup.length}
+                    </Typography>
+                  </Box>
                 </Box>
 
                 {/* Route Info - Flexible container */}
@@ -256,7 +291,7 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      {routeKey}
+                      {busGroup[0]?.routeDesc || routeKey}
                     </Typography>
                     {/* Bus/Trolleybus Type Chip */}
                     <Chip
@@ -272,55 +307,6 @@ export const GroupedFavoriteBusDisplay: React.FC<GroupedFavoriteBusDisplayProps>
                       }}
                     />
                   </Box>
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary"
-                    sx={{
-                      display: 'block',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}
-                  >
-                    {busGroup.length} bus{busGroup.length !== 1 ? 'es' : ''} tracked
-                  </Typography>
-                </Box>
-
-                {/* Status Chips - Compact layout */}
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: { xs: 'column', sm: 'row' }, // Stack vertically on mobile
-                  gap: 0.5,
-                  flexShrink: 0, // Don't shrink status chips
-                  alignItems: 'flex-end'
-                }}>
-                  {statusCounts['at-stop'] && (
-                    <Chip
-                      label={`${statusCounts['at-stop']} at stop`}
-                      size="small"
-                      color="warning"
-                      variant="filled"
-                      sx={{ fontSize: '0.65rem', height: 18 }}
-                    />
-                  )}
-                  {statusCounts['arriving'] && (
-                    <Chip
-                      label={`${statusCounts['arriving']} on route`}
-                      size="small"
-                      color="success"
-                      variant="filled"
-                      sx={{ fontSize: '0.65rem', height: 18 }}
-                    />
-                  )}
-                  {statusCounts['missed'] && (
-                    <Chip
-                      label={`${statusCounts['missed']} missed`}
-                      size="small"
-                      color="error"
-                      variant="outlined"
-                      sx={{ fontSize: '0.65rem', height: 18 }}
-                    />
-                  )}
                 </Box>
               </Box>
             </AccordionSummary>

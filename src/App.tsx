@@ -29,6 +29,9 @@ import {
   LocationOn as StationIcon,
 } from '@mui/icons-material';
 
+import LocationPicker from './components/features/LocationPicker/LocationPicker';
+import { useConfigurationManager } from './hooks/useConfigurationManager';
+
 
 
 import { 
@@ -116,7 +119,7 @@ const MaterialHeader: React.FC<{
           </Box>
         )}
       </Toolbar>
-      {isLoading && <LinearProgress sx={{ height: 3 }} />}
+      {isLoading && <LinearProgress sx={{ height: 1 }} />}
     </AppBar>
   );
 });
@@ -200,7 +203,7 @@ const MaterialBottomNav: React.FC<{
           }}
         />
         <BottomNavigationAction
-          label="Buses"
+          label="Routes"
           value="buses"
           icon={<BusIcon />}
           disabled={!isFullyConfigured}
@@ -280,6 +283,12 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 function AppMaterial() {
   const [currentView, setCurrentView] = useState<'buses' | 'station' | 'favorites' | 'settings'>('station');
   const { config, isConfigured, isFullyConfigured } = useConfigStore();
+  const { 
+    locationPickerOpen, 
+    locationPickerType, 
+    setLocationPickerOpen, 
+    handleLocationSelected 
+  } = useConfigurationManager();
 
   const { isAutoRefreshEnabled } = useRefreshSystem();
   const { error: globalError, clearError } = useErrorHandler();
@@ -479,7 +488,7 @@ function AppMaterial() {
               <OfflineIndicator />
             </Box>
             
-            {/* Favorite Buses */}
+            {/* Favorite Routes */}
             <Box sx={{ mb: 3 }}>
               <FavoriteBusDisplay />
             </Box>
@@ -597,9 +606,9 @@ function AppMaterial() {
       case 'station':
         return 'Nearby Station';
       case 'buses':
-        return config?.city ? `Buses in ${config.city}` : 'Bus Tracker';
+        return (config?.city === 'Cluj-Napoca' || config?.city === 'CTP Cluj') ? 'My Favorite Routes' : config?.city ? `Buses in ${config.city}` : 'Bus Tracker';
       case 'favorites':
-        return 'Favorite Buses';
+        return 'My Favorite Routes';
       case 'settings':
         return 'Settings';
       default:
@@ -646,6 +655,21 @@ function AppMaterial() {
 
         {/* Debug Panel (Development Only) */}
         {import.meta.env.DEV && <DebugPanel />}
+
+        {/* Location Picker Dialog */}
+        <LocationPicker
+          open={locationPickerOpen}
+          onClose={() => setLocationPickerOpen(false)}
+          onLocationSelected={handleLocationSelected}
+          title={
+            locationPickerType === 'home' 
+              ? 'Set Home Location' 
+              : locationPickerType === 'work' 
+                ? 'Set Work Location'
+                : 'Set Offline Location'
+          }
+          type={locationPickerType}
+        />
       </Box>
     </ErrorBoundary>
   );

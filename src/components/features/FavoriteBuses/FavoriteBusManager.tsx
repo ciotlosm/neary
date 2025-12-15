@@ -54,13 +54,13 @@ export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ classNam
   if (!config?.city) {
     return (
       <InfoCard
-        title="Favorite Buses"
+        title="Favorite Routes"
         subtitle="Configure your city first"
         icon={<FavoriteIcon />}
       >
         <Alert severity="info" sx={{ borderRadius: 2 }}>
           <Typography variant="body2">
-            Please select your city in the configuration section before managing favorite buses.
+            Please select your city in the configuration section before managing favorite routes.
           </Typography>
         </Alert>
       </InfoCard>
@@ -70,48 +70,20 @@ export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ classNam
   return (
     <Box className={className}>
       <InfoCard
-        title="Favorite Buses"
-        subtitle={`Manage your favorite bus routes in ${config.city}`}
+        title="Favorite Routes"
+        subtitle={`Manage your favorite routes in ${config.city}`}
         icon={<FavoriteIcon />}
       >
         <Stack spacing={3}>
-          {/* Unsaved Changes Alert - Top Priority */}
-          {hasChanges && (
-            <Alert 
-              severity="warning" 
-              sx={{ 
-                borderRadius: 2,
-                '& .MuiAlert-message': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  width: '100%'
-                }
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Unsaved Changes
-                </Typography>
-                <Chip
-                  label={`${selectedRoutes.length} selected`}
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
-              </Box>
-              <Button
-                variant="filled"
-                size="small"
-                onClick={handleSaveChanges}
-                icon={<CheckIcon />}
-                sx={{ ml: 2 }}
-              >
-                Save All
-              </Button>
-            </Alert>
-          )}
+          {/* Auto-save info */}
+          <Alert 
+            severity="info" 
+            sx={{ borderRadius: 2 }}
+          >
+            <Typography variant="body2">
+              Changes are automatically saved when you click the heart icon ❤️
+            </Typography>
+          </Alert>
 
           {/* Favorite Routes Section */}
           <Box>
@@ -121,20 +93,7 @@ export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ classNam
               isFavoriteList={true}
               onToggleRoute={handleToggleRoute}
             />
-            {/* Save button for favorites section */}
-            {hasChanges && favoriteRoutes.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleSaveChanges}
-                  icon={<CheckIcon />}
-                  fullWidth
-                >
-                  Save Favorite Routes ({favoriteRoutes.length})
-                </Button>
-              </Box>
-            )}
+
           </Box>
 
           {/* Search and Filter Section */}
@@ -202,20 +161,7 @@ export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ classNam
               onToggleRoute={handleToggleRoute}
               maxHeight={400}
             />
-            {/* Save button for available routes section */}
-            {hasChanges && (
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleSaveChanges}
-                  icon={<CheckIcon />}
-                  fullWidth
-                >
-                  Save Changes ({selectedRoutes.length} total selected)
-                </Button>
-              </Box>
-            )}
+
           </Box>
 
           {/* Status Messages */}
@@ -228,7 +174,7 @@ export const FavoriteBusManager: React.FC<FavoriteBusManagerProps> = ({ classNam
             selectedTypes={selectedTypes}
             cityName={config?.city}
             selectedCount={selectedRoutes.length}
-            hasChanges={hasChanges}
+            hasChanges={false}
           />
         </Stack>
       </InfoCard>
