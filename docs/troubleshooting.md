@@ -4,6 +4,18 @@
 
 ### Build & Development Issues
 
+#### Favorite Buses Empty After Setup
+**Problem**: Favorite buses section shows empty even after completing setup
+
+**Root Cause**: Favorite bus system required home location to be set, but home/work locations are now optional
+
+**Solution**: Updated favorite bus system with intelligent location fallback
+- Removed home location requirement from favorite bus system
+- Added location priority: current GPS → home → work → Cluj center default
+- Favorite buses now work immediately after API key + city setup
+
+**Prevention**: Ensure optional features don't block core functionality
+
 #### Setup Wizard Complete Button Not Working
 **Problem**: Clicking "Complete Setup" after city selection doesn't transition to main app
 

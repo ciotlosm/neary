@@ -28,7 +28,7 @@ export interface UseConfigurationManagerReturn {
   
   // Location picker
   locationPickerOpen: boolean;
-  locationPickerType: 'home' | 'work';
+  locationPickerType: 'home' | 'work' | 'default';
   setLocationPickerOpen: (open: boolean) => void;
   
   // Submission
@@ -38,7 +38,7 @@ export interface UseConfigurationManagerReturn {
   handleApiKeyChange: (value: string) => void;
   handleCityChange: (city: string, agencyId: string) => void;
   validateApiKey: (apiKey: string) => Promise<void>;
-  handleLocationPicker: (type: 'home' | 'work') => void;
+  handleLocationPicker: (type: 'home' | 'work' | 'default') => void;
   handleLocationSelected: (location: Coordinates) => void;
   handleSubmit: () => Promise<void>;
   
@@ -63,6 +63,7 @@ export const useConfigurationManager = (
     agencyId: config?.agencyId || '',
     homeLocation: config?.homeLocation || undefined,
     workLocation: config?.workLocation || undefined,
+    defaultLocation: config?.defaultLocation || { latitude: 46.7712, longitude: 23.6236 }, // Cluj-Napoca center
     apiKey: config?.apiKey || '',
     refreshRate: config?.refreshRate || 30000,
     staleDataThreshold: config?.staleDataThreshold || 2,
@@ -74,7 +75,7 @@ export const useConfigurationManager = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
-  const [locationPickerType, setLocationPickerType] = useState<'home' | 'work'>('home');
+  const [locationPickerType, setLocationPickerType] = useState<'home' | 'work' | 'default'>('home');
 
   // Load agencies on mount if API is validated but agencies are empty
   useEffect(() => {
@@ -151,7 +152,7 @@ export const useConfigurationManager = (
     setFormData(prev => ({ ...prev, city, agencyId }));
   };
 
-  const handleLocationPicker = (type: 'home' | 'work'): void => {
+  const handleLocationPicker = (type: 'home' | 'work' | 'default'): void => {
     setLocationPickerType(type);
     setLocationPickerOpen(true);
   };
@@ -159,8 +160,10 @@ export const useConfigurationManager = (
   const handleLocationSelected = (location: Coordinates): void => {
     if (locationPickerType === 'home') {
       setFormData(prev => ({ ...prev, homeLocation: location }));
-    } else {
+    } else if (locationPickerType === 'work') {
       setFormData(prev => ({ ...prev, workLocation: location }));
+    } else if (locationPickerType === 'default') {
+      setFormData(prev => ({ ...prev, defaultLocation: location }));
     }
     setLocationPickerOpen(false);
   };

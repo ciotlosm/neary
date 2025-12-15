@@ -33,7 +33,7 @@ interface LocationPickerProps {
   onClose: () => void;
   onLocationSelected: (location: Coordinates) => void;
   title: string;
-  type: 'home' | 'work';
+  type: 'home' | 'work' | 'default'; // Support for default location
   currentLocation?: Coordinates;
 }
 

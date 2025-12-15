@@ -124,6 +124,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         agencyId: selectedCity.agencyId,
         refreshRate: 30000, // Default 30 seconds
         staleDataThreshold: 2, // Default 2 minutes
+        defaultLocation: { latitude: 46.7712, longitude: 23.6236 }, // Cluj-Napoca center
       });
       
       onComplete();

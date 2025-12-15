@@ -16,6 +16,7 @@ import {
   Timer as TimerIcon,
   CheckCircle as CheckIcon,
   Palette as PaletteIcon,
+  LocationOn as LocationOnIcon,
 } from '@mui/icons-material';
 
 import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
@@ -172,6 +173,31 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
               sx={{ flex: 1 }}
             />
           </Box>
+          
+          {/* Default Location Setting */}
+          <Box sx={{ mt: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocationOnIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                Default Location (Fallback)
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleLocationPicker('default')}
+              >
+                {formData.defaultLocation ? 'Change Default' : 'Set Default Location'}
+              </Button>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Used when GPS and saved locations are unavailable for direction detection
+            </Typography>
+            {formData.defaultLocation && (
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                Current: {formatLocationDisplay(formData.defaultLocation)}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {/* Theme Settings */}
@@ -196,6 +222,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
         <LocationSettingsSection
           homeLocation={formData.homeLocation}
           workLocation={formData.workLocation}
+          defaultLocation={formData.defaultLocation}
           onLocationPicker={handleLocationPicker}
           formatLocationDisplay={formatLocationDisplay}
         />
@@ -219,9 +246,21 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
           open={locationPickerOpen}
           onClose={() => setLocationPickerOpen(false)}
           onLocationSelected={handleLocationSelected}
-          title={locationPickerType === 'home' ? 'Set Home Location' : 'Set Work Location'}
+          title={
+            locationPickerType === 'home' 
+              ? 'Set Home Location' 
+              : locationPickerType === 'work' 
+                ? 'Set Work Location'
+                : 'Set Default Location'
+          }
           type={locationPickerType}
-          currentLocation={locationPickerType === 'home' ? formData.homeLocation : formData.workLocation}
+          currentLocation={
+            locationPickerType === 'home' 
+              ? formData.homeLocation 
+              : locationPickerType === 'work' 
+                ? formData.workLocation
+                : formData.defaultLocation
+          }
         />
       </Stack>
       </CardContent>

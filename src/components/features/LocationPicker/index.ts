@@ -1,4 +1,4 @@
-export { LocationPicker } from './LocationPicker';
+export { default as LocationPicker } from './LocationPicker';
 
 // Component exports
 export { CurrentLocationSection } from './components/CurrentLocationSection';

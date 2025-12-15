@@ -99,9 +99,9 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
                 location = config.workLocation;
                 logger.info('Using work location as fallback');
               } else {
-                // Default to Cluj-Napoca city center if no locations are set
-                location = { latitude: 46.7712, longitude: 23.6236 };
-                logger.info('Using Cluj-Napoca center as default location');
+                // Use configurable default location or Cluj-Napoca center as fallback
+                location = config.defaultLocation || { latitude: 46.7712, longitude: 23.6236 };
+                logger.info('Using default fallback location for direction detection', { location });
               }
             }
           }

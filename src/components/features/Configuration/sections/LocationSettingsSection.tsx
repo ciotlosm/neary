@@ -16,6 +16,7 @@ import {
   LocationOn as LocationOnIcon,
   LocationOff as LocationOffIcon,
   LocationDisabled as LocationDisabledIcon,
+  MyLocation as MyLocationIcon,
 } from '@mui/icons-material';
 import { Button } from '../../../ui/Button';
 import { useLocationStore } from '../../../../stores/locationStore';
@@ -24,13 +25,15 @@ type Coordinates = { latitude: number; longitude: number; };
 interface LocationSettingsSectionProps {
   homeLocation?: Coordinates;
   workLocation?: Coordinates;
-  onLocationPicker: (type: 'home' | 'work') => void;
+  defaultLocation?: Coordinates;
+  onLocationPicker: (type: 'home' | 'work' | 'default') => void;
   formatLocationDisplay: (location: Coordinates | undefined) => string | null;
 }
 
 export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = ({
   homeLocation,
   workLocation,
+  defaultLocation,
   onLocationPicker,
   formatLocationDisplay,
 }) => {
@@ -70,6 +73,52 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
 
   const gpsStatus = getGPSPermissionStatus();
 
+  const getActiveLocationStatus = () => {
+    // Determine which location would be used for direction detection
+    // Priority: current GPS → home → work → default
+    if (currentLocation && locationPermission === 'granted') {
+      return {
+        type: 'current',
+        icon: <MyLocationIcon sx={{ fontSize: 16 }} />,
+        label: 'Using Current GPS',
+        color: theme.palette.success.main,
+        bgColor: alpha(theme.palette.success.main, 0.1),
+        description: `Live GPS location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`,
+      };
+    } else if (homeLocation) {
+      return {
+        type: 'home',
+        icon: <HomeIcon sx={{ fontSize: 16 }} />,
+        label: 'Using Home Location',
+        color: theme.palette.info.main,
+        bgColor: alpha(theme.palette.info.main, 0.1),
+        description: `Fallback to saved home: ${formatLocationDisplay(homeLocation)}`,
+      };
+    } else if (workLocation) {
+      return {
+        type: 'work',
+        icon: <WorkIcon sx={{ fontSize: 16 }} />,
+        label: 'Using Work Location',
+        color: theme.palette.info.main,
+        bgColor: alpha(theme.palette.info.main, 0.1),
+        description: `Fallback to saved work: ${formatLocationDisplay(workLocation)}`,
+      };
+    } else {
+      return {
+        type: 'default',
+        icon: <LocationOnIcon sx={{ fontSize: 16 }} />,
+        label: 'Using Default Location',
+        color: theme.palette.warning.main,
+        bgColor: alpha(theme.palette.warning.main, 0.1),
+        description: defaultLocation 
+          ? `Fallback to default: ${formatLocationDisplay(defaultLocation)}`
+          : 'Fallback to Cluj-Napoca center (46.7712, 23.6236)',
+      };
+    }
+  };
+
+  const activeLocationStatus = getActiveLocationStatus();
+
   return (
     <Card variant="outlined" sx={{ bgcolor: alpha(theme.palette.info.main, 0.02) }}>
       <CardContent>
@@ -102,6 +151,26 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {gpsStatus.description}
+            </Typography>
+          </Alert>
+
+          {/* Active Location Status */}
+          <Alert 
+            severity={activeLocationStatus.type === 'current' ? 'success' : activeLocationStatus.type === 'default' ? 'warning' : 'info'}
+            sx={{ 
+              bgcolor: activeLocationStatus.bgColor,
+              border: `1px solid ${alpha(activeLocationStatus.color, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: activeLocationStatus.color,
+              },
+            }}
+            icon={activeLocationStatus.icon}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Direction Detection: {activeLocationStatus.label}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {activeLocationStatus.description}
             </Typography>
           </Alert>
           

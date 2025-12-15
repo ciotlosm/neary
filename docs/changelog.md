@@ -42,6 +42,7 @@
 #### ✅ Major Fixes & CTP Cluj Integration
 
 #### ✅ Critical Issues Resolved
+- **Fixed Favorite Buses requiring locations** - Favorite buses now work without home/work locations set
 - **Fixed Setup Wizard completion** - Complete Setup button now properly transitions to main app
 - **Fixed MUI Menu Fragment warning** - Replaced Fragment children with arrays in VersionControl Menu component
 - **Fixed Settings component export error** - Resolved "Indirectly exported binding name 'Settings' is not found" build issue
