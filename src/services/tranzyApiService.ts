@@ -53,16 +53,20 @@ export class TranzyApiService {
 
   private setupInterceptors(): void {
     this.axiosInstance.interceptors.request.use(
-      (config) => {
+      async (config) => {
         if (this.apiKey) {
           config.headers.Authorization = `Bearer ${this.apiKey}`;
           config.headers['X-API-Key'] = this.apiKey;
-          config.headers['X-Agency-Id'] = '2'; // CTP Cluj agency ID
+          
+          // Get configured agency ID instead of hardcoded value
+          const agencyId = await this.getConfiguredAgencyId();
+          config.headers['X-Agency-Id'] = agencyId.toString();
+          
           logger.debug('API request with auth headers', {
             url: config.url,
             hasAuth: !!config.headers.Authorization,
             hasApiKey: !!config.headers['X-API-Key'],
-            hasAgencyId: !!config.headers['X-Agency-Id'],
+            agencyId: agencyId,
             keyLength: this.apiKey.length
           }, 'API');
         } else {
