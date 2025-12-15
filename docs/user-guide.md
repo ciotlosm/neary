@@ -3,8 +3,8 @@
 ## 📱 What is Cluj Bus App?
 
 A real-time bus tracking app for Cluj-Napoca that shows you:
-- **Live bus locations** with GPS tracking
-- **Official CTP Cluj schedules** from their website
+- **Live bus locations** with GPS tracking via Tranzy API
+- **GTFS schedule data** from Tranzy API
 - **Smart route suggestions** based on your location
 - **Accurate arrival times** with confidence indicators
 
@@ -13,8 +13,8 @@ A real-time bus tracking app for Cluj-Napoca that shows you:
 ### 🔴 Live Tracking
 See buses moving in real-time on the map with accurate ETAs.
 
-### 📋 Official Schedules
-Get departure times directly from CTP Cluj's official timetables.
+### 📋 Schedule Data
+Get departure times from GTFS-compliant schedule data via Tranzy API.
 
 ### 🏠 Smart Favorites
 The app learns your patterns and suggests relevant routes based on your location.
@@ -39,7 +39,7 @@ Designed for your phone with touch-friendly controls and fast loading.
 
 1. **Check your favorites** - routes you use regularly
 2. **See live buses** - red dots show real-time positions
-3. **Check departure times** - official schedules from CTP Cluj
+3. **Check departure times** - schedule data from Tranzy API
 4. **Get directions** - tap routes for detailed information
 
 ### Understanding the Interface
@@ -66,8 +66,7 @@ The app header shows your current status with colored chips:
 
 #### Confidence Indicators
 - **🔴 LIVE** - Real-time GPS tracking (most accurate)
-- **📋 OFFICIAL** - CTP Cluj official schedule (very reliable)
-- **⏱️ ESTIMATED** - Calculated timing (less reliable)
+- **⏱️ ESTIMATED** - GTFS schedule data from Tranzy API (less reliable when no live data)
 
 ### Adding Favorite Routes
 
@@ -93,8 +92,8 @@ The app uses your location to:
 - **Live Tracking**: Available during operating hours
 
 ### How Timing Works
-1. **Live buses** show exact positions and ETAs
-2. **Official schedules** provide departure times from CTP Cluj
+1. **Live buses** show exact positions and ETAs via Tranzy API
+2. **Schedule data** provides GTFS departure times from Tranzy API
 3. **Fallback data** used when live tracking unavailable
 
 ## 🔧 Settings & Customization

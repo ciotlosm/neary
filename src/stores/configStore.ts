@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ConfigStore, UserConfig } from '../types';
+import { routeMappingService } from '../services/routeMappingService';
 
 // Simple encryption/decryption for sensitive data
 const encryptData = (data: string): string => {
@@ -61,6 +62,9 @@ export const useConfigStore = create<ConfigStore>()(
           ? { ...currentConfig, ...newConfig }
           : newConfig as UserConfig;
         
+        // Check if refresh rate changed
+        const refreshRateChanged = currentConfig?.refreshRate !== updatedConfig.refreshRate;
+        
         const isConfigured = !!(
           updatedConfig.apiKey &&
           updatedConfig.refreshRate
@@ -78,6 +82,11 @@ export const useConfigStore = create<ConfigStore>()(
           isConfigured,
           isFullyConfigured,
         });
+
+        // Update route mapping cache duration if refresh rate changed
+        if (refreshRateChanged) {
+          routeMappingService.updateCacheDuration();
+        }
       },
 
       resetConfig: () => {

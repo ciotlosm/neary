@@ -1,5 +1,6 @@
 import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
+import { useConfigStore } from '../stores/configStore';
 import { logger } from '../utils/logger';
 
 export interface RouteMapping {
@@ -13,7 +14,6 @@ export interface RouteMapping {
 class RouteMappingService {
   private routeMappingCache = new Map<string, RouteMapping[]>(); // cityName -> mappings
   private cacheExpiry = new Map<string, number>(); // cityName -> timestamp
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Get route ID from route short name (what users see)
@@ -155,14 +155,25 @@ class RouteMappingService {
   }
 
   /**
+   * Get cache duration from user's refresh rate setting
+   * Uses 10x the refresh rate since route data changes less frequently than live data
+   */
+  private getCacheDuration(): number {
+    const { config } = useConfigStore.getState();
+    const refreshRate = config?.refreshRate || 30000; // Default to 30 seconds if not configured
+    return refreshRate * 10; // Cache for 10x longer than refresh rate (e.g., 5 minutes if refresh is 30s)
+  }
+
+  /**
    * Get all route mappings for a city (cached)
    */
   private async getRouteMappings(cityName: string): Promise<RouteMapping[]> {
     // Check cache
     const cached = this.routeMappingCache.get(cityName);
     const cacheTime = this.cacheExpiry.get(cityName);
+    const cacheDuration = this.getCacheDuration();
     
-    if (cached && cacheTime && Date.now() - cacheTime < this.CACHE_DURATION) {
+    if (cached && cacheTime && Date.now() - cacheTime < cacheDuration) {
       return cached;
     }
 
@@ -190,6 +201,7 @@ class RouteMappingService {
       logger.debug('Cached route mappings', { 
         cityName, 
         count: mappings.length,
+        cacheDuration: `${this.getCacheDuration() / 1000}s`,
         sample: mappings.slice(0, 3).map(m => `${m.routeShortName} -> ${m.routeId}`)
       });
 
@@ -211,6 +223,18 @@ class RouteMappingService {
       this.routeMappingCache.clear();
       this.cacheExpiry.clear();
     }
+  }
+
+  /**
+   * Update cache duration when user changes refresh rate
+   * This ensures cache respects the new user preference
+   */
+  updateCacheDuration(): void {
+    // Clear all caches so they use the new duration on next access
+    this.clearCache();
+    logger.debug('Route mapping cache cleared due to refresh rate change', {
+      newCacheDuration: `${this.getCacheDuration() / 1000}s`
+    });
   }
 
   /**
