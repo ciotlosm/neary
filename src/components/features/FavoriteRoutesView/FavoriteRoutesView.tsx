@@ -26,6 +26,7 @@ import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
 import { StationHeader } from '../shared/StationHeader';
+import { StationMapModal } from '../shared/StationMapModal';
 import type { EnhancedVehicleInfo, Station, LiveVehicle } from '../../../types';
 import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
 
@@ -73,6 +74,14 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
   const [mapModalOpen, setMapModalOpen] = React.useState(false);
   const [selectedVehicleForMap, setSelectedVehicleForMap] = React.useState<EnhancedVehicleInfoWithDirection | null>(null);
   const [targetStationId, setTargetStationId] = React.useState<string>('');
+  
+  // State for managing station map modal
+  const [stationMapModalOpen, setStationMapModalOpen] = React.useState(false);
+  const [selectedStationForMap, setSelectedStationForMap] = React.useState<{
+    station: Station;
+    distance: number;
+    vehicles: EnhancedVehicleInfoWithDirection[];
+  } | null>(null);
   
   // State for route filtering per station
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
@@ -875,6 +884,14 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
                 stationName={stationGroup.station.station.name}
                 distance={stationGroup.station.distance}
                 isClosest={stationIndex === 0}
+                onClick={() => {
+                  setSelectedStationForMap({
+                    station: stationGroup.station.station,
+                    distance: stationGroup.station.distance,
+                    vehicles: stationGroup.vehicles
+                  });
+                  setStationMapModalOpen(true);
+                }}
               />
               
               {/* Route filter buttons */}
@@ -969,6 +986,21 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
             setTargetStationId('');
           }}
           bus={convertVehicleToFavoriteBusInfo(selectedVehicleForMap, targetStationId)}
+          userLocation={effectiveLocationForDisplay}
+          cityName={config?.city || 'Cluj-Napoca'}
+        />
+      )}
+      
+      {/* Station Map Modal */}
+      {selectedStationForMap && (
+        <StationMapModal
+          open={stationMapModalOpen}
+          onClose={() => {
+            setStationMapModalOpen(false);
+            setSelectedStationForMap(null);
+          }}
+          station={selectedStationForMap.station}
+          vehicles={selectedStationForMap.vehicles}
           userLocation={effectiveLocationForDisplay}
           cityName={config?.city || 'Cluj-Napoca'}
         />

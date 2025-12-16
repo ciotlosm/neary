@@ -34,6 +34,11 @@ class PerformanceMonitor {
       timestamp: Date.now(),
       type: 'timing',
     });
+
+    // Log timing metrics only in debug mode
+    if (import.meta.env.DEV && logger.getLogLevel() === 0) { // LogLevel.DEBUG = 0
+      logger.debug(`Performance timing: ${name} took ${duration.toFixed(2)}ms`, { name, duration }, 'PERFORMANCE');
+    }
   }
 
   /**
@@ -70,6 +75,11 @@ class PerformanceMonitor {
       timestamp: Date.now(),
       props: import.meta.env.DEV ? props : undefined, // Only store props in development
     });
+
+    // Log performance metrics only in debug mode
+    if (import.meta.env.DEV && logger.getLogLevel() === 0) { // LogLevel.DEBUG = 0
+      logger.debug(`Component render: ${componentName} took ${renderTime.toFixed(2)}ms`, { renderTime, props }, 'PERFORMANCE');
+    }
 
     // Limit stored render metrics
     if (this.renderMetrics.length > this.maxMetrics) {
@@ -211,10 +221,10 @@ export function useComponentLifecycle(componentName: string) {
 }
 
 /**
- * Development-only performance logger
+ * Development-only performance logger - only shows when logger is in debug mode
  */
 export function logPerformanceMetrics(): void {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && logger.getLogLevel() === 0) { // LogLevel.DEBUG = 0
     const summary = performanceMonitor.getSummary();
     console.group('🚀 Performance Metrics');
     console.table(summary);
@@ -226,7 +236,7 @@ export function logPerformanceMetrics(): void {
  * Web Vitals measurement (if available)
  */
 export function measureWebVitals(): void {
-  if (import.meta.env.DEV && 'web-vitals' in window) {
+  if (import.meta.env.DEV && logger.getLogLevel() === 0 && 'web-vitals' in window) { // Only in debug mode
     // This would integrate with web-vitals library if installed
     logger.debug('Web Vitals measurement would be implemented here');
   }
