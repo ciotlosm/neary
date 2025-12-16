@@ -355,7 +355,15 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                         <ExpandMore fontSize="small" />
                       )}
                     </Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      sx={{ 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
                       {isExpanded ? 'Hide' : 'Show'} all stops ({vehicle.stopSequence.length})
                     </Typography>
                   </Box>

@@ -8,8 +8,6 @@ import {
   Box,
   Container,
   Paper,
-  Fab,
-  Badge,
   LinearProgress,
   Alert,
   AlertTitle,
@@ -22,9 +20,6 @@ import {
 import {
   DirectionsBus as BusIcon,
   Settings as SettingsIcon,
-  Refresh as RefreshIcon,
-  Check as CheckIcon,
-  LiveTv as LiveIcon,
   Favorite as FavoriteIcon,
   LocationOn as StationIcon,
 } from '@mui/icons-material';
@@ -45,6 +40,7 @@ import { SetupWizard } from './components/features/Setup';
 import OfflineIndicator from './components/layout/Indicators/OfflineIndicator';
 import StatusIndicators from './components/layout/Indicators/StatusIndicators';
 import { useConfigStore, useOfflineStore, useAgencyStore } from './stores';
+import { useThemeStore } from './stores/themeStore';
 import { useRefreshSystem } from './hooks/useRefreshSystem';
 import { useErrorHandler } from './hooks/useErrorHandler';
 import { useAppInitialization } from './hooks/useAppInitialization';
@@ -240,20 +236,27 @@ const MaterialBottomNav: React.FC<{
             },
           }}
         />
-        </BottomNavigation>
-        
-        {/* Theme Toggle on the right side */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            right: 16,
-            transform: 'translateY(-50%)',
-            zIndex: 1,
+        <BottomNavigationAction
+          label="Theme"
+          value="theme"
+          icon={<ThemeToggle size="small" iconOnly />}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Handle theme toggle click here since we're using iconOnly
+            const { toggleTheme } = useThemeStore.getState();
+            toggleTheme();
           }}
-        >
-          <ThemeToggle size="small" />
-        </Box>
+          sx={{
+            '&:hover': {
+              backgroundColor: 'transparent',
+            },
+            '& .MuiBottomNavigationAction-label': {
+              fontSize: '0.75rem',
+            },
+          }}
+        />
+        </BottomNavigation>
       </Box>
     </Paper>
   );
@@ -279,16 +282,15 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 
 function AppMaterial() {
   const [currentView, setCurrentView] = useState<'station' | 'routes' | 'settings'>('station');
-  const { config, isConfigured, isFullyConfigured } = useConfigStore();
+  const { isConfigured, isFullyConfigured } = useConfigStore();
   const { 
     locationPickerOpen, 
     locationPickerType, 
     setLocationPickerOpen, 
-    handleLocationSelected,
-    handleLocationPicker
+    handleLocationSelected
   } = useConfigurationManager();
 
-  const { isAutoRefreshEnabled } = useRefreshSystem();
+  useRefreshSystem();
   const { error: globalError, clearError } = useErrorHandler();
   const { initialize: initializeOffline, cleanup: cleanupOffline } = useOfflineStore();
   const { checkAndFixCorruptedData } = useAgencyStore();
@@ -296,8 +298,7 @@ function AppMaterial() {
     isInitializing, 
     initializationProgress, 
     initializationStep, 
-    initializationError, 
-    isInitialized,
+    initializationError,
     retryInitialization 
   } = useAppInitialization();
   const theme = useTheme();
