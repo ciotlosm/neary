@@ -2,6 +2,49 @@
 
 ## Recent Updates
 
+### December 16, 2024 - Map UI Enhancement: Solid Station Circles & Complete Vehicle Visibility
+**Enhanced**: Improved map visual consistency and station map modal now shows ALL vehicles
+
+**Map Visual Improvements**:
+- **Solid station circles**: All station markers on maps now use solid circles with white borders for better visibility and consistency
+- **No transparency**: Eliminated semi-transparent fills that were hard to see when zooming
+- **Consistent styling**: Station circles use solid green fill (#10b981) with white border across all map views
+- **Better zoom consistency**: Solid circles remain clearly visible at all zoom levels
+
+**Station Map Enhancement**:
+- **Complete vehicle visibility**: Station map modal displays all vehicles serving the station, regardless of main view deduplication
+- **Comprehensive route coverage**: Map shows multiple vehicles from the same route when they exist
+- **Independent from filters**: Map view is not affected by route filters or vehicle limits in the main list
+- **Better spatial context**: Users can see the full traffic picture for a station on the map
+- **Maintained list view logic**: Main station display still uses deduplication for clean interface
+
+**Technical Implementation**:
+- **CircleMarker replacement**: Replaced custom pin icons with solid CircleMarker components for stations
+- **Consistent styling**: `fillOpacity: 1.0` and white borders across StationMapModal and BusRouteMapModal
+- **Dual vehicle arrays**: Station map modal receives both deduplicated vehicles (for context) and all vehicles (for map display)
+- **Original data preservation**: Accesses unfiltered vehicle data before deduplication processing
+
+**User Benefits**:
+- **Better map readability**: Solid circles are much easier to see and identify on maps
+- **Complete traffic picture**: See all buses serving a station, not just one per route
+- **Consistent visual language**: All maps now use the same solid circle style for stations
+- **Better route planning**: Understand frequency and timing of all available vehicles
+
+**Performance Fix - Station Display**:
+- **DISABLED route station markers**: Temporarily disabled feature that was showing all city stations instead of route-specific ones
+- **Memory optimization**: Removed code that was loading thousands of unnecessary station markers
+- **Visual cleanup**: Map now only shows vehicles, route shapes, and the target station (clean interface)
+- **Performance improvement**: Eliminated memory issues and excessive DOM elements
+
+**Technical Fix**:
+- **Removed problematic station loading**: Disabled station fetching code that was causing performance issues
+- **Clean map rendering**: Map now focuses on essential elements (vehicles, routes, target station)
+- **TODO for future**: Proper route-specific station loading needs better GTFS data filtering approach
+
+**Impact**: Maps are now more readable and consistent, while providing comprehensive vehicle information and interactive route exploration for better route planning.
+
+## Recent Updates
+
 ### December 16, 2024 - PWA Enhancement: Force Cache Refresh Feature
 **Added**: In-app cache management for PWA environments without browser controls
 

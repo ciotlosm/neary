@@ -265,15 +265,9 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
-      fullWidth
+      fullScreen
       disableRestoreFocus
       keepMounted={false}
-      slotProps={{
-        paper: {
-          sx: { height: '80vh', maxHeight: '600px' }
-        }
-      }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         Route {bus.routeName} - Live Map
@@ -419,16 +413,16 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
                     </Marker>
                   );
                 } else {
-                  // Regular stops keep the original circle markers (smaller)
+                  // Regular stops use solid circles
                   return (
                     <CircleMarker
                       key={stop.id}
                       center={[stop.coordinates.latitude, stop.coordinates.longitude]}
-                      radius={5} // Smaller radius as requested
+                      radius={5}
                       pathOptions={{
-                        color: '#9c27b0',
+                        color: '#ffffff',
                         fillColor: '#9c27b0',
-                        fillOpacity: 0.6,
+                        fillOpacity: 1.0,
                         weight: 2,
                       }}
                     >

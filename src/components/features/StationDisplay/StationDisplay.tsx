@@ -13,6 +13,7 @@ import { MapPinIcon } from '../../ui/Icons/Icons';
 import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
 import { StationHeader } from '../shared/StationHeader';
+import { StationMapModal } from '../shared/StationMapModal';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
 import { useVehicleProcessing } from '../../../hooks/useVehicleProcessing';
 import type { EnhancedVehicleInfo } from '../../../types';
@@ -59,10 +60,19 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   // State for managing expanded stops per vehicle
   const [expandedVehicles, setExpandedVehicles] = React.useState<Set<string>>(new Set());
   
-  // State for managing map modal
+  // State for managing individual bus route map modal
   const [mapModalOpen, setMapModalOpen] = React.useState(false);
   const [selectedVehicleForMap, setSelectedVehicleForMap] = React.useState<EnhancedVehicleInfoWithDirection | null>(null);
   const [targetStationId, setTargetStationId] = React.useState<string>('');
+  
+  // State for managing station map modal (all routes for a station)
+  const [stationMapModalOpen, setStationMapModalOpen] = React.useState(false);
+  const [selectedStationForMap, setSelectedStationForMap] = React.useState<{
+    station: { id: string; name: string; coordinates: { latitude: number; longitude: number } };
+    distance: number;
+    vehicles: EnhancedVehicleInfoWithDirection[];
+    allVehicles: EnhancedVehicleInfoWithDirection[]; // All vehicles for map, not deduplicated
+  } | null>(null);
 
   // Process station groups with per-station route filtering and deduplication
   const processedStationGroups = React.useMemo(() => {
@@ -190,7 +200,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
       latitude: vehicle.vehicle?.position?.latitude || 0,
       longitude: vehicle.vehicle?.position?.longitude || 0,
       speed: vehicle.vehicle?.speed,
-      bearing: undefined,
+      bearing: vehicle.vehicle?.position?.bearing,
       lastUpdate: vehicle.vehicle?.timestamp instanceof Date 
         ? vehicle.vehicle.timestamp 
         : vehicle.vehicle?.timestamp 
@@ -335,6 +345,20 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                   stationName={stationGroup.station.station.name}
                   distance={stationGroup.station.distance}
                   isClosest={stationIndex === 0}
+                  onClick={() => {
+                    // Find the original station group with all vehicles (before deduplication)
+                    const originalStationGroup = stationVehicleGroups.find(
+                      sg => sg.station.station.id === stationGroup.station.station.id
+                    );
+                    
+                    setSelectedStationForMap({
+                      station: stationGroup.station.station,
+                      distance: stationGroup.station.distance,
+                      vehicles: stationGroup.vehicles, // Deduplicated vehicles for display context
+                      allVehicles: originalStationGroup?.vehicles || stationGroup.vehicles // All vehicles for map
+                    });
+                    setStationMapModalOpen(true);
+                  }}
                 />
                 
                 {/* Route filter buttons */}
@@ -400,7 +424,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
         }).filter(Boolean)}
       </Stack>
       
-      {/* Map Modal */}
+      {/* Individual Bus Route Map Modal */}
       {selectedVehicleForMap && (
         <BusRouteMapModal
           open={mapModalOpen}
@@ -412,6 +436,43 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           bus={convertVehicleToFavoriteBusInfo(selectedVehicleForMap, targetStationId)}
           userLocation={null} // Don't show user location as requested
           cityName={config?.city || 'Cluj-Napoca'}
+        />
+      )}
+
+      {/* Station Map Modal (All Routes for Station) */}
+      {selectedStationForMap && selectedStationForMap.allVehicles && (
+        <StationMapModal
+          open={stationMapModalOpen}
+          onClose={() => {
+            setStationMapModalOpen(false);
+            setSelectedStationForMap(null);
+          }}
+          station={{
+            ...selectedStationForMap.station,
+            isFavorite: false // Station display doesn't track favorites
+          }}
+          vehicles={selectedStationForMap.allVehicles.map(vehicle => ({
+            id: vehicle.id,
+            routeId: vehicle.routeId,
+            route: vehicle.route,
+            destination: vehicle.destination || 'Unknown destination',
+            vehicle: vehicle.vehicle?.position ? {
+              position: {
+                latitude: vehicle.vehicle.position.latitude,
+                longitude: vehicle.vehicle.position.longitude
+              },
+              tripId: vehicle.vehicle.tripId
+            } : undefined,
+            minutesAway: vehicle.minutesAway,
+            _internalDirection: vehicle._internalDirection
+          })).filter(vehicle => 
+            vehicle.vehicle?.position && 
+            !isNaN(vehicle.vehicle.position.latitude) && 
+            !isNaN(vehicle.vehicle.position.longitude)
+          )}
+          userLocation={effectiveLocationForDisplay}
+          cityName={config?.city || 'Cluj-Napoca'}
+          agencyId={config?.agencyId}
         />
       )}
     </Box>

@@ -43,28 +43,34 @@ const userIcon = new L.Icon({
   popupAnchor: [0, -36],
 });
 
-const stationIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-      <circle cx="12" cy="12" r="10" fill="#10b981" stroke="#ffffff" stroke-width="2"/>
-      <rect x="8" y="8" width="8" height="8" rx="1" fill="#ffffff"/>
-    </svg>
-  `),
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32],
-});
+// Station will use CircleMarker instead of custom icon for solid circle appearance
 
-const busIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ff5722" width="28" height="28">
-      <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
-    </svg>
-  `),
-  iconSize: [28, 28],
-  iconAnchor: [14, 28],
-  popupAnchor: [0, -28],
-});
+// Create dynamic bus icon with custom color and filtering state
+const createBusIcon = (color: string, isDeparted: boolean = false, isFiltered: boolean = false, isSelected: boolean = false) => {
+  let opacity = isDeparted ? 0.5 : 1;
+  let iconColor = color;
+  let size = 28;
+  
+  if (isFiltered) {
+    opacity = 0.3;
+    iconColor = '#cccccc';
+    size = 24; // Smaller when dimmed
+  } else if (isSelected) {
+    opacity = 1;
+    size = 32; // Larger when selected
+  }
+  
+  return new L.Icon({
+    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${iconColor}" width="${size}" height="${size}" opacity="${opacity}">
+        <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+      </svg>
+    `),
+    iconSize: [size, size],
+    iconAnchor: [size/2, size],
+    popupAnchor: [0, -size],
+  });
+};
 
 interface VehicleInfo {
   id: string;
@@ -99,8 +105,10 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
   agencyId
 }) => {
   const [routeShapes, setRouteShapes] = useState<Map<string, Coordinates[]>>(new Map());
+  const [routeStations, setRouteStations] = useState<Map<string, Coordinates[]>>(new Map());
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRouteFilter, setSelectedRouteFilter] = useState<string | null>(null);
 
   // Get unique route IDs from vehicles
   const uniqueRouteIds = React.useMemo(() => {
@@ -210,6 +218,10 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
         }, 'STATION_MAP');
         
         setRouteShapes(shapes);
+
+        // TODO: Implement proper route-specific station loading
+        // For now, disable station loading to prevent performance issues
+        setRouteStations(new Map());
       } catch (err) {
         logger.error('Failed to load route shapes for station map', { error: err }, 'STATION_MAP');
         setError('Failed to load route information');
@@ -271,11 +283,9 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
-      fullWidth
+      fullScreen
       PaperProps={{
         sx: {
-          height: '80vh',
           bgcolor: 'background.paper',
         }
       }}
@@ -345,18 +355,52 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
                 const vehicle = vehicles.find(v => v.routeId === routeId);
                 const color = routeColors.get(routeId);
                 const vehicleCount = vehicles.filter(v => v.routeId === routeId).length;
+                const isSelected = selectedRouteFilter === routeId;
+                const isFiltered = selectedRouteFilter !== null && !isSelected;
                 
                 return (
                   <Chip
                     key={routeId}
                     label={`${vehicle?.route || routeId} (${vehicleCount})`}
                     size="small"
+                    clickable
+                    onClick={() => {
+                      // Toggle selection: if already selected, clear filter; otherwise select this route
+                      const newFilter = isSelected ? null : routeId;
+                      console.log('Route filter changed:', { routeId, newFilter, isSelected });
+                      setSelectedRouteFilter(newFilter);
+                    }}
                     sx={{
-                      bgcolor: color + '20',
-                      color: color,
-                      border: `1px solid ${color}40`,
+                      bgcolor: isSelected 
+                        ? color 
+                        : isFiltered 
+                        ? '#f5f5f5' 
+                        : color + '20',
+                      color: isSelected 
+                        ? '#ffffff' 
+                        : isFiltered 
+                        ? '#999999' 
+                        : color,
+                      border: isSelected 
+                        ? `2px solid ${color}` 
+                        : isFiltered 
+                        ? '1px solid #cccccc' 
+                        : `1px solid ${color}40`,
                       fontSize: '0.7rem',
                       height: 24,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        bgcolor: isSelected 
+                          ? color 
+                          : isFiltered 
+                          ? '#e0e0e0' 
+                          : color + '40',
+                        transform: 'scale(1.05)',
+                      },
+                      '&:active': {
+                        transform: 'scale(0.95)',
+                      }
                     }}
                   />
                 );
@@ -387,8 +431,17 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
               </Marker>
             )}
             
-            {/* Station marker */}
-            <Marker position={[station.coordinates.latitude, station.coordinates.longitude]} icon={stationIcon}>
+            {/* Station marker - solid circle */}
+            <CircleMarker 
+              center={[station.coordinates.latitude, station.coordinates.longitude]}
+              radius={8}
+              pathOptions={{
+                color: '#ffffff',
+                fillColor: '#10b981',
+                fillOpacity: 1.0,
+                weight: 2,
+              }}
+            >
               <Popup>
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
@@ -399,39 +452,44 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
                   </Typography>
                 </Box>
               </Popup>
-            </Marker>
+            </CircleMarker>
             
             {/* Route shapes */}
             {Array.from(routeShapes.entries()).map(([routeId, coordinates]) => {
               const color = routeColors.get(routeId) || '#666';
+              const isSelected = selectedRouteFilter === routeId;
+              const isFiltered = selectedRouteFilter !== null && !isSelected;
+              
               return (
                 <Polyline
-                  key={`route-${routeId}`}
+                  key={`route-${routeId}-${selectedRouteFilter || 'none'}`}
                   positions={coordinates.map(coord => [coord.latitude, coord.longitude])}
-                  color={color}
-                  weight={3}
-                  opacity={0.7}
+                  pathOptions={{
+                    color: isFiltered ? '#dddddd' : color,
+                    weight: isSelected ? 6 : isFiltered ? 1.5 : 3,
+                    opacity: isFiltered ? 0.2 : isSelected ? 1.0 : 0.7,
+                    dashArray: isSelected ? undefined : isFiltered ? '5, 10' : undefined,
+                  }}
                 />
               );
             })}
+            
+            {/* Route stations - DISABLED: Feature temporarily disabled due to performance issues */}
             
             {/* Vehicle markers */}
             {vehicles.map((vehicle) => {
               const color = routeColors.get(vehicle.routeId) || '#ff5722';
               const isDeparted = vehicle._internalDirection === 'departing';
+              const isSelected = selectedRouteFilter === vehicle.routeId;
+              const isFiltered = selectedRouteFilter !== null && !isSelected;
               
               if (!vehicle.vehicle?.position) return null;
               
               return (
-                <CircleMarker
+                <Marker
                   key={vehicle.id}
-                  center={[vehicle.vehicle.position.latitude, vehicle.vehicle.position.longitude]}
-                  radius={8}
-                  fillColor={color}
-                  color="#ffffff"
-                  weight={2}
-                  opacity={isDeparted ? 0.5 : 1}
-                  fillOpacity={isDeparted ? 0.3 : 0.8}
+                  position={[vehicle.vehicle.position.latitude, vehicle.vehicle.position.longitude]}
+                  icon={createBusIcon(color, isDeparted, isFiltered, isSelected)}
                 >
                   <Popup>
                     <Box>
@@ -456,7 +514,7 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
                       </Typography>
                     </Box>
                   </Popup>
-                </CircleMarker>
+                </Marker>
               );
             })}
           </MapContainer>
