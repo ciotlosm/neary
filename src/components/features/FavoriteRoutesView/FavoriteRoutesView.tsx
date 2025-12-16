@@ -7,7 +7,11 @@ import {
   CardContent,
   CircularProgress,
   Button,
+  IconButton,
+  useTheme,
+  alpha,
 } from '@mui/material';
+import { Favorite as FavoriteIcon } from '@mui/icons-material';
 import { useLocationStore } from '../../../stores/locationStore';
 import { useConfigStore } from '../../../stores/configStore';
 import { useFavoriteBusStore } from '../../../stores/favoriteBusStore';
@@ -784,8 +788,36 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
     );
   }
 
+  const theme = useTheme();
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ position: 'relative', p: 3 }}>
+      {/* Heart icon button in top right corner */}
+      <IconButton
+        onClick={onNavigateToSettings}
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          bgcolor: alpha(theme.palette.primary.main, 0.1),
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+          color: theme.palette.primary.main,
+          '&:hover': {
+            bgcolor: alpha(theme.palette.primary.main, 0.2),
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+            transform: 'scale(1.05)',
+          },
+          '&:active': {
+            transform: 'scale(0.95)',
+          },
+          transition: 'all 0.2s ease-in-out',
+        }}
+        aria-label="Manage favorite routes"
+      >
+        <FavoriteIcon />
+      </IconButton>
+      
       <Stack spacing={4}>
         {stationVehicleGroups.map((stationGroup, stationIndex) => (
           <Box key={stationGroup.station.station.id}>
