@@ -40,9 +40,7 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
   
   // Use the shared vehicle processing hook
-  // When route filtering is active, show all vehicles per route
-  const hasActiveFilters = selectedRoutePerStation.size > 0;
-  
+  // Always get full vehicle data, we'll handle filtering per station
   const {
     stationVehicleGroups,
     isLoading,
@@ -51,8 +49,8 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   } = useVehicleProcessing({
     filterByFavorites: false,
     maxStations: 2,
-    maxVehiclesPerStation: hasActiveFilters ? 999 : (config?.maxVehiclesPerStation || 5),
-    showAllVehiclesPerRoute: hasActiveFilters,
+    maxVehiclesPerStation: 999, // Get all vehicles, we'll filter per station
+    showAllVehiclesPerRoute: true, // Get all vehicles per route
     maxSearchRadius: 5000,
     maxStationsToCheck: 20,
     proximityThreshold: 200,
@@ -66,27 +64,118 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   const [selectedVehicleForMap, setSelectedVehicleForMap] = React.useState<EnhancedVehicleInfoWithDirection | null>(null);
   const [targetStationId, setTargetStationId] = React.useState<string>('');
 
-  // Process station groups with route filtering
+  // Process station groups with per-station route filtering and deduplication
   const processedStationGroups = React.useMemo(() => {
+    const maxVehicles = config?.maxVehiclesPerStation || 5;
+    
     return stationVehicleGroups.map(stationGroup => {
       const selectedRoute = selectedRoutePerStation.get(stationGroup.station.station.id);
       
-      if (!selectedRoute) {
-        // No filter for this station, return as-is
-        return stationGroup;
+      if (selectedRoute) {
+        // Filter to show only vehicles from the selected route (all vehicles for that route)
+        const filteredVehicles = stationGroup.vehicles.filter(vehicle => 
+          vehicle.routeId === selectedRoute
+        );
+
+        return {
+          ...stationGroup,
+          vehicles: filteredVehicles
+        };
+      } else {
+        // No filter active for this station - apply deduplication (best vehicle per route)
+        const routeGroups = new Map<string, typeof stationGroup.vehicles>();
+        
+        // Group vehicles by route
+        stationGroup.vehicles.forEach(vehicle => {
+          const routeId = vehicle.routeId;
+          if (!routeGroups.has(routeId)) {
+            routeGroups.set(routeId, []);
+          }
+          routeGroups.get(routeId)!.push(vehicle);
+        });
+
+        // Select the best vehicle per route based on priority
+        const bestVehiclePerRoute = Array.from(routeGroups.entries()).map(([routeId, vehicles]) => {
+          // Sort vehicles within this route by priority
+          const sortedVehicles = vehicles.sort((a, b) => {
+            // Priority 1: At station (minutesAway = 0 and arriving)
+            const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
+            const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
+            
+            if (aAtStation && !bAtStation) return -1;
+            if (!aAtStation && bAtStation) return 1;
+            
+            // Priority 2: Arriving vehicles (sorted by minutes ascending)
+            const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
+            const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
+            
+            if (aArriving && !bArriving) return -1;
+            if (!aArriving && bArriving) return 1;
+            
+            // If both are arriving, sort by minutes (closest first)
+            if (aArriving && bArriving) {
+              return a.minutesAway - b.minutesAway;
+            }
+            
+            // Priority 3: Departed vehicles (at the end)
+            const aDeparted = a._internalDirection === 'departing';
+            const bDeparted = b._internalDirection === 'departing';
+            
+            if (aDeparted && !bDeparted) return 1;
+            if (!aDeparted && bDeparted) return -1;
+            
+            // Fallback: sort by vehicle ID for consistency
+            return String(a.id).localeCompare(String(b.id));
+          });
+          
+          // Return the best vehicle for this route
+          return sortedVehicles[0];
+        });
+
+        // Sort by priority and apply vehicle limit
+        const finalVehicles = bestVehiclePerRoute
+          .sort((a, b) => {
+            // Priority 1: At station
+            const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
+            const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
+            
+            if (aAtStation && !bAtStation) return -1;
+            if (!aAtStation && bAtStation) return 1;
+            
+            // Priority 2: Arriving vehicles (sorted by minutes ascending)
+            const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
+            const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
+            
+            if (aArriving && !bArriving) return -1;
+            if (!aArriving && bArriving) return 1;
+            
+            if (aArriving && bArriving) {
+              return a.minutesAway - b.minutesAway;
+            }
+            
+            // Priority 3: Departed vehicles
+            const aDeparted = a._internalDirection === 'departing';
+            const bDeparted = b._internalDirection === 'departing';
+            
+            if (aDeparted && !bDeparted) return 1;
+            if (!aDeparted && bDeparted) return -1;
+            
+            // If both departed, sort by route name
+            if (aDeparted && bDeparted) {
+              return (a.route || '').localeCompare(b.route || '');
+            }
+            
+            return a.minutesAway - b.minutesAway;
+          })
+          .slice(0, maxVehicles);
+
+        return {
+          ...stationGroup,
+          vehicles: finalVehicles
+        };
       }
-
-      // Filter vehicles to show only the selected route
-      const filteredVehicles = stationGroup.vehicles.filter(vehicle => 
-        vehicle.routeId === selectedRoute
-      );
-
-      return {
-        ...stationGroup,
-        vehicles: filteredVehicles
-      };
     });
-  }, [stationVehicleGroups, selectedRoutePerStation]);
+  }, [stationVehicleGroups, selectedRoutePerStation, config?.maxVehiclesPerStation]);
 
   // Convert vehicle to FavoriteBusInfo format for map modal
   const convertVehicleToFavoriteBusInfo = (vehicle: EnhancedVehicleInfoWithDirection, targetStationId: string): FavoriteBusInfo => {
