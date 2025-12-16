@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { getRouteTypeInfo } from '../../../../utils/routeUtils';
 import { useThemeUtils, useMuiUtils } from '../../../../hooks';
+import { logger } from '../../../../utils/logger';
 // Define the route type used by the store
 type StoreRoute = {
   id: string; // Internal route ID for API calls ("40", "42", etc.)
@@ -114,7 +115,7 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
           checked={isFavorite}
           onChange={() => {
             onToggle(route.routeName).catch(error => {
-              console.error('Failed to toggle route:', error);
+              logger.error('Failed to toggle route', error, 'ROUTE_LIST_ITEM');
             });
           }}
           icon={<FavoriteBorderIcon />}

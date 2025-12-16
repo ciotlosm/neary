@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography, Chip, useTheme, alpha } from '@mui/material';
 import { LocationOn as LocationIcon } from '@mui/icons-material';
 import { formatCoordinates } from '../../../../utils/locationUtils';
+import { logger } from '../../../../utils/logger';
 import type { Coordinates } from '../../../../types';
 
 interface SelectedLocationDisplayProps {
@@ -47,7 +48,7 @@ export const SelectedLocationDisplay: React.FC<SelectedLocationDisplayProps> = (
             try {
               return calculateDistance(userCurrentLocation, selectedLocation).toFixed(2);
             } catch (error) {
-              console.error('Distance calculation error:', error);
+              logger.error('Distance calculation error', error, 'SELECTED_LOCATION_DISPLAY');
               return 'N/A';
             }
           })()} km

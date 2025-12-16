@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Typography, useTheme, alpha } from '@mui/material';
 import { Map as MapIcon } from '@mui/icons-material';
 import { formatCoordinates } from '../../../../utils/locationUtils';
+import { logger } from '../../../../utils/logger';
 import type { Coordinates } from '../../../../types';
 
 interface LocationPickerMapProps {
@@ -95,7 +96,7 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
           leafletMapRef.current = map;
           setIsMapLoaded(true);
         } catch (error) {
-          console.error('Failed to load map:', error);
+          logger.error('Failed to load map', error, 'LOCATION_PICKER_MAP');
         }
       };
 

@@ -259,7 +259,7 @@ export const useConfigurationManager = (
         onConfigComplete();
       }
     } catch (error) {
-      console.error('Failed to save configuration:', error);
+      logger.error('Failed to save configuration', error, 'CONFIG_MANAGER');
     } finally {
       setIsSubmitting(false);
     }

@@ -2,13 +2,15 @@
  * Utility functions for consistent time formatting across the application
  */
 
+import { logger } from './logger';
+
 /**
  * Format time in 24-hour format (HH:MM) without seconds
  */
 export const formatTime24 = (date: Date): string => {
   // Validate that the input is actually a Date object
   if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-    console.warn('formatTime24 received invalid date:', date);
+    logger.warn('formatTime24 received invalid date', date, 'TIME_FORMAT');
     return 'N/A';
   }
   
@@ -25,7 +27,7 @@ export const formatTime24 = (date: Date): string => {
 export const formatTimeDebug = (date: Date): string => {
   // Validate that the input is actually a Date object
   if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-    console.warn('formatTimeDebug received invalid date:', date);
+    logger.warn('formatTimeDebug received invalid date', date, 'TIME_FORMAT');
     return 'INVALID_DATE';
   }
   

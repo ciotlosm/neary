@@ -13,6 +13,7 @@ import {
 import { Close as CloseIcon, MyLocation as MyLocationIcon } from '@mui/icons-material';
 import type { Coordinates } from '../../types';
 import { useLocationStore } from '../../stores/locationStore';
+import { logger } from '../../utils/logger';
 
 interface MapPickerProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({
           leafletMapRef.current = map;
           setIsMapLoaded(true);
         } catch (error) {
-          console.error('Failed to load map:', error);
+          logger.error('Failed to load map', error, 'MAP_PICKER');
         }
       };
 
@@ -160,7 +161,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({
         leafletMapRef.current.setView([location.latitude, location.longitude], 15);
       }
     } catch (error) {
-      console.error('Failed to get current location:', error);
+      logger.error('Failed to get current location', error, 'MAP_PICKER');
     } finally {
       setIsGettingLocation(false);
     }

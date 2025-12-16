@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocationStore } from '../stores/locationStore';
 import { mapClickToCoordinates, popularLocationToCoordinates } from '../utils/locationUtils';
+import { logger } from '../utils/logger';
 import type { Coordinates } from '../types';
 
 export interface UseLocationPickerProps {
@@ -113,7 +114,7 @@ export const useLocationPicker = ({
       setMapLocation(coordinates);
       setSelectedLocation(coordinates);
     } else {
-      console.error('Invalid coordinates received:', coordinates);
+      logger.error('Invalid coordinates received', coordinates, 'LOCATION_PICKER');
     }
   };
 

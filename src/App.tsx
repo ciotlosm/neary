@@ -131,15 +131,15 @@ const MaterialBottomNav: React.FC<{
   const theme = useTheme();
   
   const handleNavigation = React.useCallback((view: 'station' | 'routes' | 'settings') => {
-    console.log('🔄 Navigation attempt:', { from: currentView, to: view, isFullyConfigured });
+    logger.debug('Navigation attempt', { from: currentView, to: view, isFullyConfigured }, 'NAVIGATION');
     
     // Only prevent if disabled due to configuration
     if ((view === 'station' || view === 'routes') && !isFullyConfigured) {
-      console.warn('❌ Navigation blocked - not fully configured', { view, isFullyConfigured });
+      logger.warn('Navigation blocked - not fully configured', { view, isFullyConfigured }, 'NAVIGATION');
       return;
     }
     
-    console.log('✅ Navigation proceeding:', { from: currentView, to: view });
+    logger.debug('Navigation proceeding', { from: currentView, to: view }, 'NAVIGATION');
     
     // Reset setup flow flag when user manually navigates
     if (view === 'settings') {
@@ -167,7 +167,7 @@ const MaterialBottomNav: React.FC<{
         <BottomNavigation
           value={currentView}
           onChange={(event, newValue) => {
-            console.log('📱 BottomNavigation onChange:', { currentValue: currentView, newValue, event: event.type });
+            logger.debug('BottomNavigation onChange', { currentValue: currentView, newValue, event: event.type }, 'NAVIGATION');
             // Handle navigation through MUI's built-in onChange
             if (newValue) {
               handleNavigation(newValue as 'station' | 'routes' | 'settings');

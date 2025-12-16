@@ -116,7 +116,7 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
         lastCacheUpdate: new Date(),
       });
     } catch (error) {
-      console.error('Failed to refresh cache info:', error);
+      logger.error('Failed to refresh cache info', error, 'OFFLINE_STORE');
     }
   },
 
@@ -169,7 +169,9 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
     
     // Initial cache info refresh (if service worker is active)
     if (initialStatus.isActive) {
-      get().refreshCacheInfo().catch(console.error);
+      get().refreshCacheInfo().catch((error) => {
+        logger.error('Failed to refresh cache info on initialization', error, 'OFFLINE_STORE');
+      });
     }
     
     logger.debug('Offline store initialized');

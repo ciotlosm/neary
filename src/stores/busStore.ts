@@ -163,7 +163,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
   startAutoRefresh: () => {
     const config = useConfigStore.getState().config;
     if (!config || !config.refreshRate) {
-      console.warn('Cannot start auto refresh: configuration not available or refresh rate not set');
+      logger.warn('Cannot start auto refresh: configuration not available or refresh rate not set', { config }, 'BUS_STORE');
       return;
     }
 

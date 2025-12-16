@@ -367,7 +367,7 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
                     onClick={() => {
                       // Toggle selection: if already selected, clear filter; otherwise select this route
                       const newFilter = isSelected ? null : routeId;
-                      console.log('Route filter changed:', { routeId, newFilter, isSelected });
+                      logger.debug('Route filter changed', { routeId, newFilter, isSelected }, 'STATION_MAP_MODAL');
                       setSelectedRouteFilter(newFilter);
                     }}
                     sx={{
