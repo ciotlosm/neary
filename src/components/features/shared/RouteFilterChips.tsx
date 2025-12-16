@@ -21,7 +21,7 @@ export const RouteFilterChips: React.FC<RouteFilterChipsProps> = ({
   selectedRouteId,
   onRouteSelect
 }) => {
-  if (!routes || routes.length === 0) {
+  if (!routes || routes.length === 0 || routes.length === 1) {
     return null;
   }
 

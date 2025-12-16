@@ -596,17 +596,27 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
                 return a.minutesAway - b.minutesAway;
               });
           } else {
-            const uniqueRoutes = Array.from(new Set(enhancedVehiclesForStation.map(v => v.routeId)));
-            
-            if (uniqueRoutes.length === 1) {
-              // Single route: show all vehicles from that route (no limit)
-              finalVehicles = enhancedVehiclesForStation
-                .sort((a, b) => a.minutesAway - b.minutesAway);
-            } else {
-              // Multiple routes: show all vehicles (no deduplication, no limit)
-              finalVehicles = enhancedVehiclesForStation
-                .sort((a, b) => a.minutesAway - b.minutesAway);
-            }
+            // No filter applied: use the same sophisticated sorting as filtered view
+            finalVehicles = enhancedVehiclesForStation
+              .sort((a, b) => {
+                const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
+                const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
+                
+                if (aAtStation && !bAtStation) return -1;
+                if (!aAtStation && bAtStation) return 1;
+                
+                const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
+                const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
+                
+                if (aArriving && !bArriving) return -1;
+                if (!aArriving && bArriving) return 1;
+                
+                if (aArriving && bArriving) {
+                  return a.minutesAway - b.minutesAway;
+                }
+                
+                return a.minutesAway - b.minutesAway;
+              });
           }
           
           // Collect all unique routes for this station
