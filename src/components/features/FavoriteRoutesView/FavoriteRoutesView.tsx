@@ -10,6 +10,7 @@ import {
   IconButton,
   useTheme,
   alpha,
+  Tooltip,
 } from '@mui/material';
 import { Favorite as FavoriteIcon } from '@mui/icons-material';
 import { useLocationStore } from '../../../stores/locationStore';
@@ -793,30 +794,78 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
   return (
     <Box sx={{ position: 'relative', p: 3 }}>
       {/* Heart icon button in top right corner */}
-      <IconButton
-        onClick={onNavigateToSettings}
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 10,
-          bgcolor: alpha(theme.palette.primary.main, 0.1),
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-          color: theme.palette.primary.main,
-          '&:hover': {
-            bgcolor: alpha(theme.palette.primary.main, 0.2),
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
-            transform: 'scale(1.05)',
-          },
-          '&:active': {
-            transform: 'scale(0.95)',
-          },
-          transition: 'all 0.2s ease-in-out',
-        }}
-        aria-label="Manage favorite routes"
+      <Tooltip
+        title={
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Your Favorite Routes:
+            </Typography>
+            {favoriteRoutes.length > 0 ? (
+              <Stack spacing={0.5}>
+                {favoriteRoutes.map((route, index) => (
+                  <Typography 
+                    key={index} 
+                    variant="body2" 
+                    sx={{ 
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: 'currentColor',
+                        flexShrink: 0,
+                      }}
+                    />
+                    {typeof route === 'string' ? route : route.routeName}
+                  </Typography>
+                ))}
+              </Stack>
+            ) : (
+              <Typography variant="body2" sx={{ fontSize: '0.8rem', fontStyle: 'italic' }}>
+                No favorite routes configured
+              </Typography>
+            )}
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8 }}>
+              Click to manage favorites
+            </Typography>
+          </Box>
+        }
+        placement="bottom-end"
+        arrow
+        enterDelay={500}
+        leaveDelay={200}
       >
-        <FavoriteIcon />
-      </IconButton>
+        <IconButton
+          onClick={onNavigateToSettings}
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 10,
+            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+            color: theme.palette.primary.main,
+            '&:hover': {
+              bgcolor: alpha(theme.palette.primary.main, 0.2),
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+              transform: 'scale(1.05)',
+            },
+            '&:active': {
+              transform: 'scale(0.95)',
+            },
+            transition: 'all 0.2s ease-in-out',
+          }}
+          aria-label="Manage favorite routes"
+        >
+          <FavoriteIcon />
+        </IconButton>
+      </Tooltip>
       
       <Stack spacing={4}>
         {stationVehicleGroups.map((stationGroup, stationIndex) => (

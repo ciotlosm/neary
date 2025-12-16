@@ -4,16 +4,22 @@
 
 ### December 16, 2024 - Light Mode Contrast & Navigation Improvements
 
-#### ✨ **NEW FEATURE: Heart Icon Button in Favorite Routes**
+#### ✨ **NEW FEATURE: Heart Icon Button with Tooltip in Favorite Routes**
 - **Feature**: Added heart icon button in top right corner of favorite routes view
 - **Functionality**: Clicking the heart icon navigates directly to the favorites section in settings
+- **Tooltip Enhancement**: Hovering over the heart icon shows a tooltip with:
+  - **List of favorite routes**: Displays all configured favorite routes with bullet points
+  - **Empty state**: Shows "No favorite routes configured" when none are set
+  - **Call to action**: "Click to manage favorites" instruction
+  - **Smart positioning**: Tooltip appears below and to the right of the button
+  - **Delayed appearance**: 500ms delay to prevent accidental triggers
 - **Design**: 
   - **Floating button**: Positioned in top right corner with subtle background and border
   - **Theme-aware**: Uses primary color with proper contrast in both light and dark modes
   - **Interactive**: Hover effects with scale animation and color transitions
   - **Accessible**: Proper aria-label for screen readers
-- **User Benefit**: Quick access to manage favorite routes without navigating through multiple screens
-- **Technical**: Uses Material-UI IconButton with theme-aware styling and alpha transparency
+- **User Benefit**: Quick preview of favorite routes and easy access to manage them
+- **Technical**: Uses Material-UI Tooltip and IconButton with theme-aware styling
 
 #### 🎨 **THEME IMPROVEMENT: Fixed Light Mode Contrast Issues**
 - **Problem**: Vehicle cards had poor contrast in light mode due to hardcoded dark theme colors

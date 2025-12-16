@@ -536,7 +536,7 @@ function AppMaterial() {
       case 'station':
         return 'Nearby Station';
       case 'routes':
-        return 'Favorite Routes at Stations';
+        return 'Favorites';
       case 'settings':
         return 'Settings';
       default:
