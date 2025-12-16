@@ -19,12 +19,15 @@ import { Timer as TimerIcon, BugReport as BugReportIcon, DirectionsBus as BusIco
 interface AdvancedSettingsSectionProps {
   refreshRate: number;
   onRefreshRateChange: (rate: number) => void;
+  onRefreshRateBlur: (rate: number) => void;
   staleDataThreshold: number;
   onStaleDataThresholdChange: (threshold: number) => void;
+  onStaleDataThresholdBlur: (threshold: number) => void;
   logLevel: number;
   onLogLevelChange: (level: number) => void;
   maxVehiclesPerStation: number;
   onMaxVehiclesPerStationChange: (max: number) => void;
+  onMaxVehiclesPerStationBlur: (max: number) => void;
   refreshRateError?: string;
   staleDataError?: string;
   maxVehiclesError?: string;
@@ -33,12 +36,15 @@ interface AdvancedSettingsSectionProps {
 export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = ({
   refreshRate,
   onRefreshRateChange,
+  onRefreshRateBlur,
   staleDataThreshold,
   onStaleDataThresholdChange,
+  onStaleDataThresholdBlur,
   logLevel,
   onLogLevelChange,
   maxVehiclesPerStation,
   onMaxVehiclesPerStationChange,
+  onMaxVehiclesPerStationBlur,
   refreshRateError,
   staleDataError,
   maxVehiclesError,
@@ -73,6 +79,10 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
             const seconds = parseInt(e.target.value) || 30;
             onRefreshRateChange(seconds * 1000);
           }}
+          onBlur={(e) => {
+            const seconds = parseInt(e.target.value) || 30;
+            onRefreshRateBlur(seconds * 1000);
+          }}
           error={!!refreshRateError}
           helperText={refreshRateError || 'How often to refresh bus data (5-300 seconds)'}
           slotProps={{
@@ -96,6 +106,10 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
             const minutes = parseInt(e.target.value) || 4;
             onStaleDataThresholdChange(minutes);
           }}
+          onBlur={(e) => {
+            const minutes = parseInt(e.target.value) || 4;
+            onStaleDataThresholdBlur(minutes);
+          }}
           error={!!staleDataError}
           helperText={staleDataError || 'When to consider vehicle data as outdated (1-30 minutes)'}
           slotProps={{
@@ -118,6 +132,10 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           onChange={(e) => {
             const max = parseInt(e.target.value) || 5;
             onMaxVehiclesPerStationChange(max);
+          }}
+          onBlur={(e) => {
+            const max = parseInt(e.target.value) || 5;
+            onMaxVehiclesPerStationBlur(max);
           }}
           error={!!maxVehiclesError}
           helperText={maxVehiclesError || 'Maximum number of vehicles to show per station (1-20)'}

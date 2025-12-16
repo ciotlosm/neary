@@ -28,6 +28,7 @@ import {
   Favorite as FavoriteIcon,
   LocationOn as StationIcon,
 } from '@mui/icons-material';
+import ThemeToggle from './components/ui/ThemeToggle';
 
 import LocationPicker from './components/features/LocationPicker/LocationPicker';
 import { useConfigurationManager } from './hooks/useConfigurationManager';
@@ -164,24 +165,25 @@ const MaterialBottomNav: React.FC<{
       }}
       elevation={8}
     >
-      <BottomNavigation
-        value={currentView}
-        onChange={() => {
-          // Disable MUI's built-in onChange to prevent conflicts
-          // We handle navigation via individual button clicks
-        }}
-        sx={{
-          borderRadius: '24px 24px 0 0',
-          height: 80,
-          '& .MuiBottomNavigationAction-root': {
-            minWidth: 'auto',
-            padding: '8px 12px',
-            // Ensure proper touch/click handling
-            touchAction: 'manipulation',
-            userSelect: 'none',
-          },
-        }}
-      >
+      <Box sx={{ position: 'relative' }}>
+        <BottomNavigation
+          value={currentView}
+          onChange={() => {
+            // Disable MUI's built-in onChange to prevent conflicts
+            // We handle navigation via individual button clicks
+          }}
+          sx={{
+            borderRadius: '24px 24px 0 0',
+            height: 80,
+            '& .MuiBottomNavigationAction-root': {
+              minWidth: 'auto',
+              padding: '8px 12px',
+              // Ensure proper touch/click handling
+              touchAction: 'manipulation',
+              userSelect: 'none',
+            },
+          }}
+        >
         <BottomNavigationAction
           label="Station"
           value="station"
@@ -238,7 +240,21 @@ const MaterialBottomNav: React.FC<{
             },
           }}
         />
-      </BottomNavigation>
+        </BottomNavigation>
+        
+        {/* Theme Toggle on the right side */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            right: 16,
+            transform: 'translateY(-50%)',
+            zIndex: 1,
+          }}
+        >
+          <ThemeToggle size="small" />
+        </Box>
+      </Box>
     </Paper>
   );
 });

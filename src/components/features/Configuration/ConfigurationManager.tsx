@@ -19,7 +19,6 @@ import {
   Settings as SettingsIcon,
   Timer as TimerIcon,
   CheckCircle as CheckIcon,
-  Palette as PaletteIcon,
   LocationOn as LocationOnIcon,
   BugReport as BugReportIcon,
 } from '@mui/icons-material';
@@ -27,7 +26,6 @@ import {
 import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
 import { Button } from '../../ui/Button';
 import LocationPicker from '../LocationPicker/LocationPicker';
-import ThemeToggle from '../../ui/ThemeToggle';
 import { LocationSettingsSection } from './sections/LocationSettingsSection';
 import { AdvancedSettingsSection } from './sections/AdvancedSettingsSection';
 import { logger, LogLevel } from '../../../utils/logger';
@@ -59,6 +57,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
     
     // Submission
     isSubmitting,
+    isSaving,
     
     // Actions
     handleApiKeyChange,
@@ -68,6 +67,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
     handleLocationPicker,
     handleLocationSelected,
     handleSubmit,
+    handleAutoSave,
     
     // Utilities
     formatLocationDisplay,
@@ -120,34 +120,21 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
         <AdvancedSettingsSection
           refreshRate={formData.refreshRate || 30000}
           onRefreshRateChange={(rate) => setFormData(prev => ({ ...prev, refreshRate: rate }))}
+          onRefreshRateBlur={(rate) => handleAutoSave('refreshRate', rate)}
           staleDataThreshold={formData.staleDataThreshold || 2}
           onStaleDataThresholdChange={(threshold) => setFormData(prev => ({ ...prev, staleDataThreshold: threshold }))}
+          onStaleDataThresholdBlur={(threshold) => handleAutoSave('staleDataThreshold', threshold)}
           logLevel={formData.logLevel ?? 1}
           onLogLevelChange={handleLogLevelChange}
           maxVehiclesPerStation={formData.maxVehiclesPerStation || 5}
           onMaxVehiclesPerStationChange={(max) => setFormData(prev => ({ ...prev, maxVehiclesPerStation: max }))}
+          onMaxVehiclesPerStationBlur={(max) => handleAutoSave('maxVehiclesPerStation', max)}
           refreshRateError={errors.refreshRate}
           staleDataError={errors.staleDataThreshold}
           maxVehiclesError={errors.maxVehiclesPerStation}
         />
 
-        {/* Theme Settings */}
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PaletteIcon />
-            Theme
-          </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Dark Mode
-            </Typography>
-            <ThemeToggle size="medium" />
-            <Typography variant="body2" color="text.secondary">
-              Toggle between light and dark themes
-            </Typography>
-          </Box>
-        </Box>
+
 
         {/* Location Settings */}
         <LocationSettingsSection
@@ -158,19 +145,52 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
           formatLocationDisplay={formatLocationDisplay}
         />
 
-        {/* Save Button */}
-        <Box sx={{ pt: 2 }}>
-          <Button
-            variant="filled"
-            size="large"
-            fullWidth
-            onClick={handleSubmit}
-            loading={isSubmitting}
-            sx={{ py: 1.5 }}
-          >
-            {isConfigured ? 'Update Configuration' : 'Save Configuration'}
-          </Button>
-        </Box>
+        {/* Auto-save Status */}
+        {isConfigured && (
+          <Box sx={{ pt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+            {isSaving ? (
+              <>
+                <Box
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    border: 2,
+                    borderColor: 'primary.main',
+                    borderTopColor: 'transparent',
+                    animation: 'spin 1s linear infinite',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }}
+                />
+                <Typography variant="body2" color="primary.main" sx={{ fontWeight: 600 }}>
+                  Saving changes...
+                </Typography>
+              </>
+            ) : (
+              <>
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* Initial Setup Button (only for new configurations) */}
+        {!isConfigured && (
+          <Box sx={{ pt: 2 }}>
+            <Button
+              variant="filled"
+              size="large"
+              fullWidth
+              onClick={handleSubmit}
+              loading={isSubmitting}
+              sx={{ py: 1.5 }}
+            >
+              Save Configuration
+            </Button>
+          </Box>
+        )}
 
         {/* Location Picker Dialog */}
         <LocationPicker

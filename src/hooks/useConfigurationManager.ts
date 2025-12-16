@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { useAgencyStore } from '../stores/agencyStore';
 import { tranzyApiService } from '../services/tranzyApiService';
@@ -35,6 +35,7 @@ export interface UseConfigurationManagerReturn {
   
   // Submission
   isSubmitting: boolean;
+  isSaving: boolean;
   
   // Actions
   handleApiKeyChange: (value: string) => void;
@@ -44,6 +45,7 @@ export interface UseConfigurationManagerReturn {
   handleLocationPicker: (type: 'home' | 'work' | 'offline') => void;
   handleLocationSelected: (location: Coordinates) => void;
   handleSubmit: () => Promise<void>;
+  handleAutoSave: (field: keyof UserConfig, value: any) => void;
   
   // Utilities
   validateAndSetErrors: () => boolean;
@@ -81,6 +83,10 @@ export const useConfigurationManager = (
   const [showApiKey, setShowApiKey] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [locationPickerType, setLocationPickerType] = useState<'home' | 'work' | 'offline'>('home');
+  
+  // Auto-save functionality
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load agencies on mount if API is validated but agencies are empty
   useEffect(() => {
@@ -89,6 +95,47 @@ export const useConfigurationManager = (
       validateApiKey(config.apiKey);
     }
   }, [isApiValidated, agencies.length, config?.apiKey]);
+
+  // Auto-save function with debouncing
+  const autoSave = useCallback(async (data: Partial<UserConfig>) => {
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced save
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      // Only auto-save if we have required fields
+      if (data.apiKey?.trim() && data.city?.trim() && data.agencyId?.trim()) {
+        setIsSaving(true);
+        try {
+          await updateConfig(data);
+          logger.debug('Configuration auto-saved', { data }, 'CONFIG');
+        } catch (error) {
+          logger.error('Failed to auto-save configuration', { error }, 'CONFIG');
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    }, 1000); // 1 second debounce
+  }, [updateConfig]);
+
+  // Auto-save function for blur events
+  const handleAutoSave = useCallback((field: keyof UserConfig, value: any) => {
+    if (isConfigured && config) {
+      const updatedConfig = { ...config, [field]: value };
+      autoSave(updatedConfig);
+    }
+  }, [isConfigured, config, autoSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get city options from agencies
   const cityOptions = agencies
@@ -164,7 +211,7 @@ export const useConfigurationManager = (
   const handleLogLevelChange = (level: number): void => {
     setFormData(prev => ({ ...prev, logLevel: level }));
     // Immediately update the logger and persist to config
-    updateConfig({ logLevel: level });
+    updateConfig({ ...config, logLevel: level });
   };
 
   const handleLocationPicker = (type: 'home' | 'work' | 'offline'): void => {
@@ -175,10 +222,13 @@ export const useConfigurationManager = (
   const handleLocationSelected = (location: Coordinates): void => {
     if (locationPickerType === 'home') {
       setFormData(prev => ({ ...prev, homeLocation: location }));
+      handleAutoSave('homeLocation', location);
     } else if (locationPickerType === 'work') {
       setFormData(prev => ({ ...prev, workLocation: location }));
+      handleAutoSave('workLocation', location);
     } else if (locationPickerType === 'offline') {
       setFormData(prev => ({ ...prev, defaultLocation: location }));
+      handleAutoSave('defaultLocation', location);
     }
     setLocationPickerOpen(false);
   };
@@ -234,6 +284,7 @@ export const useConfigurationManager = (
     
     // Submission
     isSubmitting,
+    isSaving,
     
     // Actions
     handleApiKeyChange,
@@ -243,6 +294,7 @@ export const useConfigurationManager = (
     handleLocationPicker,
     handleLocationSelected,
     handleSubmit,
+    handleAutoSave,
     
     // Utilities
     validateAndSetErrors,
