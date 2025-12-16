@@ -94,7 +94,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       keepMounted={false}
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: 2, // Reduced from 3 to 2 for more reasonable corner radius
           maxHeight: '90vh',
         },
       }}

@@ -23,7 +23,7 @@ export const useMuiUtils = () => {
     const shadows = getShadows();
 
     const baseStyles: SxProps<Theme> = {
-      borderRadius: 3,
+      borderRadius: 2, // Reduced from 3 to 2 for more reasonable corner radius
       transition: 'all 0.2s ease-in-out',
       position: 'relative',
     };
@@ -176,7 +176,7 @@ export const useMuiUtils = () => {
 
     return {
       bgcolor: backgrounds.paper,
-      borderRadius: 3,
+      borderRadius: 2, // Reduced from 3 to 2 for consistency
       boxShadow: 24,
       border: `1px solid ${borders.dividerLight}`,
       backdropFilter: 'blur(8px)',

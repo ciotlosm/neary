@@ -350,7 +350,7 @@ export const InfoCard: React.FC<InfoCardProps> = ({
     <Card
       sx={{
         mb: 2,
-        borderRadius: 3,
+        borderRadius: 2, // Reduced from 3 to 2 for more reasonable corner radius
         boxShadow: theme.shadows[1],
       }}
     >

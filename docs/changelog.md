@@ -2,6 +2,28 @@
 
 ## Recent Updates
 
+### December 16, 2024 - UI Improvement: Reduced Corner Radius for Better Visual Balance
+**Improved**: Reduced border radius across all UI components for more reasonable corner rounding
+
+**Changes Made**:
+- **Card Components**: Reduced border radius from 24px to 16px (borderRadius: 3 → 2)
+- **Modal Dialogs**: Reduced border radius from 24px to 16px for consistency
+- **Setup Components**: Reduced border radius from 32px to 16px (borderRadius: 4 → 2)
+- **Configuration Panels**: Standardized border radius to 16px across all panels
+
+**Components Updated**:
+- `useMuiUtils.ts`: Updated base card styles and modal styles
+- `Card.tsx`: Reduced corner radius for general card component
+- `ApiKeySetup.tsx`: Reduced setup card corner radius
+- `ConfigurationManager.tsx`: Reduced configuration panel corner radius
+- `LocationPicker.tsx`: Reduced modal corner radius
+
+**Impact**:
+- **Better Visual Balance**: More reasonable corner rounding that doesn't look overly rounded
+- **Consistent Design**: All components now use the same border radius scale
+- **Modern Appearance**: Maintains modern look while being less aggressive with rounding
+- **Mobile Friendly**: Better visual proportions on smaller screens
+
 ### December 16, 2024 - CRITICAL FIX: Browser Crash in Favorites View Resolved
 **Fixed**: Critical infinite loop causing browser crashes when clicking on Favorites view
 
