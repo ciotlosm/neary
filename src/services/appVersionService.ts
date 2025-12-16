@@ -15,7 +15,16 @@ export interface AppUpdateService {
 }
 
 class AppVersionServiceImpl implements AppUpdateService {
-  private currentVersion = '1.0.0'; // This should match package.json or be dynamically loaded
+  private getCurrentVersionFromHTML(): string {
+    // Get version from HTML meta tag (updated by version script)
+    const metaVersion = document.querySelector('meta[name="app-version"]')?.getAttribute('content');
+    if (metaVersion) {
+      return metaVersion;
+    }
+    
+    // Fallback to package.json version or default
+    return '1.3.4'; // This should match package.json
+  }
   
   async checkForUpdates(): Promise<VersionInfo> {
     logger.info('Checking for app updates...', {}, 'VERSION_CHECK');
@@ -29,7 +38,7 @@ class AppVersionServiceImpl implements AppUpdateService {
       const isUpdateAvailable = await this.isUpdateAvailable();
       
       const versionInfo: VersionInfo = {
-        current: this.currentVersion,
+        current: this.getCurrentVersionFromHTML(),
         serviceWorker: swVersion || 'unknown',
         isUpdateAvailable,
         lastChecked: new Date()
@@ -62,41 +71,78 @@ class AppVersionServiceImpl implements AppUpdateService {
   }
   
   async clearAllCaches(): Promise<void> {
-    logger.info('Clearing all caches...', {}, 'CACHE_CLEAR');
+    logger.info('🧹 Starting aggressive cache clear...', {}, 'CACHE_CLEAR');
     
     try {
-      // Clear browser caches
+      // Step 1: Clear all browser caches
       if ('caches' in window) {
         const cacheNames = await caches.keys();
+        logger.info(`Found ${cacheNames.length} caches to clear`, { cacheNames }, 'CACHE_CLEAR');
+        
         await Promise.all(
-          cacheNames.map(cacheName => {
-            logger.info(`Deleting cache: ${cacheName}`, {}, 'CACHE_CLEAR');
-            return caches.delete(cacheName);
+          cacheNames.map(async (cacheName) => {
+            logger.info(`🗑️ Deleting cache: ${cacheName}`, {}, 'CACHE_CLEAR');
+            const deleted = await caches.delete(cacheName);
+            if (!deleted) {
+              logger.warn(`Failed to delete cache: ${cacheName}`, {}, 'CACHE_CLEAR');
+            }
+            return deleted;
           })
         );
       }
       
-      // Clear service worker caches via message (if available)
+      // Step 2: Clear service worker caches via message (if available)
       try {
+        logger.info('📨 Requesting service worker cache clear...', {}, 'CACHE_CLEAR');
         await this.sendServiceWorkerMessage('CLEAR_CACHE');
+        logger.info('✅ Service worker cache clear completed', {}, 'CACHE_CLEAR');
       } catch (error) {
         // Service worker not available, continue anyway
-        logger.warn('Could not clear service worker caches', { error }, 'CACHE_CLEAR');
+        logger.warn('⚠️ Could not clear service worker caches (this is OK)', { error }, 'CACHE_CLEAR');
       }
       
-      // Clear localStorage (but preserve user config)
-      const configBackup = localStorage.getItem('config-store');
+      // Step 3: Preserve critical user data before clearing storage
+      const preserveKeys = [
+        'config-store',           // User configuration
+        'favorite-bus-store',     // User's favorite buses
+        'theme-store',           // User's theme preference
+        'cluj-bus-theme'         // Alternative theme key
+      ];
+      
+      const backupData: Record<string, string | null> = {};
+      preserveKeys.forEach(key => {
+        backupData[key] = localStorage.getItem(key);
+      });
+      
+      // Step 4: Clear localStorage and restore critical data
+      logger.info('🧽 Clearing localStorage (preserving user config)...', {}, 'CACHE_CLEAR');
       localStorage.clear();
-      if (configBackup) {
-        localStorage.setItem('config-store', configBackup);
-      }
       
-      // Clear sessionStorage
+      Object.entries(backupData).forEach(([key, value]) => {
+        if (value !== null) {
+          localStorage.setItem(key, value);
+          logger.info(`💾 Restored: ${key}`, {}, 'CACHE_CLEAR');
+        }
+      });
+      
+      // Step 5: Clear sessionStorage
+      logger.info('🧽 Clearing sessionStorage...', {}, 'CACHE_CLEAR');
       sessionStorage.clear();
       
-      logger.info('All caches cleared successfully', {}, 'CACHE_CLEAR');
+      // Step 6: Force service worker to skip waiting if there's an update
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration?.waiting) {
+          logger.info('🔄 Activating waiting service worker...', {}, 'CACHE_CLEAR');
+          await this.sendServiceWorkerMessage('SKIP_WAITING');
+        }
+      } catch (error) {
+        logger.warn('Could not activate waiting service worker', { error }, 'CACHE_CLEAR');
+      }
+      
+      logger.info('✨ All caches cleared successfully! App will reload with fresh content.', {}, 'CACHE_CLEAR');
     } catch (error) {
-      logger.error('Failed to clear caches', { error }, 'CACHE_CLEAR');
+      logger.error('❌ Failed to clear caches', { error }, 'CACHE_CLEAR');
       throw new Error('Failed to clear caches');
     }
   }
@@ -106,7 +152,7 @@ class AppVersionServiceImpl implements AppUpdateService {
     const isUpdateAvailable = await this.isUpdateAvailable();
     
     return {
-      current: this.currentVersion,
+      current: this.getCurrentVersionFromHTML(),
       serviceWorker: swVersion || 'unknown',
       isUpdateAvailable,
       lastChecked: new Date()

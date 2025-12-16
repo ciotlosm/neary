@@ -19,6 +19,7 @@ import {
   SystemUpdate as UpdateIcon,
   RestartAlt as RestartIcon,
   Info as InfoIcon,
+  ClearAll as ClearCacheIcon,
 } from '@mui/icons-material';
 
 import { appVersionService, type VersionInfo } from '../../../services/appVersionService';
@@ -39,6 +40,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   useEffect(() => {
     loadVersionInfo();
@@ -89,6 +91,27 @@ export const VersionControl: React.FC<VersionControlProps> = ({
     }
   };
 
+  const handleForceCacheClear = async () => {
+    if (!confirm('This will clear all cached data and refresh the app. This is useful if you\'re seeing old content or broken displays. Continue?')) {
+      return;
+    }
+
+    setIsClearingCache(true);
+    try {
+      await appVersionService.clearAllCaches();
+      logger.info('Cache cleared successfully, reloading app...', {}, 'CACHE_CLEAR');
+      // Force reload after cache clear
+      window.location.reload();
+    } catch (error) {
+      logger.error('Cache clear failed', { error }, 'CACHE_CLEAR');
+      setIsClearingCache(false);
+      // Still try to reload even if cache clear partially failed
+      if (confirm('Cache clear had some issues, but we can still try to reload. Continue?')) {
+        window.location.reload();
+      }
+    }
+  };
+
   const formatAge = (timestamp?: Date): string => {
     if (!timestamp) return 'Never';
     const age = Date.now() - timestamp.getTime();
@@ -131,7 +154,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
             <IconButton
               size={size}
               onClick={handleClick}
-              disabled={isChecking || isUpdating}
+              disabled={isChecking || isUpdating || isClearingCache}
               sx={{
                 color: hasUpdate ? 'warning.main' : 'text.secondary',
                 '&:hover': {
@@ -140,7 +163,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
                 },
               }}
             >
-              {isChecking || isUpdating ? (
+              {isChecking || isUpdating || isClearingCache ? (
                 <CircularProgress size={size === 'small' ? 16 : 20} />
               ) : (
                 <UpdateIcon fontSize={size} />
@@ -253,7 +276,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
             handleCheckForUpdates();
             handleClose();
           }}
-          disabled={isChecking || isUpdating}
+          disabled={isChecking || isUpdating || isClearingCache}
         >
           <UpdateIcon sx={{ mr: 1.5 }} fontSize="small" />
           <Typography variant="body2">
@@ -267,7 +290,7 @@ export const VersionControl: React.FC<VersionControlProps> = ({
               handleInstallUpdate();
               handleClose();
             }}
-            disabled={isChecking || isUpdating}
+            disabled={isChecking || isUpdating || isClearingCache}
             sx={{ color: 'success.main' }}
           >
             <RestartIcon sx={{ mr: 1.5 }} fontSize="small" />
@@ -276,6 +299,20 @@ export const VersionControl: React.FC<VersionControlProps> = ({
             </Typography>
           </MenuItem>
         )}
+
+        <MenuItem
+          onClick={() => {
+            handleForceCacheClear();
+            handleClose();
+          }}
+          disabled={isChecking || isUpdating || isClearingCache}
+          sx={{ color: 'warning.main' }}
+        >
+          <ClearCacheIcon sx={{ mr: 1.5 }} fontSize="small" />
+          <Typography variant="body2">
+            {isClearingCache ? 'Clearing Cache...' : 'Force Refresh Cache'}
+          </Typography>
+        </MenuItem>
 
         <MenuItem onClick={handleClose}>
           <InfoIcon sx={{ mr: 1.5 }} fontSize="small" />

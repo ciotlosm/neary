@@ -87,6 +87,7 @@ The app has four main views accessible via bottom navigation:
 1. **API configuration** - manage your Tranzy API key
 2. **Location settings** - set home, work, and fallback locations
 3. **App preferences** - adjust refresh rates, data thresholds, and display limits
+4. **Version control** - check for updates and manage app cache
 
 ### Understanding the Interface
 
@@ -244,6 +245,43 @@ The app uses locations in this priority order for route suggestions:
 - **City info** - visible in version menu for troubleshooting (set during initial setup)
 
 ## ⚙️ Settings & Configuration
+
+### Version Control & Cache Management
+
+**Access**: Tap the update icon (🔄) in the top-right corner of Settings
+
+The version control menu provides essential app maintenance tools:
+
+#### **Version Information**
+- **Current Version** - Shows your app version (matches deployment)
+- **Service Worker** - Status of offline functionality
+- **Last Checked** - When the app last checked for updates
+- **Configuration Info** - City and Agency ID for troubleshooting
+
+#### **Update Management**
+- **Check for Updates** - Manually check if a new version is available
+- **Install Update** - Apply available updates (when notification appears)
+
+#### **Force Refresh Cache** ⚠️
+**When to use**: If you're experiencing:
+- Old content that doesn't match new deployments
+- Blue screen or broken displays
+- App showing outdated information despite being online
+- Interface elements not working properly
+
+**What it does**:
+- Clears all cached app data (keeps your settings and favorites)
+- Forces fresh download of all app files
+- Automatically reloads the app with clean cache
+- Works completely offline (doesn't need internet connection)
+
+**How to use**:
+1. Tap the update icon (🔄) in Settings
+2. Select "Force Refresh Cache" (orange warning color)
+3. Confirm the action when prompted
+4. App will clear cache and automatically reload
+
+**Note**: This is the recommended solution for cache-related issues in PWA/browser environments where you don't have access to browser developer tools.
 
 ### Advanced Settings
 Access these settings in the Configuration tab under "Advanced Settings":

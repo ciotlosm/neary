@@ -2,6 +2,40 @@
 
 ## Recent Updates
 
+### December 16, 2024 - PWA Enhancement: Force Cache Refresh Feature
+**Added**: In-app cache management for PWA environments without browser controls
+
+**New Feature**:
+- **Force Refresh Cache button** in Settings version control menu
+- **Aggressive cache clearing** while preserving user data (settings, favorites, theme)
+- **Offline functionality** - works without internet connection
+- **Smart data preservation** - keeps critical user configuration during cache clear
+- **Enhanced version detection** - reads actual version from HTML meta tag
+- **Improved user experience** - solves "old content" and "blue screen" issues in PWA mode
+
+**Technical Implementation**:
+- **Enhanced VersionControl component** with new "Force Refresh Cache" option (orange warning color)
+- **Robust cache clearing service** that clears all browser caches, service worker caches, and storage
+- **Selective data preservation** - backs up and restores config-store, favorite-bus-store, and theme-store
+- **Service worker integration** - sends cache clear messages and activates waiting workers
+- **Comprehensive logging** - detailed console output for debugging cache operations
+- **Graceful error handling** - continues with reload even if some cache operations fail
+
+**User Benefits**:
+- **No browser DevTools needed** - perfect for PWA installations and kiosk-mode browsers
+- **Solves deployment issues** - users can force refresh when new versions don't load properly
+- **Preserves user data** - settings and favorites remain intact after cache clear
+- **Industry standard approach** - follows PWA best practices for cache management
+- **Works offline** - doesn't require internet connection to clear local caches
+
+**Use Cases**:
+- App showing old content after deployment
+- Blue screen or broken displays due to cache conflicts
+- Interface elements not working properly
+- Service worker update issues
+
+**Impact**: Provides users with a reliable way to resolve cache-related issues in PWA environments, maintaining the benefits of aggressive caching while offering an escape hatch for problematic cached content.
+
 ### December 16, 2024 - Major Code Refactoring: Shared Vehicle Processing Hook
 **Refactored**: Eliminated massive code duplication by creating shared `useVehicleProcessing` hook
 

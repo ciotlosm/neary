@@ -723,3 +723,125 @@ npm run dev
 - Updated `index.html` meta theme-color to correct value
 
 **Prevention**: Keep PWA manifest colors in sync with app theme colors
+
+### Service Worker & Caching Issues
+
+#### App Shows Old Content After Deployment / Blue Screen / Update Not Working
+**Problem**: After deploying a new version, users see:
+- Old content that doesn't match the new deployment
+- Blue screen or broken display
+- "Check for updates" in settings doesn't trigger version update
+- Browser cache seems stuck on old version
+
+**Root Cause**: Service worker caching strategy issues and version management problems
+
+**Comprehensive Solution (December 2024)**:
+
+**1. Immediate Fix for Users**:
+```bash
+# Force complete cache clear (for developers)
+# In browser DevTools Console:
+caches.keys().then(names => Promise.all(names.map(name => caches.delete(name)))).then(() => location.reload())
+
+# Or manually:
+# 1. Open DevTools (F12)
+# 2. Go to Application tab
+# 3. Click "Storage" in left sidebar
+# 4. Click "Clear site data"
+# 5. Refresh page (Cmd+R / Ctrl+R)
+```
+
+**2. For Developers - Proper Deployment Process**:
+```bash
+# CRITICAL: Always run version update before deployment
+node scripts/update-version.js    # Updates SW version and HTML meta tag
+npm run build                     # Build with new version
+# Deploy to production
+```
+
+**3. Root Cause Analysis**:
+
+The issue stems from multiple service worker problems:
+
+**Problem A: Service Worker Cache Strategy**
+- Service worker uses cache-first strategy for static assets
+- Old cached content served even when new version deployed
+- `skipWaiting()` and `clients.claim()` not working effectively
+
+**Problem B: Version Management**
+- Version only updated in SW and HTML meta tag
+- No mechanism to force cache invalidation on version mismatch
+- Update detection relies on SW update events that may not fire
+
+**Problem C: Update Notification System**
+- Update detection depends on SW `updatefound` event
+- Event may not fire if SW doesn't detect changes
+- Manual "check for updates" doesn't force cache clear
+
+**4. Technical Solutions Applied**:
+
+**Enhanced Service Worker Strategy**:
+- Modified SW to use network-first in development
+- Added aggressive cache clearing on version mismatch
+- Improved `skipWaiting()` and `clients.claim()` implementation
+
+**Better Version Detection**:
+- Added version comparison between SW and HTML meta tag
+- Force cache clear when versions don't match
+- Enhanced update notification system
+
+**Improved Update Process**:
+- "Check for updates" now forces cache clear
+- Better error handling for update failures
+- More reliable update detection
+
+**5. Prevention Strategies**:
+
+**For Developers**:
+- Always run `node scripts/update-version.js` before deployment
+- Test update process in production-like environment
+- Verify version numbers match across SW, HTML, and package.json
+
+**For Users**:
+- Use "Check for updates" in Settings when issues occur
+- Clear browser cache if problems persist
+- Refresh page after seeing update notification
+
+**6. Debug Information**:
+
+Check browser console for these messages:
+```
+✅ Service Worker updated to version: 2025-12-16-1430
+✅ All caches cleared
+✅ Service Worker activated, claiming clients...
+```
+
+If you see errors like:
+```
+❌ Failed to check for updates
+❌ Service Worker registration failed
+```
+
+This indicates a deeper service worker issue requiring manual cache clear.
+
+**7. Emergency Recovery**:
+
+If app is completely broken:
+```bash
+# Complete reset (in browser console)
+navigator.serviceWorker.getRegistrations().then(registrations => {
+  registrations.forEach(registration => registration.unregister())
+}).then(() => {
+  caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))))
+}).then(() => location.reload())
+```
+
+**8. Monitoring & Verification**:
+
+After deployment, verify:
+- Version number in Settings matches deployment
+- No console errors related to service worker
+- App content reflects latest changes
+- Update notification system works
+
+**Prevention**: This comprehensive solution addresses the core caching issues and provides multiple recovery paths for users experiencing update problems.
