@@ -1,6 +1,7 @@
 import React from 'react';
-import { Typography, Stack, Chip, useTheme, alpha } from '@mui/material';
+import { Typography, Stack, Chip } from '@mui/material';
 import { CLUJ_POPULAR_LOCATIONS } from '../../../../utils/locationUtils';
+import { useThemeUtils, useMuiUtils } from '../../../../hooks';
 
 interface PopularLocationsProps {
   onLocationSelect: (locationName: string) => void;
@@ -11,7 +12,8 @@ export const PopularLocations: React.FC<PopularLocationsProps> = ({
   onLocationSelect,
   getLocationColor,
 }) => {
-  const theme = useTheme();
+  const { alpha } = useThemeUtils();
+  const { getChipStyles } = useMuiUtils();
 
   return (
     <>

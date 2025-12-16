@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, Typography, Chip, useTheme, alpha } from '@mui/material';
+import { Box, Typography, Chip } from '@mui/material';
 import { LocationOn as LocationIcon } from '@mui/icons-material';
 import { formatCoordinates } from '../../../../utils/locationUtils';
 import { logger } from '../../../../utils/logger';
+import { useThemeUtils, useMuiUtils } from '../../../../hooks';
 import type { Coordinates } from '../../../../types';
 
 interface SelectedLocationDisplayProps {
@@ -20,7 +21,8 @@ export const SelectedLocationDisplay: React.FC<SelectedLocationDisplayProps> = (
   getLocationColor,
   calculateDistance,
 }) => {
-  const theme = useTheme();
+  const { theme, alpha, getBackgroundColors } = useThemeUtils();
+  const { getChipStyles } = useMuiUtils();
 
   return (
     <Box

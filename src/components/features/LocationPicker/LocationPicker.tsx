@@ -21,12 +21,10 @@ import {
 
 import { Button } from '../../ui/Button';
 import { useLocationPicker } from '../../../hooks/useLocationPicker';
-import {
-  CurrentLocationSection,
-  PopularLocations,
-  LocationPickerMap,
-  SelectedLocationDisplay,
-} from './components';
+import { CurrentLocationSection } from './components/CurrentLocationSection';
+import { PopularLocations } from './components/PopularLocations';
+import { LocationPickerMap } from './components/LocationPickerMap';
+import { SelectedLocationDisplay } from './components/SelectedLocationDisplay';
 import type { Coordinates } from '../../../types';
 
 interface LocationPickerProps {

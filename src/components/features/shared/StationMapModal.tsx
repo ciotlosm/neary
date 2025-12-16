@@ -17,6 +17,7 @@ import L from 'leaflet';
 import { enhancedTranzyApi } from '../../../services/tranzyApiService';
 import { logger } from '../../../utils/logger';
 import { calculateDistance } from '../../../utils/distanceUtils';
+import { useAsyncOperation } from '../../../hooks/useAsyncOperation';
 import type { Station, Coordinates } from '../../../types';
 
 // Import Leaflet CSS
@@ -106,8 +107,7 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
 }) => {
   const [routeShapes, setRouteShapes] = useState<Map<string, Coordinates[]>>(new Map());
   const [routeStations, setRouteStations] = useState<Map<string, Coordinates[]>>(new Map());
-  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const routeDataOperation = useAsyncOperation();
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string | null>(null);
 
   // Get unique route IDs from vehicles
@@ -120,10 +120,7 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
     if (!open || uniqueRouteIds.length === 0) return;
 
     const loadRouteShapes = async () => {
-      setIsLoadingRoutes(true);
-      setError(null);
-      
-      try {
+      const result = await routeDataOperation.execute(async () => {
         logger.debug('Loading route shapes for station map', {
           routeIds: uniqueRouteIds
         }, 'STATION_MAP');
@@ -217,16 +214,18 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
           routesWithShapes: Array.from(shapes.keys())
         }, 'STATION_MAP');
         
-        setRouteShapes(shapes);
-
         // TODO: Implement proper route-specific station loading
         // For now, disable station loading to prevent performance issues
-        setRouteStations(new Map());
-      } catch (err) {
-        logger.error('Failed to load route shapes for station map', { error: err }, 'STATION_MAP');
-        setError('Failed to load route information');
-      } finally {
-        setIsLoadingRoutes(false);
+        
+        return { shapes, stations: new Map() };
+      }, {
+        errorMessage: 'Failed to load route information',
+        logCategory: 'STATION_MAP',
+      });
+
+      if (result) {
+        setRouteShapes(result.shapes);
+        setRouteStations(result.stations);
       }
     };
 
@@ -310,13 +309,13 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
       </DialogTitle>
       
       <DialogContent sx={{ p: 0, position: 'relative' }}>
-        {error && (
+        {routeDataOperation.error && (
           <Alert severity="error" sx={{ m: 2 }}>
-            {error}
+            {routeDataOperation.error}
           </Alert>
         )}
         
-        {isLoadingRoutes && (
+        {routeDataOperation.isLoading && (
           <Box sx={{ 
             position: 'absolute', 
             top: 16, 

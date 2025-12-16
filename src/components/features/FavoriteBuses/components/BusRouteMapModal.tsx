@@ -17,6 +17,7 @@ import { agencyService } from '../../../../services/agencyService';
 import { logger } from '../../../../utils/logger';
 import { calculateDistance } from '../../../../utils/distanceUtils';
 import { arePointsOverlapping, calculateOverlapBounds, logOverlapDetection } from '../../../../utils/mapUtils';
+import { useAsyncOperation } from '../../../../hooks/useAsyncOperation';
 import type { FavoriteBusInfo } from '../../../../services/favoriteBusService';
 
 // Import Leaflet CSS
@@ -118,8 +119,7 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
   cityName,
 }) => {
   const [shapePoints, setShapePoints] = useState<ShapePoint[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const routeShapeOperation = useAsyncOperation<ShapePoint[]>();
 
   useEffect(() => {
     if (open && bus.tripId) {
@@ -128,53 +128,54 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
   }, [open, bus.tripId]);
 
   const loadRouteShape = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const result = await routeShapeOperation.execute(
+      async () => {
+        // Get agency ID for the city
+        const agencyId = await agencyService.getAgencyIdForCity(cityName);
+        if (!agencyId) {
+          throw new Error('No agency found for city');
+        }
 
-      // Get agency ID for the city
-      const agencyId = await agencyService.getAgencyIdForCity(cityName);
-      if (!agencyId) {
-        throw new Error('No agency found for city');
+        // Get trip data from cache to find shape_id
+        const trips = await enhancedTranzyApi.getTrips(agencyId, undefined, false);
+        const trip = trips.find(t => t.id === bus.tripId);
+        
+        if (!trip || !trip.shapeId) {
+          throw new Error('No shape data found for this trip');
+        }
+
+        // Get shape points from cache for this trip
+        const rawShapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId, false);
+        
+        if (!rawShapePoints || rawShapePoints.length === 0) {
+          throw new Error('No shape points found for this route');
+        }
+
+        // Sort shape points by sequence and convert to our format
+        const sortedShapePoints = rawShapePoints
+          .sort((a, b) => a.sequence - b.sequence)
+          .map(point => ({
+            latitude: point.latitude,
+            longitude: point.longitude,
+            sequence: point.sequence,
+          }));
+
+        logger.info('Loaded route shape', {
+          tripId: bus.tripId,
+          shapeId: trip.shapeId,
+          pointCount: sortedShapePoints.length,
+        });
+
+        return sortedShapePoints;
+      },
+      {
+        errorMessage: 'Failed to load route shape',
+        logCategory: 'BUS_ROUTE_MAP_MODAL',
       }
+    );
 
-      // Get trip data from cache to find shape_id
-      const trips = await enhancedTranzyApi.getTrips(agencyId, undefined, false);
-      const trip = trips.find(t => t.id === bus.tripId);
-      
-      if (!trip || !trip.shapeId) {
-        throw new Error('No shape data found for this trip');
-      }
-
-      // Get shape points from cache for this trip
-      const rawShapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId, false);
-      
-      if (!rawShapePoints || rawShapePoints.length === 0) {
-        throw new Error('No shape points found for this route');
-      }
-
-      // Sort shape points by sequence and convert to our format
-      const sortedShapePoints = rawShapePoints
-        .sort((a, b) => a.sequence - b.sequence)
-        .map(point => ({
-          latitude: point.latitude,
-          longitude: point.longitude,
-          sequence: point.sequence,
-        }));
-
-      setShapePoints(sortedShapePoints);
-      logger.info('Loaded route shape', {
-        tripId: bus.tripId,
-        shapeId: trip.shapeId,
-        pointCount: sortedShapePoints.length,
-      });
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load route shape';
-      setError(errorMessage);
-      logger.error('Failed to load route shape', { tripId: bus.tripId, error: err });
-    } finally {
-      setLoading(false);
+    if (result) {
+      setShapePoints(result);
     }
   };
 
@@ -277,7 +278,7 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
       </DialogTitle>
       
       <DialogContent sx={{ p: 0, height: '100%' }}>
-        {loading && (
+        {routeShapeOperation.isLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
             <CircularProgress />
             <Typography variant="body2" sx={{ ml: 2 }}>
@@ -286,15 +287,15 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
           </Box>
         )}
 
-        {error && (
+        {routeShapeOperation.error && (
           <Box sx={{ p: 2 }}>
             <Alert severity="error">
-              {error}
+              {routeShapeOperation.error}
             </Alert>
           </Box>
         )}
 
-        {!loading && !error && mapBounds && (
+        {!routeShapeOperation.isLoading && !routeShapeOperation.error && mapBounds && (
           <MapContainer
             center={[bus.latitude, bus.longitude]}
             zoom={13}

@@ -7,7 +7,6 @@ import {
   Card,
   Alert,
   Snackbar,
-  useTheme,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -27,6 +26,7 @@ import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
 import { VersionControl } from '../../ui/VersionControl';
 import FavoriteBusManager from '../FavoriteBuses/FavoriteBusManager';
+import { useThemeUtils, useMuiUtils } from '../../../hooks';
 import type { UserConfig } from '../../../types';
 
 interface SettingsProps {
@@ -70,7 +70,8 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
-  const theme = useTheme();
+  const { getBackgroundColors, getBorderColors } = useThemeUtils();
+  const { getCardStyles } = useMuiUtils();
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);

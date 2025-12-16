@@ -8,12 +8,12 @@ import {
   Box,
   Typography,
   IconButton,
-  useTheme,
 } from '@mui/material';
 import { Close as CloseIcon, MyLocation as MyLocationIcon } from '@mui/icons-material';
 import type { Coordinates } from '../../types';
 import { useLocationStore } from '../../stores/locationStore';
 import { logger } from '../../utils/logger';
+import { useThemeUtils, useMuiUtils } from '../../hooks';
 
 interface MapPickerProps {
   isOpen: boolean;
@@ -30,7 +30,8 @@ export const MapPicker: React.FC<MapPickerProps> = ({
   initialCoordinates,
   title = 'Choose Location on Map',
 }) => {
-  const theme = useTheme();
+  const { theme, getBackgroundColors, getBorderColors, alpha } = useThemeUtils();
+  const { getModalStyles } = useMuiUtils();
   const { requestLocation } = useLocationStore();
   const [selectedCoords, setSelectedCoords] = useState<Coordinates | null>(
     initialCoordinates || null
@@ -206,7 +207,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({
 
       <DialogContent sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Instructions */}
-        <Box sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+        <Box sx={{ p: 2, bgcolor: getBackgroundColors().default }}>
           <Typography variant="body2" color="text.secondary">
             Tap anywhere on the map to select a location
           </Typography>

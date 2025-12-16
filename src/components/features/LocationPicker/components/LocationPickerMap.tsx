@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography, useTheme, alpha } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { Map as MapIcon } from '@mui/icons-material';
 import { formatCoordinates } from '../../../../utils/locationUtils';
 import { logger } from '../../../../utils/logger';
+import { useThemeUtils } from '../../../../hooks';
 import type { Coordinates } from '../../../../types';
 
 interface LocationPickerMapProps {
@@ -20,7 +21,7 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
   locationType,
   getLocationColor,
 }) => {
-  const theme = useTheme();
+  const { theme, alpha, getBackgroundColors, getBorderColors } = useThemeUtils();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);

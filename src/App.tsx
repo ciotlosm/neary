@@ -44,6 +44,7 @@ import { useThemeStore } from './stores/themeStore';
 import { useRefreshSystem } from './hooks/useRefreshSystem';
 import { useErrorHandler } from './hooks/useErrorHandler';
 import { useAppInitialization } from './hooks/useAppInitialization';
+import { useThemeUtils, useMuiUtils } from './hooks';
 
 import { useComponentLifecycle, logPerformanceMetrics } from './utils/performance';
 import { logger } from './utils/logger';
@@ -68,7 +69,8 @@ const MaterialHeader: React.FC<{
   showRefresh?: boolean;
   isLoading?: boolean;
 }> = React.memo(({ title, showRefresh = false, isLoading = false }) => {
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
+  const { getHeaderStyles } = useMuiUtils();
   
   return (
     <AppBar 
@@ -128,7 +130,7 @@ const MaterialBottomNav: React.FC<{
   isConfigured: boolean;
   isFromSetupFlowRef: React.MutableRefObject<boolean>;
 }> = React.memo(({ currentView, onViewChange, isConfigured: isFullyConfigured, isFromSetupFlowRef }) => {
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
   
   const handleNavigation = React.useCallback((view: 'station' | 'routes' | 'settings') => {
     logger.debug('Navigation attempt', { from: currentView, to: view, isFullyConfigured }, 'NAVIGATION');
@@ -270,7 +272,8 @@ function AppMaterial() {
     initializationError,
     retryInitialization 
   } = useAppInitialization();
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
+  const { getHeaderStyles } = useMuiUtils();
 
   // Track if navigation is coming from setup flow
   const isFromSetupFlow = React.useRef(false);

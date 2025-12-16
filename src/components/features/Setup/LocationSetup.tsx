@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LocationPicker } from '../LocationPicker/LocationPicker';
+import LocationPicker from '../LocationPicker/LocationPicker';
 import { logger } from '../../../utils/logger';
 import type { Coordinates } from '../../../types';
 
