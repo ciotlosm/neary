@@ -83,8 +83,8 @@ class FavoriteBusService {
     agencyId: number
   ): Promise<number | null> {
     try {
-      // Get trip data to find shape_id
-      const trips = await enhancedTranzyApi.getTrips(agencyId);
+      // Get trip data from cache to find shape_id
+      const trips = await enhancedTranzyApi.getTrips(agencyId, undefined, false);
       const trip = trips.find(t => t.id === tripId);
       
       if (!trip || !trip.shapeId) {
@@ -92,8 +92,8 @@ class FavoriteBusService {
         return null;
       }
 
-      // Get shape points for this trip
-      const shapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId);
+      // Get shape points from cache for this trip
+      const shapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId, false);
       
       if (!shapePoints || shapePoints.length === 0) {
         logger.warn('No shape points found for shape', { shapeId: trip.shapeId });
@@ -418,7 +418,7 @@ class FavoriteBusService {
       let stations: any[] = [];
       try {
         logger.debug('Fetching stations for nearest station lookup');
-        stations = await enhancedTranzyApi.getStops(agencyId);
+        stations = await enhancedTranzyApi.getStops(agencyId, false);
         logger.debug('Retrieved stations', { stationCount: stations.length });
         logger.info('Retrieved stations for nearest station lookup', { stationCount: stations.length });
       } catch (error) {
@@ -431,7 +431,7 @@ class FavoriteBusService {
       let tripsMap = new Map<string, any>();
       try {
         logger.debug('Fetching trips for destination lookup');
-        const trips = await enhancedTranzyApi.getTrips(agencyId);
+        const trips = await enhancedTranzyApi.getTrips(agencyId, undefined, false);
         trips.forEach(trip => {
           tripsMap.set(trip.id, trip);
         });
@@ -447,7 +447,7 @@ class FavoriteBusService {
       let stopTimesMap = new Map<string, any[]>();
       try {
         logger.debug('Fetching stop times for stop sequences');
-        const stopTimes = await enhancedTranzyApi.getStopTimes(agencyId);
+        const stopTimes = await enhancedTranzyApi.getStopTimes(agencyId, undefined, undefined, false);
         // Group stop times by trip_id
         stopTimes.forEach(stopTime => {
           if (!stopTimesMap.has(stopTime.tripId)) {

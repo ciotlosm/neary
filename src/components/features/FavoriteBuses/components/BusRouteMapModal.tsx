@@ -138,16 +138,16 @@ export const BusRouteMapModal: React.FC<BusRouteMapModalProps> = ({
         throw new Error('No agency found for city');
       }
 
-      // Get trip data to find shape_id
-      const trips = await enhancedTranzyApi.getTrips(agencyId);
+      // Get trip data from cache to find shape_id
+      const trips = await enhancedTranzyApi.getTrips(agencyId, undefined, false);
       const trip = trips.find(t => t.id === bus.tripId);
       
       if (!trip || !trip.shapeId) {
         throw new Error('No shape data found for this trip');
       }
 
-      // Get shape points for this trip
-      const rawShapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId);
+      // Get shape points from cache for this trip
+      const rawShapePoints = await enhancedTranzyApi.getShapes(agencyId, trip.shapeId, false);
       
       if (!rawShapePoints || rawShapePoints.length === 0) {
         throw new Error('No shape points found for this route');

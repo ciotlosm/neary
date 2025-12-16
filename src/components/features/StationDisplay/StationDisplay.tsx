@@ -8,7 +8,9 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useConfigStore } from '../../../stores/configStore';
+import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { withPerformanceMonitoring } from '../../../utils/performance';
+import { logger } from '../../../utils/logger';
 import { MapPinIcon } from '../../ui/Icons/Icons';
 import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
@@ -36,9 +38,31 @@ interface StationDisplayProps {
 
 const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   const { config } = useConfigStore();
+  const { refreshBuses, lastUpdate } = useEnhancedBusStore();
   
   // State for route filtering per station (must be declared before use)
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
+  
+  // Trigger store refresh when component mounts if data is stale
+  React.useEffect(() => {
+    const shouldRefresh = () => {
+      if (!config?.agencyId || !config?.apiKey) return false;
+      
+      // If no data or data is older than 5 minutes, refresh
+      if (!lastUpdate) return true;
+      
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return lastUpdate < fiveMinutesAgo;
+    };
+
+    if (shouldRefresh()) {
+      logger.debug('Triggering store refresh for station display', {
+        hasLastUpdate: !!lastUpdate,
+        lastUpdate
+      }, 'STATION_DISPLAY');
+      refreshBuses();
+    }
+  }, [config?.agencyId, config?.apiKey, lastUpdate, refreshBuses]);
   
   // Use the shared vehicle processing hook
   // Always get full vehicle data, we'll handle filtering per station

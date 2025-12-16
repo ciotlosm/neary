@@ -131,22 +131,24 @@ const MaterialBottomNav: React.FC<{
   const theme = useTheme();
   
   const handleNavigation = React.useCallback((view: 'station' | 'routes' | 'settings') => {
-    // Prevent duplicate navigation to the same view
-    if (view === currentView) {
-      logger.info('Navigation ignored - already on target view', { currentView, targetView: view }, 'UI');
+    console.log('🔄 Navigation attempt:', { from: currentView, to: view, isFullyConfigured });
+    
+    // Only prevent if disabled due to configuration
+    if ((view === 'station' || view === 'routes') && !isFullyConfigured) {
+      console.warn('❌ Navigation blocked - not fully configured', { view, isFullyConfigured });
       return;
     }
     
-    logger.info('Navigation clicked', { from: currentView, to: view }, 'UI');
+    console.log('✅ Navigation proceeding:', { from: currentView, to: view });
     
     // Reset setup flow flag when user manually navigates
     if (view === 'settings') {
       isFromSetupFlowRef.current = false;
     }
     
-    // Direct call without requestAnimationFrame to avoid timing issues
+    // Direct state update
     onViewChange(view);
-  }, [currentView, onViewChange]);
+  }, [currentView, onViewChange, isFullyConfigured]);
 
   return (
     <Paper
@@ -164,9 +166,12 @@ const MaterialBottomNav: React.FC<{
       <Box sx={{ position: 'relative' }}>
         <BottomNavigation
           value={currentView}
-          onChange={() => {
-            // Disable MUI's built-in onChange to prevent conflicts
-            // We handle navigation via individual button clicks
+          onChange={(event, newValue) => {
+            console.log('📱 BottomNavigation onChange:', { currentValue: currentView, newValue, event: event.type });
+            // Handle navigation through MUI's built-in onChange
+            if (newValue) {
+              handleNavigation(newValue as 'station' | 'routes' | 'settings');
+            }
           }}
           sx={{
             borderRadius: '24px 24px 0 0',
@@ -185,12 +190,6 @@ const MaterialBottomNav: React.FC<{
           value="station"
           icon={<StationIcon />}
           disabled={!isFullyConfigured}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!isFullyConfigured) return;
-            handleNavigation('station');
-          }}
           sx={{
             '&.Mui-selected': {
               color: theme.palette.primary.main,
@@ -206,12 +205,6 @@ const MaterialBottomNav: React.FC<{
           value="routes"
           icon={<FavoriteIcon />}
           disabled={!isFullyConfigured}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!isFullyConfigured) return;
-            handleNavigation('routes');
-          }}
           sx={{
             '&.Mui-selected': {
               color: theme.palette.primary.main,
@@ -225,11 +218,6 @@ const MaterialBottomNav: React.FC<{
           label="Settings"
           value="settings"
           icon={<SettingsIcon />}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleNavigation('settings');
-          }}
           sx={{
             '&.Mui-selected': {
               color: theme.palette.primary.main,

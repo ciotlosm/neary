@@ -26,8 +26,8 @@ class AgencyService {
       }
 
       logger.debug('Fetching agencies for city lookup', { city: cityName });
-      // Fetch agencies and find the one matching the city
-      const agencies = await enhancedTranzyApi.getAgencies();
+      // Fetch agencies from cache and find the one matching the city
+      const agencies = await enhancedTranzyApi.getAgencies(false);
       logger.debug('Retrieved agencies', { count: agencies.length, agencies: agencies.map(a => ({ id: a.id, name: a.name })) });
       
       const agency = agencies.find(a => a.name === cityName);
@@ -90,7 +90,7 @@ class AgencyService {
    */
   async getAllAgencies(): Promise<Agency[]> {
     try {
-      return await enhancedTranzyApi.getAgencies();
+      return await enhancedTranzyApi.getAgencies(false);
     } catch (error) {
       logger.error('Failed to get all agencies', error);
       return [];

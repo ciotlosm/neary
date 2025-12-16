@@ -77,7 +77,7 @@ class RoutePlanningService {
       }
       
       logger.debug('Getting nearby stations', { agencyId, city: cityName, location, maxDistance });
-      const allStations = await enhancedTranzyApi.getStops(agencyId);
+      const allStations = await enhancedTranzyApi.getStops(agencyId, false);
       
       // Filter by distance
       const nearbyStations = allStations
@@ -112,9 +112,9 @@ class RoutePlanningService {
     try {
       // Get all required data
       const [vehicles, trips, routes] = await Promise.all([
-        enhancedTranzyApi.getVehicles(agencyId),
-        enhancedTranzyApi.getTrips(agencyId),
-        enhancedTranzyApi.getRoutes(agencyId)
+        enhancedTranzyApi.getVehicles(agencyId), // getVehicles uses cache by default
+        enhancedTranzyApi.getTrips(agencyId, undefined, false),
+        enhancedTranzyApi.getRoutes(agencyId, false)
       ]);
       
       logger.debug('Retrieved GTFS data', { 
@@ -130,7 +130,7 @@ class RoutePlanningService {
       
       for (const station of stations) {
         // Get stop times for this station to see which trips pass through
-        const stopTimes = await enhancedTranzyApi.getStopTimes(agencyId, parseInt(station.id));
+        const stopTimes = await enhancedTranzyApi.getStopTimes(agencyId, parseInt(station.id), undefined, false);
         
         // Group stop times by route for better organization
         const stopTimesByRoute = new Map<string, any[]>();

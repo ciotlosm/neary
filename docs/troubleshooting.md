@@ -222,6 +222,75 @@
 - Maintained proper distance information by cross-referencing with `targetStations`
 
 **Prevention**: Always validate that displayed data has meaningful content for users before showing UI elements
+
+#### Station View Not Updating After Cache Refresh
+**Problem**: In the nearest station view, pressing the refresh button (top right) updates the cache but vehicles don't update their data until switching to favorites view and back
+
+**Root Cause**: The `useVehicleProcessing` hook was fetching data directly from the API instead of subscribing to store updates. When the refresh button updates the store cache, the hook doesn't know about those updates because it's not listening to the store.
+
+**Solution Applied (December 2024)**: Modified `useVehicleProcessing` hook to use store data instead of direct API calls
+- **Added store subscription**: Hook now subscribes to `useEnhancedBusStore` for vehicle data
+- **Converted store data**: Added logic to convert store vehicles to the format expected by the hook
+- **Maintained fallback**: If no store data available, falls back to direct API calls
+- **Added refresh trigger**: Hook triggers store refresh if data is older than 5 minutes
+- **Fixed reactivity**: Vehicle data now updates immediately when store is refreshed
+
+**Technical Changes**:
+- Updated `useVehicleProcessing.ts` to import and use `useEnhancedBusStore`
+- Added `storeVehicles`, `storeIsLoading`, and `lastUpdate` from store
+- Modified vehicle fetching logic to convert store data to `LiveVehicle[]` format
+- Added automatic store refresh trigger for stale data
+- Updated loading states to include store loading state
+
+**Prevention**: Always use store subscriptions instead of direct API calls when store data is available to ensure UI reactivity
+
+#### Architecture Violation: Direct API Calls Bypassing Cache System
+**Problem**: Multiple components and services making direct Tranzy API calls instead of using the cache-aware methods, undermining performance and causing unnecessary API requests
+
+**Root Cause**: Components were calling `enhancedTranzyApi.getX()` methods without the `forceRefresh = false` parameter, or bypassing the cache system entirely
+
+**Critical Violations Found**:
+- **`useVehicleProcessing.ts`**: Direct calls to `getStops()`, `getVehicles()`, `getRoutes()`, `getStopTimes()`, `getTrips()`
+- **Component layer**: `BusRouteMapModal.tsx`, `StationMapModal.tsx` bypassing cache for shape data
+- **Service layer**: Multiple services bypassing cache in `agencyService.ts`, `routeMappingService.ts`, `favoriteBusService.ts`, `routePlanningService.ts`
+- **Store layer**: `favoriteBusStore.ts` not using cache-aware route fetching
+- **Performance impact**: Unnecessary API requests, slower response times, potential rate limiting
+
+**Solution Applied (December 2024)**:
+- **Fixed cache parameters**: Added explicit `forceRefresh = false` to all API calls that should use cache
+- **Updated hook calls**: Modified `useVehicleProcessing` to use cache-aware methods
+- **Service layer fixes**: Updated `agencyService` and `routeMappingService` to respect cache
+- **Architecture enforcement**: All data access should go through cache-aware methods
+
+**Technical Changes**:
+- `useVehicleProcessing.ts`: All API calls now use `forceRefresh = false` parameter
+- `agencyService.ts`: `getAgencies()` calls now use cache
+- `routeMappingService.ts`: `getRoutes()` calls now use cache
+- Added logging to distinguish cache vs fresh API calls
+
+**Cache-Aware Method Signatures**:
+```typescript
+// ✅ Correct - uses cache by default
+await enhancedTranzyApi.getStops(agencyId, false);
+await enhancedTranzyApi.getRoutes(agencyId, false);
+await enhancedTranzyApi.getVehicles(agencyId); // cache by default
+await enhancedTranzyApi.getStopTimes(agencyId, undefined, undefined, false);
+
+// ❌ Incorrect - bypasses cache
+await enhancedTranzyApi.getStops(agencyId, true); // force refresh
+```
+
+**Architecture Rules**:
+1. **Always use cache**: Default to `forceRefresh = false` unless explicitly refreshing
+2. **Store-first**: Components should prefer store data over direct API calls
+3. **Cache invalidation**: Only use `forceRefresh = true` in refresh actions
+4. **Service layer**: Services must respect cache unless specifically refreshing data
+
+**Prevention**: 
+- Code review checklist: Verify all API calls use cache-aware parameters
+- Prefer store subscriptions over direct API calls in components
+- Use `forceRefresh = true` only in explicit refresh/update actions
+- Monitor API request patterns to identify cache bypasses
 - Removed conflicting default export
 
 **Prevention**: Always use consistent export patterns (prefer named exports)

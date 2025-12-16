@@ -10,8 +10,6 @@ import {
   ListItemIcon,
   ListItemText,
   Collapse,
-  alpha,
-  useTheme,
 } from '@mui/material';
 import { 
   ExpandMore, 
@@ -22,10 +20,11 @@ import {
   LocationOn,
   PersonPin
 } from '@mui/icons-material';
-import { formatTime24 } from '../../../utils/timeFormat';
+import { formatRefreshTime } from '../../../utils/timeFormat';
 import type { EnhancedVehicleInfo } from '../../../types';
 import { useConfigStore } from '../../../stores/configStore';
 import { useOfflineStore } from '../../../stores/offlineStore';
+import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
 interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
   _internalDirection?: 'arriving' | 'departing' | 'unknown';
@@ -59,21 +58,29 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   showShortStopList = false,
   showFullStopsButton = true
 }) => {
-  const theme = useTheme();
   const { config } = useConfigStore();
   const { isOnline, isApiOnline } = useOfflineStore();
+  const { getDataFreshnessColor, getBackgroundColors, getBorderColors, alpha, theme } = useThemeUtils();
+  const { getCardStyles } = useMuiUtils();
+  
+  // State for updating relative time display every 10 seconds
+  const [currentTime, setCurrentTime] = React.useState(Date.now());
+  
+  // Update current time every 10 seconds for relative time display
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 10000); // Update every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Determine status dot color based on data freshness and connectivity
   const getStatusDotColor = () => {
-    // If offline, show red
-    if (!isOnline || !isApiOnline) {
-      return theme.palette.error.main;
-    }
-
     // Get the vehicle's last update timestamp
     const vehicleTimestamp = vehicle.vehicle?.timestamp;
     if (!vehicleTimestamp) {
-      return theme.palette.warning.main; // Yellow for unknown timestamp
+      return getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
     }
 
     const lastUpdate = vehicleTimestamp instanceof Date 
@@ -83,14 +90,26 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     const now = new Date();
     const minutesSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
     
-    // Use configured stale threshold or default to 5 minutes
-    const staleThreshold = config?.staleDataThreshold || 5;
-    
-    if (minutesSinceUpdate <= staleThreshold) {
-      return theme.palette.success.main; // Green for fresh data
-    } else {
-      return theme.palette.warning.main; // Yellow for stale data
+    return getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
+  };
+
+  // Determine timestamp color based on data freshness (similar to status dot but more subtle)
+  const getTimestampColor = () => {
+    const vehicleTimestamp = vehicle.vehicle?.timestamp;
+    if (!vehicleTimestamp) {
+      const baseColor = getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
+      return alpha(baseColor, isDeparted ? 0.3 : 0.4);
     }
+
+    const lastUpdate = vehicleTimestamp instanceof Date 
+      ? vehicleTimestamp 
+      : new Date(vehicleTimestamp);
+    
+    const now = new Date();
+    const minutesSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+    
+    const baseColor = getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
+    return alpha(baseColor, isDeparted ? 0.3 : 0.5);
   };
 
   // Determine which stops to show based on showShortStopList
@@ -116,24 +135,23 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
   const isDeparted = vehicle._internalDirection === 'departing';
 
+  const backgrounds = getBackgroundColors();
+  const borders = getBorderColors();
+
   return (
     <Card
       sx={{
-        position: 'relative',
-        bgcolor: isDeparted 
-          ? alpha(theme.palette.background.paper, 0.3)
-          : theme.palette.background.paper,
-        backdropFilter: 'blur(16px)',
-        border: `1px solid ${alpha(theme.palette.divider, isDeparted ? 0.3 : 0.5)}`,
-        transition: 'all 0.2s ease-in-out',
+        ...getCardStyles('glass'),
         opacity: isDeparted ? 0.7 : 1,
-        boxShadow: theme.shadows[1],
+        bgcolor: isDeparted 
+          ? alpha(backgrounds.paper, 0.3)
+          : backgrounds.paper,
+        border: `1px solid ${alpha(borders.divider, isDeparted ? 0.3 : 0.5)}`,
         '&:hover': {
           bgcolor: isDeparted 
-            ? alpha(theme.palette.background.paper, 0.5)
-            : alpha(theme.palette.background.paper, 0.9),
-          border: `1px solid ${alpha(theme.palette.divider, isDeparted ? 0.5 : 0.7)}`,
-          boxShadow: theme.shadows[2],
+            ? alpha(backgrounds.paper, 0.5)
+            : backgrounds.paperHover,
+          border: `1px solid ${alpha(borders.divider, isDeparted ? 0.5 : 0.7)}`,
         },
         // Add overlay for departed vehicles
         '&::before': isDeparted ? {
@@ -508,24 +526,32 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 flexShrink: 0,
               }}
             />
-            <Typography variant="caption" sx={{ 
-              color: isDeparted 
-                ? alpha(theme.palette.text.secondary, 0.6) 
-                : theme.palette.text.secondary,
-              fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              lineHeight: 1,
-              whiteSpace: 'nowrap'
-            }}>
-              {formatTime24(
-                vehicle.vehicle?.timestamp instanceof Date 
-                  ? vehicle.vehicle.timestamp 
-                  : vehicle.vehicle?.timestamp 
-                    ? new Date(vehicle.vehicle.timestamp)
-                    : new Date()
-              )}
-            </Typography>
           </Box>
         </Box>
+        
+        {/* Last update timestamp - positioned at bottom right */}
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            position: 'absolute',
+            bottom: 8,
+            right: 12,
+            color: getTimestampColor(), // Color based on data freshness and stale threshold
+            fontSize: { xs: '0.65rem', sm: '0.7rem' },
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+            zIndex: 3, // Above the card content
+            pointerEvents: 'none', // Don't interfere with card interactions
+          }}
+        >
+          {formatRefreshTime(
+            vehicle.vehicle?.timestamp instanceof Date 
+              ? vehicle.vehicle.timestamp 
+              : vehicle.vehicle?.timestamp 
+                ? new Date(vehicle.vehicle.timestamp)
+                : new Date()
+          )}
+        </Typography>
       </CardContent>
       
       {/* Collapsible stops list (always shows full route) */}

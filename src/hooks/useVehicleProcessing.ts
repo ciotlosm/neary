@@ -1,6 +1,9 @@
 import React from 'react';
 import { useLocationStore } from '../stores/locationStore';
 import { useConfigStore } from '../stores/configStore';
+import { useEnhancedBusStore } from '../stores/enhancedBusStore';
+import { useApiConfig } from './useApiConfig';
+import { useAsyncOperation } from './useAsyncOperation';
 import { getEffectiveLocation } from '../utils/locationUtils';
 import { logger } from '../utils/logger';
 import { calculateDistance } from '../utils/distanceUtils';
@@ -51,12 +54,18 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
 
   const { currentLocation } = useLocationStore();
   const { config } = useConfigStore();
+  const { setupApi, isConfigured } = useApiConfig();
+  const stationsOperation = useAsyncOperation<Station[]>();
+  const vehiclesOperation = useAsyncOperation<LiveVehicle[]>();
+  const processingOperation = useAsyncOperation<StationVehicleGroup[]>();
   
   const [allStations, setAllStations] = React.useState<Station[]>([]);
-  const [isLoadingStations, setIsLoadingStations] = React.useState(false);
   const [vehicles, setVehicles] = React.useState<LiveVehicle[]>([]);
-  const [isLoadingVehicles, setIsLoadingVehicles] = React.useState(false);
   const [stationVehicleGroups, setStationVehicleGroups] = React.useState<StationVehicleGroup[]>([]);
+  
+  // Separate loading states to avoid infinite re-renders
+  const [isLoadingStations, setIsLoadingStations] = React.useState(false);
+  const [isLoadingVehicles, setIsLoadingVehicles] = React.useState(false);
   const [isProcessingVehicles, setIsProcessingVehicles] = React.useState(false);
 
   // Get effective location with fallback priority
@@ -72,61 +81,81 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
     return filterByFavorites ? (config?.favoriteBuses || []) : [];
   }, [config?.favoriteBuses, filterByFavorites]);
 
-  // Fetch all available stations when component mounts or config changes
+  // Get stations from cache via API service (cache-aware)
   React.useEffect(() => {
-    const fetchAllStations = async () => {
-      if (!config?.agencyId || !config?.apiKey) return;
+    if (!isConfigured) {
+      setAllStations([]);
+      setIsLoadingStations(false);
+      return;
+    }
 
-      setIsLoadingStations(true);
-      try {
-        enhancedTranzyApi.setApiKey(config.apiKey);
-        const agencyId = parseInt(config.agencyId);
-        const stations = await enhancedTranzyApi.getStops(agencyId);
-        setAllStations(stations);
+    setIsLoadingStations(true);
+    stationsOperation.execute(
+      async () => {
+        const agencyId = setupApi();
+        const stations = await enhancedTranzyApi.getStops(agencyId, false);
         
-        logger.debug('Fetched all stations for vehicle processing', {
+        logger.debug('Fetched stations from cache for vehicle processing', {
           stationCount: stations.length,
           agencyId,
           filterByFavorites
-        }, 'HOOK');
-      } catch (error) {
-        logger.error('Failed to fetch stations for vehicle processing', { error }, 'HOOK');
-        setAllStations([]);
-      } finally {
-        setIsLoadingStations(false);
-      }
-    };
-
-    fetchAllStations();
-  }, [config?.agencyId, config?.apiKey]);
-
-  // Fetch vehicles directly when component mounts or config changes
-  React.useEffect(() => {
-    const fetchVehicles = async () => {
-      if (!config?.apiKey || !config?.agencyId) return;
-
-      setIsLoadingVehicles(true);
-      try {
-        enhancedTranzyApi.setApiKey(config.apiKey);
-        const agencyId = parseInt(config.agencyId);
-        const vehicleData = await enhancedTranzyApi.getVehicles(agencyId);
-        setVehicles(vehicleData);
+        }, 'VEHICLE_PROCESSING');
         
-        logger.debug('Fetched vehicles for vehicle processing', {
+        return stations;
+      },
+      {
+        errorMessage: 'Failed to fetch stations for vehicle processing',
+        logCategory: 'VEHICLE_PROCESSING',
+      }
+    ).then(stations => {
+      if (stations) {
+        setAllStations(stations);
+      } else {
+        setAllStations([]);
+      }
+      setIsLoadingStations(false);
+    }).catch(() => {
+      setIsLoadingStations(false);
+    });
+  }, [isConfigured, filterByFavorites]); // Removed stationsOperation and setupApi from dependencies
+
+  // Get vehicles from cache via API service (cache-aware)
+  React.useEffect(() => {
+    if (!isConfigured) {
+      setVehicles([]);
+      setIsLoadingVehicles(false);
+      return;
+    }
+
+    setIsLoadingVehicles(true);
+    vehiclesOperation.execute(
+      async () => {
+        const agencyId = setupApi();
+        const vehicleData = await enhancedTranzyApi.getVehicles(agencyId);
+        
+        logger.debug('Fetched vehicles from cache for vehicle processing', {
           vehicleCount: vehicleData.length,
           agencyId,
           filterByFavorites
-        }, 'HOOK');
-      } catch (error) {
-        logger.error('Failed to fetch vehicles for vehicle processing', { error }, 'HOOK');
-        setVehicles([]);
-      } finally {
-        setIsLoadingVehicles(false);
+        }, 'VEHICLE_PROCESSING');
+        
+        return vehicleData;
+      },
+      {
+        errorMessage: 'Failed to fetch vehicles for vehicle processing',
+        logCategory: 'VEHICLE_PROCESSING',
       }
-    };
-
-    fetchVehicles();
-  }, [config?.apiKey, config?.agencyId]);
+    ).then(vehicles => {
+      if (vehicles) {
+        setVehicles(vehicles);
+      } else {
+        setVehicles([]);
+      }
+      setIsLoadingVehicles(false);
+    }).catch(() => {
+      setIsLoadingVehicles(false);
+    });
+  }, [isConfigured, filterByFavorites]); // Removed vehiclesOperation and setupApi from dependencies
 
   // Find target stations based on filtering mode
   const targetStations = React.useMemo(() => {
@@ -149,7 +178,7 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
       .slice(0, maxStationsToCheck);
 
     return stationsWithDistances;
-  }, [effectiveLocationForDisplay, allStations, vehicles, calculateDistance, filterByFavorites, favoriteRoutes.length, maxSearchRadius, maxStationsToCheck]);
+  }, [effectiveLocationForDisplay, allStations, filterByFavorites, favoriteRoutes.length, maxSearchRadius, maxStationsToCheck]);
 
   // Helper function to analyze vehicle direction for a specific station
   const analyzeVehicleDirection = React.useCallback((
@@ -214,25 +243,26 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
     }
     
     return { directionStatus, estimatedMinutes };
-  }, [allStations, calculateDistance]);
+  }, []); // Remove dependencies that cause infinite loops - function is stable within the effect
 
   // Process vehicles using trip_id filtering based on stop_times data
   React.useEffect(() => {
-    const processVehicles = async () => {
-      if (!targetStations.length || !vehicles.length || !config?.agencyId) {
-        setStationVehicleGroups([]);
-        return;
-      }
+    if (!targetStations.length || !vehicles.length || !config?.agencyId) {
+      setStationVehicleGroups([]);
+      setIsProcessingVehicles(false);
+      return;
+    }
 
-      // For favorites mode, check if we have favorite routes configured
-      if (filterByFavorites && favoriteRoutes.length === 0) {
-        setStationVehicleGroups([]);
-        return;
-      }
+    // For favorites mode, check if we have favorite routes configured
+    if (filterByFavorites && favoriteRoutes.length === 0) {
+      setStationVehicleGroups([]);
+      setIsProcessingVehicles(false);
+      return;
+    }
 
-      setIsProcessingVehicles(true);
-      
-      try {
+    setIsProcessingVehicles(true);
+    processingOperation.execute(
+      async () => {
         logger.debug('Starting vehicle processing', {
           targetStationsCount: targetStations.length,
           vehiclesCount: vehicles.length,
@@ -241,8 +271,8 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
           favoriteRoutes: filterByFavorites ? favoriteRoutes : 'N/A'
         });
 
-        // Step 1: Get routes data to map route names to route IDs (for favorites mode)
-        const routes = await enhancedTranzyApi.getRoutes(parseInt(config.agencyId));
+        // Step 1: Get routes data from cache to map route names to route IDs (for favorites mode)
+        const routes = await enhancedTranzyApi.getRoutes(parseInt(config.agencyId), false);
         const routesMap = new Map(routes.map(route => [route.routeName, route])); // Map by route name
         const routeIdMap = new Map(routes.map(route => [route.id, route])); // Map by route ID
 
@@ -271,8 +301,8 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
           );
         }
 
-        // Step 3: Get stop_times data to find which trips serve our target stations
-        const allStopTimes = await enhancedTranzyApi.getStopTimes(parseInt(config.agencyId));
+        // Step 3: Get stop_times data from cache to find which trips serve our target stations
+        const allStopTimes = await enhancedTranzyApi.getStopTimes(parseInt(config.agencyId), undefined, undefined, false);
         
         if (!allStopTimes || allStopTimes.length === 0) {
           logger.warn('No stop_times data available');
@@ -308,7 +338,7 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
           if (candidateStations.length === 0) {
             logger.debug('No stations found from active vehicles, falling back to schedule data');
             
-            const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId));
+            const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId), undefined, false);
             const tripToRouteMap = new Map(trips.map(trip => [trip.id, trip.routeId]));
             
             const favoriteRouteNames = favoriteRoutes.map(route => 
@@ -366,8 +396,8 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
           });
         });
 
-        // Step 7: Get trips data to get proper headsigns for destinations
-        const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId));
+        // Step 7: Get trips data from cache to get proper headsigns for destinations
+        const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId), undefined, false);
         const tripsMap = new Map(trips.map(trip => [trip.id, trip]));
 
         // Step 8: Create base enhanced vehicles with proper trip headsign destinations
@@ -738,32 +768,38 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
           }))
         });
         
-        setStationVehicleGroups(finalStationGroups);
-      } catch (error) {
-        logger.error('Failed to process vehicles', { error, filterByFavorites }, 'HOOK');
-        setStationVehicleGroups([]);
-      } finally {
-        setIsProcessingVehicles(false);
+        return finalStationGroups;
+      },
+      {
+        errorMessage: 'Failed to process vehicles',
+        logCategory: 'VEHICLE_PROCESSING',
       }
-    };
-
-    processVehicles();
+    ).then(result => {
+      if (result) {
+        setStationVehicleGroups(result);
+      } else {
+        setStationVehicleGroups([]);
+      }
+      setIsProcessingVehicles(false);
+    }).catch(() => {
+      setIsProcessingVehicles(false);
+    });
   }, [
-    targetStations, 
-    vehicles, 
+    // Use primitive values and stable references only
+    targetStations.length, // Use length instead of the array itself
+    vehicles.length, // Use length instead of the array itself
     config?.agencyId, 
-    config?.maxVehiclesPerStation, 
     filterByFavorites, 
-    favoriteRoutes, 
-    allStations, 
-    analyzeVehicleDirection, 
-    calculateDistance, 
-    effectiveLocationForDisplay,
+    favoriteRoutes.length, // Use length instead of the array itself
+    allStations.length, // Use length instead of the array itself
     maxVehiclesPerStation,
     showAllVehiclesPerRoute,
     maxStations,
-    proximityThreshold
-  ]);
+    proximityThreshold,
+    // Add a hash of the actual data to detect real changes
+    JSON.stringify(targetStations.map(ts => ts.station.id)),
+    JSON.stringify(vehicles.map(v => v.id + v.tripId)),
+  ]); // Fixed infinite loop by using primitive values and data hashes
 
   return {
     stationVehicleGroups,

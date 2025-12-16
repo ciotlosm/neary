@@ -8,14 +8,13 @@ import {
   Typography,
   Chip,
   Stack,
-  alpha,
-  useTheme,
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
 } from '@mui/icons-material';
 import { getRouteTypeInfo } from '../../../../utils/routeUtils';
+import { useThemeUtils, useMuiUtils } from '../../../../hooks';
 // Define the route type used by the store
 type StoreRoute = {
   id: string; // Internal route ID for API calls ("40", "42", etc.)
@@ -37,22 +36,13 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
   onToggle,
   isLast = false,
 }) => {
-  const theme = useTheme();
+  const { theme } = useThemeUtils();
+  const { getListItemStyles } = useMuiUtils();
   const routeTypeInfo = getRouteTypeInfo(route.type, theme);
 
   return (
     <ListItem
-      sx={{
-        borderBottom: !isLast ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none',
-        bgcolor: isFavorite 
-          ? alpha(theme.palette.success.main, 0.02)
-          : 'transparent',
-        '&:hover': {
-          bgcolor: isFavorite
-            ? alpha(theme.palette.success.main, 0.06)
-            : alpha(theme.palette.primary.main, 0.04),
-        },
-      }}
+      sx={getListItemStyles(isLast, isFavorite, 'favorite')}
     >
       <ListItemIcon>
         <Box
@@ -60,7 +50,7 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
             width: 40,
             height: 40,
             borderRadius: 2,
-            bgcolor: alpha(routeTypeInfo.color, 0.1),
+            bgcolor: routeTypeInfo.color + '1A', // 10% opacity
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -81,7 +71,7 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
               label={routeTypeInfo.label}
               size="small"
               sx={{
-                bgcolor: alpha(routeTypeInfo.color, 0.1),
+                bgcolor: routeTypeInfo.color + '1A', // 10% opacity
                 color: routeTypeInfo.color,
                 fontWeight: 600,
                 fontSize: '0.7rem',

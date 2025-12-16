@@ -8,8 +8,6 @@ import {
   CircularProgress,
   Button,
   IconButton,
-  useTheme,
-  alpha,
   Tooltip,
 } from '@mui/material';
 import { Favorite as FavoriteIcon } from '@mui/icons-material';
@@ -18,6 +16,7 @@ import { useFavoriteBusStore } from '../../../stores/favoriteBusStore';
 import { withPerformanceMonitoring } from '../../../utils/performance';
 import { calculateDistance } from '../../../utils/distanceUtils';
 import { BusIcon, MapPinIcon } from '../../ui/Icons/Icons';
+import { useThemeUtils } from '../../../hooks';
 import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
@@ -45,7 +44,7 @@ interface FavoriteRoutesViewProps {
 const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavigateToSettings }) => {
   const { config } = useConfigStore();
   const { favoriteBusResult } = useFavoriteBusStore();
-  const theme = useTheme();
+  const { getStatusColors, alpha } = useThemeUtils();
   
   // Use the shared vehicle processing hook
   const {
@@ -340,12 +339,12 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
             top: 16,
             right: 16,
             zIndex: 10,
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-            color: theme.palette.primary.main,
+            bgcolor: getStatusColors().primary.light,
+            border: `1px solid ${getStatusColors().primary.border}`,
+            color: getStatusColors().primary.main,
             '&:hover': {
-              bgcolor: alpha(theme.palette.primary.main, 0.2),
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+              bgcolor: getStatusColors().primary.hover,
+              border: `1px solid ${getStatusColors().primary.main}`,
               transform: 'scale(1.05)',
             },
             '&:active': {

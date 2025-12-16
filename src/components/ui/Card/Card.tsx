@@ -8,8 +8,6 @@ import {
   Chip,
   Avatar,
   IconButton,
-  useTheme,
-  alpha,
   Tooltip,
 } from '@mui/material';
 import {
@@ -23,6 +21,7 @@ import {
   Schedule as StaleIcon,
 } from '@mui/icons-material';
 import { AutoRefreshIndicator } from '../RefreshIndicator';
+import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
 interface BusCardProps {
   routeId: string;
@@ -67,41 +66,14 @@ export const BusCard: React.FC<BusCardProps> = ({
   children,
   cacheKeys,
 }) => {
-  const theme = useTheme();
-  
-  const getDelayColor = (delay: number) => {
-    if (delay <= 2) return theme.palette.success.main;
-    if (delay <= 5) return theme.palette.warning.main;
-    return theme.palette.error.main;
-  };
-
-  const getRouteColor = (routeId: string) => {
-    // Generate a consistent color based on route ID
-    const hash = routeId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    
-    const colors = [
-      theme.palette.primary.main,
-      theme.palette.secondary.main,
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'
-    ];
-    
-    return colors[Math.abs(hash) % colors.length];
-  };
+  const { getDelayColor, getRouteColor, getShadows, getStatusColors, alpha, theme } = useThemeUtils();
+  const { getCardStyles, getAvatarStyles } = useMuiUtils();
 
   const cardContent = (
     <Card
       sx={{
+        ...getCardStyles('elevated'),
         mb: 1.5,
-        borderRadius: 3,
-        boxShadow: theme.shadows[2],
-        transition: 'all 0.2s ease-in-out',
-        position: 'relative',
-        '&:hover': {
-          boxShadow: theme.shadows[4],
-        },
       }}
     >
       <CardContent sx={{ pb: 0.25, pt: 1.5 }}>
@@ -109,11 +81,8 @@ export const BusCard: React.FC<BusCardProps> = ({
           <Box sx={{ position: 'relative', mr: 2 }}>
             <Avatar
               sx={{
+                ...getAvatarStyles('route', 44),
                 bgcolor: getRouteColor(routeId),
-                width: 44,
-                height: 44,
-                fontWeight: 'bold',
-                fontSize: '0.85rem',
               }}
             >
               {routeId}
@@ -375,7 +344,7 @@ export const InfoCard: React.FC<InfoCardProps> = ({
   children,
   actions,
 }) => {
-  const theme = useTheme();
+  const { alpha, theme } = useThemeUtils();
   
   return (
     <Card

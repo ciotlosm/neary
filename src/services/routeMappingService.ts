@@ -187,7 +187,7 @@ class RouteMappingService {
         return [];
       }
 
-      const routes = await enhancedTranzyApi.getRoutes(agencyId);
+      const routes = await enhancedTranzyApi.getRoutes(agencyId, false);
       const mappings: RouteMapping[] = routes.map(route => ({
         routeName: route.routeName || route.id,
         routeId: route.id,

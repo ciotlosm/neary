@@ -170,7 +170,7 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
               continue;
             }
             
-            const trips = await enhancedTranzyApi.getTrips(parsedAgencyId, parsedRouteId);
+            const trips = await enhancedTranzyApi.getTrips(parsedAgencyId, parsedRouteId, false);
             
             if (trips && trips.length > 0) {
               // Find the specific trip for this vehicle
@@ -180,8 +180,8 @@ export const StationMapModal: React.FC<StationMapModalProps> = ({
                 logger.debug(`Found shape ID ${specificTrip.shapeId} for trip ${vehicleTrip.tripId}`, {}, 'STATION_MAP');
                 
                 try {
-                  // Load the shape for this specific trip
-                  const shapeData = await enhancedTranzyApi.getShapes(parsedAgencyId, specificTrip.shapeId);
+                  // Load the shape from cache for this specific trip
+                  const shapeData = await enhancedTranzyApi.getShapes(parsedAgencyId, specificTrip.shapeId, false);
                   
                   if (shapeData && shapeData.length > 0) {
                     // Transform shape data to coordinates

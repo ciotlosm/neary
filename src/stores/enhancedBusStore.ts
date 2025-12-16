@@ -5,6 +5,7 @@ import { useConfigStore } from './configStore';
 import { enhancedTranzyApi } from '../services/tranzyApiService';
 import { logger } from '../utils/logger';
 import { locationWarningTracker } from '../utils/locationWarningTracker';
+import { executeAsync } from '../hooks/useAsyncOperation';
 
 export interface EnhancedBusStore {
   // Data
@@ -71,55 +72,78 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
       refreshBuses: async (forceRefresh = false) => {
         set({ isLoading: true, error: null });
         
-        try {
-          const config = useConfigStore.getState().config;
-          if (!config?.city || !config?.apiKey) {
-            throw new Error('Configuration not available');
-          }
-
-          // Set API key
-          enhancedTranzyApi.setApiKey(config.apiKey);
-
-          // Use the stored agency ID instead of looking up by name
-          if (!config.agencyId) {
-            throw new Error('Agency ID not configured');
-          }
-          
-          const agencyId = parseInt(config.agencyId);
-
-          // Get enhanced vehicle information
-          const enhancedVehicles = await enhancedTranzyApi.getEnhancedVehicleInfo(
-            agencyId,
-            undefined, // stopId - get all stops
-            undefined, // routeId - get all routes
-            forceRefresh
-          );
-
-          // Classify vehicles by direction using user locations
-          const classifiedVehicles = enhancedVehicles.map((vehicle) => {
-            if (!config.homeLocation || !config.workLocation) {
-              return { ...vehicle, direction: 'unknown' as const };
+        const result = await executeAsync(
+          async () => {
+            const config = useConfigStore.getState().config;
+            if (!config?.city || !config?.apiKey) {
+              throw new Error('Configuration not available');
             }
 
-            // Calculate distances from vehicle station to home and work
-            const distanceToHome = get().calculateDistance(
-              vehicle.station.coordinates, 
-              config.homeLocation
-            );
-            const distanceToWork = get().calculateDistance(
-              vehicle.station.coordinates, 
-              config.workLocation
-            );
+            // Set API key
+            enhancedTranzyApi.setApiKey(config.apiKey);
 
-            // If station is closer to home, vehicles likely go to work (and vice versa)
-            const direction: 'work' | 'home' | 'unknown' = distanceToHome < distanceToWork ? 'work' : 'home';
+            // Use the stored agency ID instead of looking up by name
+            if (!config.agencyId) {
+              throw new Error('Agency ID not configured');
+            }
             
-            return { ...vehicle, direction };
-          });
+            const agencyId = parseInt(config.agencyId);
 
+            // Get enhanced vehicle information
+            const enhancedVehicles = await enhancedTranzyApi.getEnhancedVehicleInfo(
+              agencyId,
+              undefined, // stopId - get all stops
+              undefined, // routeId - get all routes
+              forceRefresh
+            );
+
+            // Classify vehicles by direction using user locations
+            const classifiedVehicles = enhancedVehicles.map((vehicle) => {
+              if (!config.homeLocation || !config.workLocation) {
+                return { ...vehicle, direction: 'unknown' as const };
+              }
+
+              // Calculate distances from vehicle station to home and work
+              const distanceToHome = get().calculateDistance(
+                vehicle.station.coordinates, 
+                config.homeLocation
+              );
+              const distanceToWork = get().calculateDistance(
+                vehicle.station.coordinates, 
+                config.workLocation
+              );
+
+              // If station is closer to home, vehicles likely go to work (and vice versa)
+              const direction: 'work' | 'home' | 'unknown' = distanceToHome < distanceToWork ? 'work' : 'home';
+              
+              return { ...vehicle, direction };
+            });
+
+            return classifiedVehicles;
+          },
+          {
+            errorMessage: 'Failed to refresh buses',
+            logCategory: 'BUS_STORE',
+            onError: (error) => {
+              const errorState: ErrorState = {
+                type: 'network',
+                message: error.message,
+                timestamp: new Date(),
+                retryable: true,
+              };
+              
+              set({
+                error: errorState,
+                isLoading: false,
+              });
+            }
+          }
+        );
+
+        if (result) {
           const now = new Date();
           set({
-            buses: classifiedVehicles,
+            buses: result,
             lastUpdate: now,
             lastApiUpdate: now, // Fresh API data received
             lastCacheUpdate: now, // Cache updated with fresh data
@@ -130,131 +154,129 @@ export const useEnhancedBusStore = create<EnhancedBusStore>()(
           get().getCacheStats();
 
           logger.info('Enhanced vehicles refreshed', {
-            vehicleCount: classifiedVehicles.length,
-            liveCount: classifiedVehicles.filter(v => v.isLive).length,
-            scheduledCount: classifiedVehicles.filter(v => v.isScheduled).length,
+            vehicleCount: result.length,
+            liveCount: result.filter(v => v.isLive).length,
+            scheduledCount: result.filter(v => v.isScheduled).length,
             forceRefresh,
           }, 'BUS_STORE');
-
-        } catch (error) {
-          const errorState: ErrorState = {
-            type: 'network',
-            message: error instanceof Error ? error.message : 'Unknown error occurred',
-            timestamp: new Date(),
-            retryable: true,
-          };
-          
-          set({
-            error: errorState,
-            isLoading: false,
-          });
-
-          logger.error('Failed to refresh buses', { error, forceRefresh }, 'BUS_STORE');
         }
       },
 
       refreshScheduleData: async () => {
-        try {
-          const config = useConfigStore.getState().config;
-          if (!config?.agencyId || !config?.apiKey) return;
+        await executeAsync(
+          async () => {
+            const config = useConfigStore.getState().config;
+            if (!config?.agencyId || !config?.apiKey) return;
 
-          enhancedTranzyApi.setApiKey(config.apiKey);
-          
-          const agencyId = parseInt(config.agencyId);
+            enhancedTranzyApi.setApiKey(config.apiKey);
+            
+            const agencyId = parseInt(config.agencyId);
 
-          // Refresh schedule-related data (routes, stops, trips, stop_times)
-          await Promise.allSettled([
-            enhancedTranzyApi.getRoutes(agencyId, true),
-            enhancedTranzyApi.getStops(agencyId, true),
-            enhancedTranzyApi.getTrips(agencyId, undefined, true),
-            enhancedTranzyApi.getStopTimes(agencyId, undefined, undefined, true),
-          ]);
+            // Refresh schedule-related data (routes, stops, trips, stop_times)
+            await Promise.allSettled([
+              enhancedTranzyApi.getRoutes(agencyId, true),
+              enhancedTranzyApi.getStops(agencyId, true),
+              enhancedTranzyApi.getTrips(agencyId, undefined, true),
+              enhancedTranzyApi.getStopTimes(agencyId, undefined, undefined, true),
+            ]);
 
-          logger.info('Schedule data refreshed', { agencyId }, 'BUS_STORE');
-          
-        } catch (error) {
-          logger.warn('Failed to refresh schedule data', { error }, 'BUS_STORE');
-        }
+            logger.info('Schedule data refreshed', { agencyId }, 'BUS_STORE');
+          },
+          {
+            errorMessage: 'Failed to refresh schedule data',
+            logCategory: 'BUS_STORE',
+          }
+        );
       },
 
       refreshLiveData: async () => {
-        try {
-          const config = useConfigStore.getState().config;
-          if (!config?.agencyId || !config?.apiKey) return;
+        await executeAsync(
+          async () => {
+            const config = useConfigStore.getState().config;
+            if (!config?.agencyId || !config?.apiKey) return;
 
-          // Refresh GPS location if permission is granted
-          try {
-            const { useLocationStore } = await import('./locationStore');
-            const locationStore = useLocationStore.getState();
-            
-            if (locationStore.locationPermission === 'granted') {
-              await locationStore.requestLocation();
-              logger.debug('GPS location refreshed during auto refresh', {}, 'BUS_STORE');
+            // Refresh GPS location if permission is granted
+            try {
+              const { useLocationStore } = await import('./locationStore');
+              const locationStore = useLocationStore.getState();
+              
+              if (locationStore.locationPermission === 'granted') {
+                await locationStore.requestLocation();
+                logger.debug('GPS location refreshed during auto refresh', {}, 'BUS_STORE');
+              }
+            } catch (locationError) {
+              locationWarningTracker.warnLocationRefresh(logger, locationError, 'BUS_STORE');
+              // Continue with data refresh even if GPS fails
             }
-          } catch (locationError) {
-            locationWarningTracker.warnLocationRefresh(logger, locationError, 'BUS_STORE');
-            // Continue with data refresh even if GPS fails
+
+            enhancedTranzyApi.setApiKey(config.apiKey);
+            
+            const agencyId = parseInt(config.agencyId);
+
+            // Get fresh vehicle data
+            await enhancedTranzyApi.getVehicles(agencyId);
+            
+            // Refresh the bus display with new live data
+            await get().refreshBuses(false); // Don't force refresh schedule data
+
+            logger.debug('Live data refreshed', { agencyId }, 'BUS_STORE');
+          },
+          {
+            errorMessage: 'Failed to refresh live data',
+            logCategory: 'BUS_STORE',
           }
-
-          enhancedTranzyApi.setApiKey(config.apiKey);
-          
-          const agencyId = parseInt(config.agencyId);
-
-          // Get fresh vehicle data
-          await enhancedTranzyApi.getVehicles(agencyId);
-          
-          // Refresh the bus display with new live data
-          await get().refreshBuses(false); // Don't force refresh schedule data
-
-          logger.debug('Live data refreshed', { agencyId }, 'BUS_STORE');
-          
-        } catch (error) {
-          logger.warn('Failed to refresh live data', { error }, 'BUS_STORE');
-        }
+        );
       },
 
       forceRefreshAll: async () => {
         set({ isLoading: true });
         
-        try {
-          const config = useConfigStore.getState().config;
-          if (!config?.agencyId || !config?.apiKey) {
-            throw new Error('Configuration not available');
+        const result = await executeAsync(
+          async () => {
+            const config = useConfigStore.getState().config;
+            if (!config?.agencyId || !config?.apiKey) {
+              throw new Error('Configuration not available');
+            }
+
+            enhancedTranzyApi.setApiKey(config.apiKey);
+            
+            const agencyId = parseInt(config.agencyId);
+
+            // Force refresh all data
+            await enhancedTranzyApi.forceRefreshAll(agencyId);
+            
+            // Refresh buses with fresh data
+            await get().refreshBuses(true);
+            
+            logger.info('Force refresh all completed', { agencyId }, 'BUS_STORE');
+            return true;
+          },
+          {
+            errorMessage: 'Force refresh all failed',
+            logCategory: 'BUS_STORE',
+            onError: (error) => {
+              const errorState: ErrorState = {
+                type: 'network',
+                message: error.message,
+                timestamp: new Date(),
+                retryable: true,
+              };
+              
+              set({
+                error: errorState,
+                isLoading: false,
+              });
+            }
           }
+        );
 
-          enhancedTranzyApi.setApiKey(config.apiKey);
-          
-          const agencyId = parseInt(config.agencyId);
-
-          // Force refresh all data
-          await enhancedTranzyApi.forceRefreshAll(agencyId);
-          
-          // Refresh buses with fresh data
-          await get().refreshBuses(true);
-          
+        if (result) {
           set({ 
             cacheStats: { 
               ...get().cacheStats, 
               lastRefresh: new Date() 
             } 
           });
-
-          logger.info('Force refresh all completed', { agencyId }, 'BUS_STORE');
-          
-        } catch (error) {
-          const errorState: ErrorState = {
-            type: 'network',
-            message: error instanceof Error ? error.message : 'Force refresh failed',
-            timestamp: new Date(),
-            retryable: true,
-          };
-          
-          set({
-            error: errorState,
-            isLoading: false,
-          });
-
-          logger.error('Force refresh all failed', { error }, 'BUS_STORE');
         }
       },
 

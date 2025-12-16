@@ -13,8 +13,6 @@ import {
   CircularProgress,
   Alert,
   Autocomplete,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import {
   Key as KeyIcon,
@@ -29,6 +27,7 @@ import {
 import { Button } from '../../ui/Button';
 import { useConfigStore } from '../../../stores/configStore';
 import { useAgencyStore } from '../../../stores/agencyStore';
+import { useFormHandler, useThemeUtils } from '../../../hooks';
 
 interface CityOption {
   label: string;
@@ -41,18 +40,40 @@ interface SetupWizardProps {
 }
 
 export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
-  const theme = useTheme();
+  const { getBackgroundColors, alpha } = useThemeUtils();
   const { updateConfig } = useConfigStore();
   const { agencies, validateAndFetchAgencies } = useAgencyStore();
   
   const [activeStep, setActiveStep] = useState(0);
-  const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedCity, setSelectedCity] = useState<CityOption | null>(null);
   const [isValidatingApiKey, setIsValidatingApiKey] = useState(false);
   const [apiKeyValid, setApiKeyValid] = useState<boolean | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Use form handler for the setup form
+  const form = useFormHandler(
+    { apiKey: '', city: '' },
+    {
+      apiKey: { required: true, minLength: 10 },
+      city: { required: true },
+    },
+    async (values) => {
+      if (!selectedCity) {
+        throw new Error('Please select a city');
+      }
+
+      await updateConfig({
+        apiKey: values.apiKey.trim(),
+        city: selectedCity.value,
+        agencyId: selectedCity.agencyId,
+        refreshRate: 30000, // Default 30 seconds
+        staleDataThreshold: 2, // Default 2 minutes
+        defaultLocation: { latitude: 46.7712, longitude: 23.6236 }, // Cluj-Napoca center
+      });
+      
+      return values;
+    }
+  );
 
   const steps = ['API Key', 'City Selection'];
 
@@ -71,21 +92,20 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     }
 
     setIsValidatingApiKey(true);
-    setError(null);
+    form.clearSubmitError();
     
     try {
       const isValid = await validateAndFetchAgencies(key.trim());
       setApiKeyValid(isValid);
       
       if (!isValid) {
-        setError('Invalid API key. Please check your key and try again.');
+        throw new Error('Invalid API key. Please check your key and try again.');
       }
       
       return isValid;
     } catch (error) {
       setApiKeyValid(false);
-      setError('Failed to validate API key. Please check your connection and try again.');
-      return false;
+      throw error;
     } finally {
       setIsValidatingApiKey(false);
     }
@@ -94,8 +114,12 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const handleNext = async () => {
     if (activeStep === 0) {
       // Validate API key before proceeding
-      const isValid = await validateApiKey(apiKey);
-      if (!isValid) return;
+      try {
+        const isValid = await validateApiKey(form.values.apiKey);
+        if (!isValid) return;
+      } catch (error) {
+        return; // Error already handled in validateApiKey
+      }
     }
     
     if (activeStep === steps.length - 1) {
@@ -111,34 +135,20 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   };
 
   const handleComplete = async () => {
-    if (!apiKey.trim() || !selectedCity) {
-      setError('Please complete all required fields');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await updateConfig({
-        apiKey: apiKey.trim(),
-        city: selectedCity.value,
-        agencyId: selectedCity.agencyId,
-        refreshRate: 30000, // Default 30 seconds
-        staleDataThreshold: 2, // Default 2 minutes
-        defaultLocation: { latitude: 46.7712, longitude: 23.6236 }, // Cluj-Napoca center
-      });
-      
-      onComplete();
-    } catch (error) {
-      setError('Failed to save configuration. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    const result = await form.handleSubmit(undefined, {
+      errorMessage: 'Failed to save configuration',
+      logCategory: 'SETUP_WIZARD',
+      onSuccess: () => {
+        onComplete();
+      },
+    });
+    return result;
   };
 
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return apiKey.trim() && apiKeyValid === true;
+        return form.values.apiKey.trim() && apiKeyValid === true;
       case 1:
         return selectedCity !== null;
       default:
@@ -165,9 +175,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           ))}
         </Stepper>
 
-        {error && (
+        {form.submitError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
+            {form.submitError}
           </Alert>
         )}
 
@@ -181,7 +191,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Get your free API key from{' '}
-              <a href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" style={{ color: theme.palette.primary.main }}>
+              <a href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" style={{ color: 'primary.main' }}>
                 tranzy.ai
               </a>{' '}
               to access live bus tracking data.
@@ -191,11 +201,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
               fullWidth
               label="Tranzy.ai API Key"
               type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
+              {...form.getFieldProps('apiKey')}
               onChange={(e) => {
-                setApiKey(e.target.value);
+                form.setValue('apiKey', e.target.value);
                 setApiKeyValid(null);
-                setError(null);
               }}
               placeholder="Enter your API key here..."
               InputProps={{
@@ -224,11 +233,11 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
               sx={{ mb: 2 }}
             />
 
-            {apiKey.trim() && apiKeyValid === null && (
+            {form.values.apiKey.trim() && apiKeyValid === null && (
               <Button
                 variant="outlined"
                 size="small"
-                onClick={() => validateApiKey(apiKey)}
+                onClick={() => validateApiKey(form.values.apiKey)}
                 loading={isValidatingApiKey}
                 sx={{ mb: 2 }}
               >
@@ -261,7 +270,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
               value={selectedCity}
               onChange={(_, newValue) => {
                 setSelectedCity(newValue);
-                setError(null);
+                form.setValue('city', newValue?.value || '');
+                form.clearSubmitError();
               }}
               renderInput={(params) => (
                 <TextField
@@ -318,7 +328,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             variant="filled"
             onClick={handleNext}
             disabled={!canProceed() || isValidatingApiKey}
-            loading={isSubmitting}
+            loading={form.isSubmitting}
             icon={activeStep === steps.length - 1 ? <CheckIcon /> : <ForwardIcon />}
           >
             {activeStep === steps.length - 1 ? 'Complete Setup' : 'Next'}

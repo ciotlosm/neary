@@ -5,8 +5,6 @@ import {
   Box,
   Typography,
   Collapse,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import {
   SignalWifiOff as OfflineIcon,
@@ -14,10 +12,11 @@ import {
 } from '@mui/icons-material';
 
 import { useOfflineStore } from '../../../stores/offlineStore';
+import { useThemeUtils } from '../../../hooks';
 
 export const OfflineIndicator: React.FC = () => {
   const { isOnline, isApiOnline, lastApiError, isUsingCachedData } = useOfflineStore();
-  const theme = useTheme();
+  const { getStatusColors, alpha } = useThemeUtils();
 
   // Show indicator if either network is offline OR API is unavailable
   const showOfflineIndicator = !isOnline || !isApiOnline;
@@ -48,6 +47,7 @@ export const OfflineIndicator: React.FC = () => {
   };
 
   const offlineInfo = getOfflineMessage();
+  const colors = getStatusColors();
 
   return (
     <Collapse in={showOfflineIndicator}>
@@ -57,10 +57,10 @@ export const OfflineIndicator: React.FC = () => {
         sx={{
           mb: 2,
           borderRadius: 2,
-          bgcolor: alpha(theme.palette.warning.main, 0.1),
-          border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+          bgcolor: colors.warning.light,
+          border: `1px solid ${colors.warning.border}`,
           '& .MuiAlert-icon': {
-            color: theme.palette.warning.main,
+            color: colors.warning.main,
           },
         }}
       >
@@ -84,11 +84,11 @@ export const OfflineIndicator: React.FC = () => {
             label={offlineInfo.chipLabel}
             size="small"
             sx={{
-              bgcolor: alpha(theme.palette.warning.main, 0.2),
-              color: theme.palette.warning.dark,
+              bgcolor: colors.warning.hover,
+              color: colors.warning.text,
               fontWeight: 600,
               '& .MuiChip-icon': {
-                color: theme.palette.warning.dark,
+                color: colors.warning.text,
               },
             }}
           />

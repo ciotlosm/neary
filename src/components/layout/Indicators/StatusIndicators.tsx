@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Box,
   Stack,
-  useTheme,
-  alpha,
   Tooltip,
 } from '@mui/material';
 import {
@@ -15,6 +13,7 @@ import {
 
 import { useOfflineStore } from '../../../stores/offlineStore';
 import { useLocationStore } from '../../../stores/locationStore';
+import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
 interface StatusIndicatorsProps {
   compact?: boolean;
@@ -23,7 +22,10 @@ interface StatusIndicatorsProps {
 export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = false }) => {
   const { isOnline, isApiOnline, lastApiError, lastApiSuccess } = useOfflineStore();
   const { currentLocation, locationPermission } = useLocationStore();
-  const theme = useTheme();
+  const { getStatusColors, alpha } = useThemeUtils();
+  const { getStatusIndicatorStyles } = useMuiUtils();
+  
+  const statusColors = getStatusColors();
 
   const getLocationStatus = () => {
     // GPS denied - red GPS disabled icon
@@ -31,8 +33,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       return {
         icon: <GpsDisabledIcon sx={{ fontSize: 16 }} />,
         label: 'OFF',
-        color: theme.palette.error.main,
-        bgColor: alpha(theme.palette.error.main, 0.1),
+        color: statusColors.error.main,
+        bgColor: statusColors.error.light,
         tooltip: 'GPS access denied.',
       };
     }
@@ -40,24 +42,24 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
     // GPS active with location data
     if (currentLocation) {
       const accuracy = currentLocation.accuracy;
-      let color, bgColor, tooltip, label;
+      let color: string, bgColor: string, tooltip: string, label: string;
       
       if (accuracy && accuracy <= 20) {
         // High accuracy (≤20m) - green GPS fixed
-        color = theme.palette.success.main;
-        bgColor = alpha(theme.palette.success.main, 0.1);
+        color = statusColors.success.main;
+        bgColor = statusColors.success.light;
         label = `${accuracy.toFixed(0)}m`;
         tooltip = `GPS active with high accuracy (±${accuracy.toFixed(0)}m)`;
       } else if (accuracy && accuracy <= 100) {
         // Medium accuracy (21-100m) - yellow GPS fixed
-        color = theme.palette.warning.main;
-        bgColor = alpha(theme.palette.warning.main, 0.1);
+        color = statusColors.warning.main;
+        bgColor = statusColors.warning.light;
         label = `${accuracy.toFixed(0)}m`;
         tooltip = `GPS active with low accuracy (±${accuracy.toFixed(0)}m)`;
       } else {
         // Unknown or poor accuracy - yellow GPS not fixed
-        color = theme.palette.warning.main;
-        bgColor = alpha(theme.palette.warning.main, 0.1);
+        color = statusColors.warning.main;
+        bgColor = statusColors.warning.light;
         label = accuracy ? `${accuracy.toFixed(0)}m` : '?';
         tooltip = accuracy 
           ? `GPS active with poor accuracy (±${accuracy.toFixed(0)}m)`
@@ -77,8 +79,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
     return {
       icon: <GpsDisabledIcon sx={{ fontSize: 16 }} />,
       label: 'OFF',
-      color: theme.palette.error.main,
-      bgColor: alpha(theme.palette.error.main, 0.1),
+      color: statusColors.error.main,
+      bgColor: statusColors.error.light,
       tooltip: 'GPS location not available.',
     };
   };
@@ -90,8 +92,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       return {
         icon: <OnlineIcon sx={{ fontSize: 16 }} />,
         label: 'ON',
-        color: theme.palette.success.main,
-        bgColor: alpha(theme.palette.success.main, 0.1),
+        color: statusColors.success.main,
+        bgColor: statusColors.success.light,
         tooltip: `API connection active. Real-time data available. Last success: ${lastSuccessTime}`,
       };
     }
@@ -100,8 +102,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       return {
         icon: <OfflineIcon sx={{ fontSize: 16 }} />,
         label: 'OFF',
-        color: theme.palette.error.main,
-        bgColor: alpha(theme.palette.error.main, 0.1),
+        color: statusColors.error.main,
+        bgColor: statusColors.error.light,
         tooltip: 'No internet connection. Showing cached data only.',
       };
     }
@@ -111,8 +113,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
     return {
       icon: <OfflineIcon sx={{ fontSize: 16 }} />,
       label: 'ERR',
-      color: theme.palette.error.main,
-      bgColor: alpha(theme.palette.error.main, 0.1),
+      color: statusColors.error.main,
+      bgColor: statusColors.error.light,
       tooltip: `Network connected but API unavailable. Check API key or service status. Last error: ${lastErrorTime}`,
     };
   };
@@ -130,16 +132,13 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       <Tooltip title={connectivityStatus.tooltip} arrow>
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            px: compact ? 0.5 : 1,
-            py: compact ? 0.25 : 0.5,
-            borderRadius: compact ? '12px' : '16px',
+            ...getStatusIndicatorStyles(
+              isApiOnline && isOnline ? 'success' : 'error',
+              compact
+            ),
             bgcolor: connectivityStatus.bgColor,
             border: `1px solid ${alpha(connectivityStatus.color, 0.3)}`,
             color: connectivityStatus.color,
-            minWidth: 'auto',
           }}
         >
           {connectivityStatus.icon}
@@ -160,16 +159,14 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
       <Tooltip title={locationStatus.tooltip} arrow>
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            px: compact ? 0.5 : 1,
-            py: compact ? 0.25 : 0.5,
-            borderRadius: compact ? '12px' : '16px',
+            ...getStatusIndicatorStyles(
+              locationPermission === 'denied' ? 'error' : 
+              currentLocation ? 'success' : 'error',
+              compact
+            ),
             bgcolor: locationStatus.bgColor,
             border: `1px solid ${alpha(locationStatus.color, 0.3)}`,
             color: locationStatus.color,
-            minWidth: 'auto',
           }}
         >
           {locationStatus.icon}

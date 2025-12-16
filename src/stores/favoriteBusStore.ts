@@ -8,6 +8,7 @@ import { useLocationStore } from './locationStore';
 import { cacheManager, CacheKeys } from '../services/cacheManager';
 import { logger } from '../utils/logger';
 import { locationWarningTracker } from '../utils/locationWarningTracker';
+import { executeAsync } from '../hooks/useAsyncOperation';
 
 export interface FavoriteBusStore {
   // Data
@@ -89,47 +90,68 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
 
         set({ isLoading: true, error: null });
 
-        try {
-          // Set API key in enhanced API service
-          enhancedTranzyApi.setApiKey(config.apiKey);
+        const result = await executeAsync(
+          async () => {
+            // Set API key in enhanced API service
+            enhancedTranzyApi.setApiKey(config.apiKey);
 
-          // Get location for direction detection (priority: current -> home -> work -> default Cluj center)
-          let location = currentLocation;
-          if (!location) {
-            try {
-              location = await requestLocation();
-            } catch (locationError) {
-              // Only warn once per session to avoid spam
-              locationWarningTracker.warnLocationAccess(logger);
-              
-              // Fallback to saved locations
-              if (config.homeLocation) {
-                location = config.homeLocation;
-                logger.debug('Using home location as fallback');
-              } else if (config.workLocation) {
-                location = config.workLocation;
-                logger.debug('Using work location as fallback');
-              } else {
-                // Use configurable default location or Cluj-Napoca center as fallback
-                location = config.defaultLocation || { latitude: 46.7712, longitude: 23.6236 };
-                logger.debug('Using default fallback location for direction detection', { location });
+            // Get location for direction detection (priority: current -> home -> work -> default Cluj center)
+            let location = currentLocation;
+            if (!location) {
+              try {
+                location = await requestLocation();
+              } catch (locationError) {
+                // Only warn once per session to avoid spam
+                locationWarningTracker.warnLocationAccess(logger);
+                
+                // Fallback to saved locations
+                if (config.homeLocation) {
+                  location = config.homeLocation;
+                  logger.debug('Using home location as fallback');
+                } else if (config.workLocation) {
+                  location = config.workLocation;
+                  logger.debug('Using work location as fallback');
+                } else {
+                  // Use configurable default location or Cluj-Napoca center as fallback
+                  location = config.defaultLocation || { latitude: 46.7712, longitude: 23.6236 };
+                  logger.debug('Using default fallback location for direction detection', { location });
+                }
               }
             }
+
+            logger.info('Refreshing favorite buses', {
+              favoriteRoutes: config.favoriteBuses,
+              currentLocation: location,
+              homeLocation: config.homeLocation
+            });
+
+            // Get favorite bus info (simplified - just live vehicles)
+            const result = await favoriteBusService.getFavoriteBusInfo(
+              config.favoriteBuses,
+              config.city,
+              location // Pass user's current location for closest stop calculation
+            );
+
+            return result;
+          },
+          {
+            errorMessage: 'Failed to refresh favorite buses',
+            logCategory: 'FAVORITES',
+            onError: (error) => {
+              set({
+                isLoading: false,
+                error: {
+                  type: 'network',
+                  message: error.message,
+                  timestamp: new Date(),
+                  retryable: true
+                }
+              });
+            }
           }
+        );
 
-          logger.info('Refreshing favorite buses', {
-            favoriteRoutes: config.favoriteBuses,
-            currentLocation: location,
-            homeLocation: config.homeLocation
-          });
-
-          // Get favorite bus info (simplified - just live vehicles)
-          const result = await favoriteBusService.getFavoriteBusInfo(
-            config.favoriteBuses,
-            config.city,
-            location // Pass user's current location for closest stop calculation
-          );
-
+        if (result) {
           const updateTime = new Date();
           set({
             favoriteBusResult: result,
@@ -141,18 +163,6 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
           logger.info('Favorite buses refreshed successfully', {
             count: result.favoriteBuses.length,
             updateTime: updateTime.toISOString()
-          });
-
-        } catch (error) {
-          logger.error('Failed to refresh favorite buses', error);
-          set({
-            isLoading: false,
-            error: {
-              type: 'network',
-              message: error instanceof Error ? error.message : 'Failed to refresh favorite buses',
-              timestamp: new Date(),
-              retryable: true
-            }
           });
         }
       },
@@ -247,64 +257,71 @@ export const useFavoriteBusStore = create<FavoriteBusStore>()(
 
         set({ isLoading: true, error: null });
 
-        try {
-          // Set API key in enhanced API service
-          enhancedTranzyApi.setApiKey(config.apiKey);
+        const result = await executeAsync(
+          async () => {
+            // Set API key in enhanced API service
+            enhancedTranzyApi.setApiKey(config.apiKey);
 
-          const agencyId = parseInt(config.agencyId);
+            const agencyId = parseInt(config.agencyId);
 
-          logger.info('Loading available routes for agency', { 
-            agencyId, 
-            city: config.city,
-            hasApiKey: !!config.apiKey,
-            apiKeyLength: config.apiKey?.length || 0
-          });
+            logger.info('Loading available routes for agency', { 
+              agencyId, 
+              city: config.city,
+              hasApiKey: !!config.apiKey,
+              apiKeyLength: config.apiKey?.length || 0
+            });
 
-          // Get routes for the agency
-          const routes = await enhancedTranzyApi.getRoutes(agencyId);
-          
-          // Transform routes to the expected format
-          const availableRoutes = routes.map(route => ({
-            id: route.id, // Internal route ID for API calls ("40", "42", etc.)
-            routeName: route.routeName, // route_short_name: What users see and interact with ("100", "101")
-            routeDesc: route.routeDesc, // route_long_name: Full description ("Piața Unirii - Mănăștur")
-            type: route.type as 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other'
-          }));
+            // Get routes from cache for the agency
+            const routes = await enhancedTranzyApi.getRoutes(agencyId, false);
+            
+            // Transform routes to the expected format
+            const availableRoutes = routes.map(route => ({
+              id: route.id, // Internal route ID for API calls ("40", "42", etc.)
+              routeName: route.routeName, // route_short_name: What users see and interact with ("100", "101")
+              routeDesc: route.routeDesc, // route_long_name: Full description ("Piața Unirii - Mănăștur")
+              type: route.type as 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other'
+            }));
 
+            logger.info('Available routes loaded successfully', { 
+              count: availableRoutes.length,
+              city: config.city,
+              agencyId 
+            });
+
+            return availableRoutes;
+          },
+          {
+            errorMessage: 'Failed to load available routes',
+            logCategory: 'FAVORITES',
+            onError: (error) => {
+              // Check if it's an authentication error
+              const isAuthError = error.message.includes('403') || 
+                error.message.includes('Unauthorized') || 
+                error.message.includes('Forbidden');
+              
+              const errorMessage = isAuthError 
+                ? 'API key is invalid or expired. Please get a new API key from tranzy.ai and update it in Settings.'
+                : error.message;
+              
+              set({
+                isLoading: false,
+                availableRoutes: [],
+                error: {
+                  type: isAuthError ? 'authentication' : 'network',
+                  message: errorMessage,
+                  timestamp: new Date(),
+                  retryable: false // Don't retry with invalid API key
+                }
+              });
+            }
+          }
+        );
+
+        if (result) {
           set({
-            availableRoutes,
+            availableRoutes: result,
             isLoading: false,
             error: null
-          });
-
-          logger.info('Available routes loaded successfully', { 
-            count: availableRoutes.length,
-            city: config.city,
-            agencyId 
-          });
-
-        } catch (error) {
-          logger.error('Failed to load available routes', error);
-          
-          // Check if it's an authentication error
-          const isAuthError = error instanceof Error && 
-            (error.message.includes('403') || 
-             error.message.includes('Unauthorized') || 
-             error.message.includes('Forbidden'));
-          
-          const errorMessage = isAuthError 
-            ? 'API key is invalid or expired. Please get a new API key from tranzy.ai and update it in Settings.'
-            : (error instanceof Error ? error.message : 'Failed to load available routes');
-          
-          set({
-            isLoading: false,
-            availableRoutes: [],
-            error: {
-              type: isAuthError ? 'authentication' : 'network',
-              message: errorMessage,
-              timestamp: new Date(),
-              retryable: false // Don't retry with invalid API key
-            }
           });
         }
       },

@@ -2,8 +2,6 @@ import React from 'react';
 import {
   IconButton,
   CircularProgress,
-  useTheme,
-  alpha,
   Box,
 } from '@mui/material';
 import {
@@ -14,6 +12,7 @@ import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
 import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { useLocationStore } from '../../../stores/locationStore';
 import { logger } from '../../../utils/logger';
+import { useThemeUtils } from '../../../hooks';
 
 export const RefreshControl: React.FC = () => {
   const { manualRefresh, refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
@@ -22,7 +21,7 @@ export const RefreshControl: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(Date.now());
 
-  const theme = useTheme();
+  const { theme, getStatusColors, getTextColors, alpha } = useThemeUtils();
 
   const refresh = async () => {
     setIsRefreshing(true);
@@ -69,10 +68,11 @@ export const RefreshControl: React.FC = () => {
   // Calculate refresh status and progress
   const getRefreshStatus = () => {
     const lastRefreshTime = getLastRefreshTime();
+    const colors = getStatusColors();
     
     if (!isAutoRefreshEnabled || !lastRefreshTime || refreshRate <= 0) {
       return {
-        color: theme.palette.warning.main,
+        color: colors.warning.main,
         progress: 0,
         hasUpdate: false,
       };
@@ -84,7 +84,7 @@ export const RefreshControl: React.FC = () => {
     // If no cache update happened (red)
     if (timeSinceLastRefresh > refreshRate * 2) {
       return {
-        color: theme.palette.error.main,
+        color: colors.error.main,
         progress: 0,
         hasUpdate: false,
       };
@@ -94,7 +94,7 @@ export const RefreshControl: React.FC = () => {
     if (timeUntilNext > 0) {
       const progress = ((refreshRate - timeUntilNext) / refreshRate) * 100;
       return {
-        color: theme.palette.success.main,
+        color: colors.success.main,
         progress: Math.min(100, Math.max(0, progress)),
         hasUpdate: true,
       };
@@ -102,13 +102,14 @@ export const RefreshControl: React.FC = () => {
     
     // Time for next refresh
     return {
-      color: theme.palette.success.main,
+      color: colors.success.main,
       progress: 100,
       hasUpdate: true,
     };
   };
 
   const { color, progress, hasUpdate } = getRefreshStatus();
+  const textColors = getTextColors();
 
   return (
     <Box sx={{ position: 'relative' }}>
@@ -119,7 +120,7 @@ export const RefreshControl: React.FC = () => {
         size={40}
         thickness={3}
         sx={{
-          color: alpha(theme.palette.common.white, 0.1),
+          color: textColors.whiteLight,
           position: 'absolute',
         }}
       />
@@ -147,17 +148,17 @@ export const RefreshControl: React.FC = () => {
         sx={{
           width: 40,
           height: 40,
-          bgcolor: alpha(theme.palette.common.white, 0.1),
-          color: theme.palette.common.white,
+          bgcolor: textColors.whiteLight,
+          color: textColors.white,
           border: `2px solid ${alpha(color, 0.3)}`,
           '&:hover': {
-            bgcolor: alpha(theme.palette.common.white, 0.2),
+            bgcolor: textColors.whiteHover,
             transform: 'scale(1.05)',
             border: `2px solid ${alpha(color, 0.5)}`,
           },
           '&:disabled': {
-            bgcolor: alpha(theme.palette.common.white, 0.05),
-            color: alpha(theme.palette.common.white, 0.5),
+            bgcolor: alpha(textColors.white, 0.05),
+            color: textColors.whiteFaded,
           },
           transition: 'all 0.2s ease-in-out',
         }}
@@ -166,7 +167,7 @@ export const RefreshControl: React.FC = () => {
           <CircularProgress
             size={16}
             sx={{
-              color: theme.palette.common.white,
+              color: textColors.white,
             }}
           />
         ) : (
@@ -174,8 +175,8 @@ export const RefreshControl: React.FC = () => {
             sx={{ 
               fontSize: 16,
               color: hasUpdate 
-                ? alpha(theme.palette.success.light, 0.9)
-                : theme.palette.common.white
+                ? textColors.whiteFaded
+                : textColors.white
             }} 
           />
         )}
