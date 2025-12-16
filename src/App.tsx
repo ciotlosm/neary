@@ -549,13 +549,13 @@ function AppMaterial() {
   const getHeaderTitle = () => {
     switch (currentView) {
       case 'station':
-        return 'Nearby Station';
+        return 'Nearby';
       case 'routes':
         return 'Favorites';
       case 'settings':
         return 'Settings';
       default:
-        return 'Nearby Station';
+        return 'Nearby';
     }
   };
 
