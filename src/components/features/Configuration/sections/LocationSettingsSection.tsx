@@ -6,9 +6,8 @@ import {
   Box,
   Typography,
   Chip,
-  useTheme,
-  alpha,
 } from '@mui/material';
+import { useThemeUtils } from '../../../../hooks';
 import {
   Home as HomeIcon,
   Business as WorkIcon,
@@ -34,7 +33,7 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
   onLocationPicker,
   formatLocationDisplay,
 }) => {
-  const theme = useTheme();
+  const { alpha } = useThemeUtils();
   const { locationPermission, currentLocation } = useLocationStore();
 
 
@@ -43,7 +42,7 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
   const isGpsAvailable = locationPermission === 'granted' && currentLocation;
 
   return (
-    <Card variant="outlined" sx={{ bgcolor: alpha(theme.palette.info.main, 0.02) }}>
+    <Card variant="outlined" sx={{ bgcolor: alpha('#0288d1', 0.02) }}>
       <CardContent>
         <Stack spacing={3}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -97,8 +96,8 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                     sx={{ 
                       fontSize: '0.6rem', 
                       height: 18,
-                      bgcolor: alpha(theme.palette.primary.main, 0.05),
-                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                      bgcolor: alpha('#1976d2', 0.05),
+                      borderColor: alpha('#1976d2', 0.2),
                     }}
                   />
                 )}
@@ -137,8 +136,8 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                     sx={{ 
                       fontSize: '0.6rem', 
                       height: 18,
-                      bgcolor: alpha(theme.palette.primary.main, 0.05),
-                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                      bgcolor: alpha('#1976d2', 0.05),
+                      borderColor: alpha('#1976d2', 0.2),
                     }}
                   />
                 )}
@@ -187,8 +186,8 @@ export const LocationSettingsSection: React.FC<LocationSettingsSectionProps> = (
                     sx={{ 
                       fontSize: '0.6rem', 
                       height: 18,
-                      bgcolor: alpha(theme.palette.primary.main, 0.05),
-                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                      bgcolor: alpha('#1976d2', 0.05),
+                      borderColor: alpha('#1976d2', 0.2),
                     }}
                   />
                 )}

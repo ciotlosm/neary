@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { FilterList as FilterIcon } from '@mui/icons-material';
 import { getRouteTypeInfo } from '../../../../utils/routeUtils';
-import { useTheme } from '@mui/material/styles';
+import { useThemeUtils } from '../../../../hooks';
 
 interface RouteTypeFiltersProps {
   availableTypes: string[];
@@ -21,7 +21,7 @@ export const RouteTypeFilters: React.FC<RouteTypeFiltersProps> = ({
   selectedTypes,
   onTypeFilterChange,
 }) => {
-  const theme = useTheme();
+  const { theme } = useThemeUtils();
 
   if (availableTypes.length <= 1) {
     return null;

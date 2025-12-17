@@ -9,18 +9,24 @@ interface ThemeStore {
   setTheme: (mode: ThemeMode) => void;
 }
 
-// Detect system theme preference
+// Default to dark theme (fallback to system preference if needed)
+const getDefaultTheme = (): ThemeMode => {
+  // Always default to dark mode for better error handling visibility
+  return 'dark';
+};
+
+// Detect system theme preference (kept for reference but not used as default)
 const getSystemTheme = (): ThemeMode => {
   if (typeof window !== 'undefined' && window.matchMedia) {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  return 'light';
+  return 'dark'; // Changed from 'light' to 'dark' as fallback
 };
 
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      mode: getSystemTheme(),
+      mode: getDefaultTheme(),
       toggleTheme: () =>
         set((state) => ({
           mode: state.mode === 'light' ? 'dark' : 'light',
@@ -53,25 +59,26 @@ if (typeof window !== 'undefined') {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      initialTheme = parsed.state?.mode || getSystemTheme();
+      initialTheme = parsed.state?.mode || getDefaultTheme();
     } catch {
-      initialTheme = getSystemTheme();
+      initialTheme = getDefaultTheme();
     }
   } else {
-    initialTheme = getSystemTheme();
+    initialTheme = getDefaultTheme();
   }
   
   // Apply theme immediately to prevent flash
   document.documentElement.setAttribute('data-theme', initialTheme);
   
-  // Listen for system theme changes
+  // Listen for system theme changes (but maintain dark mode preference)
   if (window.matchMedia) {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     mediaQuery.addEventListener('change', (e) => {
-      // Only auto-update if user hasn't manually set a preference
+      // Only auto-update if user hasn't manually set a preference AND system goes to dark
       const currentStored = localStorage.getItem('cluj-bus-theme');
-      if (!currentStored) {
-        const newTheme = e.matches ? 'dark' : 'light';
+      if (!currentStored && e.matches) {
+        // Only follow system if it's going to dark mode (our preferred default)
+        const newTheme = 'dark';
         useThemeStore.getState().setTheme(newTheme);
         document.documentElement.setAttribute('data-theme', newTheme);
       }

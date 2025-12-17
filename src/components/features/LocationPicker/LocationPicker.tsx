@@ -9,8 +9,8 @@ import {
   Alert,
   Stack,
   IconButton,
-  useTheme,
 } from '@mui/material';
+import { useThemeUtils } from '../../../hooks';
 import {
   Map as MapIcon,
   Close as CloseIcon,
@@ -44,7 +44,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   type,
   currentLocation,
 }) => {
-  const theme = useTheme();
+  const { theme } = useThemeUtils();
   
   const {
     selectedLocation,

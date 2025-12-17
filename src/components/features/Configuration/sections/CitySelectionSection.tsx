@@ -7,9 +7,8 @@ import {
   Typography,
   Autocomplete,
   TextField,
-  useTheme,
-  alpha,
 } from '@mui/material';
+import { useThemeUtils } from '../../../../hooks';
 import { LocationOn as LocationIcon } from '@mui/icons-material';
 
 interface CityOption {
@@ -31,10 +30,10 @@ export const CitySelectionSection: React.FC<CitySelectionSectionProps> = ({
   cityOptions,
   error,
 }) => {
-  const theme = useTheme();
+  const { alpha } = useThemeUtils();
 
   return (
-    <Card variant="outlined" sx={{ bgcolor: alpha(theme.palette.secondary.main, 0.02) }}>
+    <Card variant="outlined" sx={{ bgcolor: alpha('#9c27b0', 0.02) }}>
       <CardContent>
         <Stack spacing={2}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

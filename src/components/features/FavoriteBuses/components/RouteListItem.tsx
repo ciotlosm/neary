@@ -8,6 +8,8 @@ import {
   Typography,
   Chip,
   Stack,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
@@ -37,97 +39,130 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
   onToggle,
   isLast = false,
 }) => {
-  const { theme } = useThemeUtils();
-  const { getListItemStyles } = useMuiUtils();
+  const { theme, getBackgroundColors, getBorderColors, alpha } = useThemeUtils();
+  const { getCardStyles } = useMuiUtils();
   const routeTypeInfo = getRouteTypeInfo(route.type, theme);
 
+  const backgrounds = getBackgroundColors();
+  const borders = getBorderColors();
+
   return (
-    <ListItem
-      sx={getListItemStyles(isLast, isFavorite, 'favorite')}
+    <Card
+      sx={{
+        ...getCardStyles('glass'),
+        mb: isLast ? 0 : 1,
+        bgcolor: isFavorite 
+          ? alpha(theme.palette.success.main, 0.08)
+          : backgrounds.paper,
+        border: `1px solid ${isFavorite 
+          ? alpha(theme.palette.success.main, 0.3)
+          : borders.divider}`,
+        '&:hover': {
+          bgcolor: isFavorite 
+            ? alpha(theme.palette.success.main, 0.12)
+            : backgrounds.paperHover,
+          border: `1px solid ${isFavorite 
+            ? alpha(theme.palette.success.main, 0.5)
+            : borders.dividerMedium}`,
+          transform: 'translateY(-1px)',
+        },
+        transition: 'all 0.2s ease-in-out',
+      }}
     >
-      <ListItemIcon>
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            bgcolor: routeTypeInfo.color + '1A', // 10% opacity
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-          }}
-        >
-          {routeTypeInfo.icon}
-        </Box>
-      </ListItemIcon>
-      
-      <ListItemText
-        primary={
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {route.routeName}
-            </Typography>
-            <Chip
-              label={routeTypeInfo.label}
-              size="small"
-              sx={{
-                bgcolor: routeTypeInfo.color + '1A', // 10% opacity
-                color: routeTypeInfo.color,
-                fontWeight: 600,
-                fontSize: '0.7rem',
-                height: 20,
-              }}
-            />
-            {isFavorite && (
-              <Chip
-                label="Favorite"
-                size="small"
-                color="success"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.7rem',
-                  height: 20,
-                }}
-              />
-            )}
-          </Stack>
-        }
-        secondary={
-          <Typography
-            variant="body2"
-            color="text.secondary"
+      <CardContent sx={{ py: 2, px: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Route Icon */}
+          <Box
             sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 300,
+              width: 48,
+              height: 48,
+              borderRadius: 2,
+              bgcolor: alpha(routeTypeInfo.color, 0.1),
+              border: `1px solid ${alpha(routeTypeInfo.color, 0.3)}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.25rem',
+              flexShrink: 0,
             }}
           >
-            {route.routeDesc || 'No description available'}
-          </Typography>
-        }
-      />
-      
-      <Box sx={{ ml: 'auto' }}>
-        <Checkbox
-          edge="end"
-          checked={isFavorite}
-          onChange={() => {
-            onToggle(route.routeName).catch(error => {
-              logger.error('Failed to toggle route', error, 'ROUTE_LIST_ITEM');
-            });
-          }}
-          icon={<FavoriteBorderIcon />}
-          checkedIcon={<FavoriteIcon />}
-          sx={{
-            color: isFavorite ? theme.palette.error.main : theme.palette.text.secondary,
-            '&.Mui-checked': {
-              color: theme.palette.error.main,
-            },
-          }}
-        />
-      </Box>
-    </ListItem>
+            {routeTypeInfo.icon}
+          </Box>
+          
+          {/* Route Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                {route.routeName}
+              </Typography>
+              <Chip
+                label={routeTypeInfo.label}
+                size="small"
+                sx={{
+                  bgcolor: alpha(routeTypeInfo.color, 0.1),
+                  color: routeTypeInfo.color,
+                  border: `1px solid ${alpha(routeTypeInfo.color, 0.3)}`,
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  height: 22,
+                }}
+              />
+              {isFavorite && (
+                <Chip
+                  label="Favorite"
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(theme.palette.success.main, 0.1),
+                    color: theme.palette.success.main,
+                    border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                    height: 22,
+                  }}
+                />
+              )}
+            </Stack>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.875rem',
+              }}
+            >
+              {route.routeDesc || 'No description available'}
+            </Typography>
+          </Box>
+          
+          {/* Favorite Toggle */}
+          <Box sx={{ flexShrink: 0 }}>
+            <Checkbox
+              checked={isFavorite}
+              onChange={() => {
+                onToggle(route.routeName).catch(error => {
+                  logger.error('Failed to toggle route', error, 'ROUTE_LIST_ITEM');
+                });
+              }}
+              icon={<FavoriteBorderIcon />}
+              checkedIcon={<FavoriteIcon />}
+              sx={{
+                color: isFavorite ? theme.palette.success.main : theme.palette.text.secondary,
+                '&.Mui-checked': {
+                  color: theme.palette.success.main,
+                },
+                '&:hover': {
+                  bgcolor: alpha(
+                    isFavorite ? theme.palette.success.main : theme.palette.text.secondary, 
+                    0.1
+                  ),
+                },
+              }}
+            />
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
   );
 };

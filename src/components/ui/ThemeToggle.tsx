@@ -2,14 +2,13 @@ import React from 'react';
 import {
   IconButton,
   Tooltip,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
 } from '@mui/icons-material';
 import { useThemeStore } from '../../stores/themeStore';
+import { useThemeUtils } from '../../hooks';
 
 interface ThemeToggleProps {
   size?: 'small' | 'medium' | 'large';
@@ -22,7 +21,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   color = 'inherit',
   iconOnly = false
 }) => {
-  const theme = useTheme();
+  const { alpha } = useThemeUtils();
   const { mode, toggleTheme } = useThemeStore();
   
   const isDark = mode === 'dark';
@@ -55,7 +54,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         sx={{
           transition: 'all 0.3s ease-in-out',
           '&:hover': {
-            bgcolor: alpha(theme.palette.common.white, 0.1),
+            bgcolor: alpha('#ffffff', 0.1),
             transform: 'rotate(180deg)',
           },
         }}

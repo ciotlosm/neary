@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Box,
   Typography,
-  Card,
-  List,
 } from '@mui/material';
 import { RouteListItem } from './RouteListItem';
 // Define the route type used by the store
@@ -45,26 +43,23 @@ export const RoutesList: React.FC<RoutesListProps> = ({
       >
         {title}
       </Typography>
-      <Card 
-        variant="outlined" 
+      <Box 
         sx={{ 
           mb: isFavoriteList ? 3 : 0,
           maxHeight: maxHeight ? `${maxHeight}px` : undefined,
           overflow: maxHeight ? 'auto' : 'visible'
         }}
       >
-        <List sx={{ py: 0 }}>
-          {routes.map((route, index) => (
-            <RouteListItem
-              key={route.routeName}
-              route={route}
-              isFavorite={isFavoriteList}
-              onToggle={onToggleRoute}
-              isLast={index === routes.length - 1}
-            />
-          ))}
-        </List>
-      </Card>
+        {routes.map((route, index) => (
+          <RouteListItem
+            key={route.routeName}
+            route={route}
+            isFavorite={isFavoriteList}
+            onToggle={onToggleRoute}
+            isLast={index === routes.length - 1}
+          />
+        ))}
+      </Box>
     </Box>
   );
 };

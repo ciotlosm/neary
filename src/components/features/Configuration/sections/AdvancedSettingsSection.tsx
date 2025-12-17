@@ -11,9 +11,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  useTheme,
-  alpha,
 } from '@mui/material';
+import { useThemeUtils } from '../../../../hooks';
 import { Timer as TimerIcon, BugReport as BugReportIcon, DirectionsBus as BusIcon, Settings as SettingsIcon } from '@mui/icons-material';
 
 interface AdvancedSettingsSectionProps {
@@ -49,7 +48,7 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
   staleDataError,
   maxVehiclesError,
 }) => {
-  const theme = useTheme();
+  const { alpha } = useThemeUtils();
 
   return (
     <Box>
@@ -64,7 +63,7 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, 
           gap: 2,
           p: 2,
-          bgcolor: alpha(theme.palette.primary.main, 0.02),
+          bgcolor: alpha('#1976d2', 0.02),
           borderRadius: 2,
           border: 1,
           borderColor: 'divider'

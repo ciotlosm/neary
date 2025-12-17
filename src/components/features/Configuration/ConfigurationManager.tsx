@@ -11,10 +11,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  useTheme,
-  alpha,
   Chip,
 } from '@mui/material';
+import { useThemeUtils } from '../../../hooks';
 import {
   Settings as SettingsIcon,
   Timer as TimerIcon,
@@ -40,7 +39,7 @@ interface ConfigurationManagerProps {
 export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
   onConfigComplete,
 }) => {
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
   const {
     // Form state
     formData,

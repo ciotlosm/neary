@@ -80,13 +80,28 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: 'var(--mui-palette-background-default, #141218)', 
+          color: 'var(--mui-palette-text-primary, #E6E1E5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          padding: '16px' 
+        }}>
+          <div style={{ maxWidth: '400px', width: '100%' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <h1 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: 'bold', 
+                color: 'var(--mui-palette-text-primary, #E6E1E5)', 
+                marginBottom: '8px' 
+              }}>
                 Something went wrong
               </h1>
-              <p className="text-gray-600">
+              <p style={{ 
+                color: 'var(--mui-palette-text-secondary, #CAC4D0)' 
+              }}>
                 The application encountered an unexpected error.
               </p>
             </div>
@@ -97,10 +112,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             />
             
             {!this.state.error.retryable && (
-              <div className="mt-4 text-center">
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
                 <button
                   onClick={() => window.location.reload()}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  style={{
+                    color: 'var(--mui-palette-primary-main, #D0BCFF)',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.color = 'var(--mui-palette-primary-light, #EADDFF)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.color = 'var(--mui-palette-primary-main, #D0BCFF)';
+                  }}
                 >
                   Reload Page
                 </button>

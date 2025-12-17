@@ -7,9 +7,8 @@ import {
   Chip,
   Box,
   Fade,
-  useTheme,
-  alpha,
 } from '@mui/material';
+import { useThemeUtils } from '../../../hooks';
 import {
   HourglassEmpty as HourglassIcon,
   Refresh as RefreshIcon,
@@ -30,7 +29,7 @@ export const RefreshIndicator: React.FC<RefreshIndicatorProps> = ({
   variant = 'hourglass',
   label,
 }) => {
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
 
   const getPositionStyles = () => {
     const baseStyles = {

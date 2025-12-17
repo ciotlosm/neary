@@ -163,21 +163,24 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
 
     if (filterByFavorites && favoriteRoutes.length === 0) return [];
 
-    // Get stations sorted by distance
-    const stationsWithDistances = allStations
-      .map(station => {
-        try {
-          const distance = calculateDistance(effectiveLocationForDisplay, station.coordinates);
-          return distance <= maxSearchRadius ? { station, distance } : null;
-        } catch (error) {
-          return null;
+    // Get stations sorted by distance - optimized with early filtering
+    const stationsWithDistances = [];
+    
+    for (const station of allStations) {
+      try {
+        const distance = calculateDistance(effectiveLocationForDisplay, station.coordinates);
+        if (distance <= maxSearchRadius) {
+          stationsWithDistances.push({ station, distance });
         }
-      })
-      .filter(item => item !== null)
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, maxStationsToCheck);
+      } catch (error) {
+        // Skip stations with invalid coordinates
+        continue;
+      }
+    }
 
-    return stationsWithDistances;
+    // Sort and limit results
+    stationsWithDistances.sort((a, b) => a.distance - b.distance);
+    return stationsWithDistances.slice(0, maxStationsToCheck);
   }, [effectiveLocationForDisplay, allStations, filterByFavorites, favoriteRoutes.length, maxSearchRadius, maxStationsToCheck]);
 
   // Helper function to analyze vehicle direction for a specific station
@@ -273,8 +276,15 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
 
         // Step 1: Get routes data from cache to map route names to route IDs (for favorites mode)
         const routes = await enhancedTranzyApi.getRoutes(parseInt(config.agencyId), false);
-        const routesMap = new Map(routes.map(route => [route.routeName, route])); // Map by route name
-        const routeIdMap = new Map(routes.map(route => [route.id, route])); // Map by route ID
+        
+        // Build maps more efficiently
+        const routesMap = new Map<string, any>();
+        const routeIdMap = new Map<string, any>();
+        
+        for (const route of routes) {
+          routesMap.set(route.routeName, route);
+          routeIdMap.set(route.id, route);
+        }
 
         // Step 2: Filter vehicles based on mode
         let relevantVehicles = vehicles;
@@ -386,15 +396,19 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
 
         // Step 6: Build a map of trip_id -> stop sequence data for efficient lookup
         const tripStopSequenceMap = new Map<string, Array<{stopId: string, sequence: number}>>();
-        allStopTimes.forEach(stopTime => {
-          if (!tripStopSequenceMap.has(stopTime.tripId)) {
-            tripStopSequenceMap.set(stopTime.tripId, []);
+        
+        // Process stop times more efficiently
+        for (const stopTime of allStopTimes) {
+          let tripStops = tripStopSequenceMap.get(stopTime.tripId);
+          if (!tripStops) {
+            tripStops = [];
+            tripStopSequenceMap.set(stopTime.tripId, tripStops);
           }
-          tripStopSequenceMap.get(stopTime.tripId)!.push({
+          tripStops.push({
             stopId: stopTime.stopId,
             sequence: stopTime.sequence
           });
-        });
+        }
 
         // Step 7: Get trips data from cache to get proper headsigns for destinations
         const trips = await enhancedTranzyApi.getTrips(parseInt(config.agencyId), undefined, false);
@@ -796,10 +810,10 @@ export const useVehicleProcessing = (options: VehicleProcessingOptions = {}) => 
     showAllVehiclesPerRoute,
     maxStations,
     proximityThreshold,
-    // Add a hash of the actual data to detect real changes
-    JSON.stringify(targetStations.map(ts => ts.station.id)),
-    JSON.stringify(vehicles.map(v => v.id + v.tripId)),
-  ]); // Fixed infinite loop by using primitive values and data hashes
+    // Use stable hash for data changes - memoized to prevent recalculation
+    React.useMemo(() => targetStations.map(ts => ts.station.id).join(','), [targetStations]),
+    React.useMemo(() => vehicles.map(v => `${v.id}-${v.tripId}`).join(','), [vehicles]),
+  ]); // Fixed infinite loop by using primitive values and memoized hashes
 
   return {
     stationVehicleGroups,

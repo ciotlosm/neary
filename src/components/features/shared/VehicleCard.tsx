@@ -48,7 +48,7 @@ interface VehicleCardProps {
   showFullStopsButton?: boolean; // Show "Show stops" button for full expandable list
 }
 
-export const VehicleCard: React.FC<VehicleCardProps> = ({
+const VehicleCardComponent: React.FC<VehicleCardProps> = ({
   vehicle,
   stationId,
   isExpanded,
@@ -63,6 +63,9 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   const { getDataFreshnessColor, getBackgroundColors, getBorderColors, alpha, theme } = useThemeUtils();
   const { getCardStyles } = useMuiUtils();
   
+  // Determine if vehicle has departed (must be declared early for use in memoized calculations)
+  const isDeparted = vehicle._internalDirection === 'departing';
+  
   // State for updating relative time display every 10 seconds
   const [currentTime, setCurrentTime] = React.useState(Date.now());
   
@@ -75,9 +78,8 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Determine status dot color based on data freshness and connectivity
-  const getStatusDotColor = () => {
-    // Get the vehicle's last update timestamp
+  // Memoize expensive color calculations
+  const statusDotColor = React.useMemo(() => {
     const vehicleTimestamp = vehicle.vehicle?.timestamp;
     if (!vehicleTimestamp) {
       return getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
@@ -87,14 +89,12 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       ? vehicleTimestamp 
       : new Date(vehicleTimestamp);
     
-    const now = new Date();
-    const minutesSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+    const minutesSinceUpdate = (currentTime - lastUpdate.getTime()) / (1000 * 60);
     
     return getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
-  };
+  }, [vehicle.vehicle?.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor]);
 
-  // Determine timestamp color based on data freshness (similar to status dot but more subtle)
-  const getTimestampColor = () => {
+  const timestampColor = React.useMemo(() => {
     const vehicleTimestamp = vehicle.vehicle?.timestamp;
     if (!vehicleTimestamp) {
       const baseColor = getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
@@ -105,12 +105,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       ? vehicleTimestamp 
       : new Date(vehicleTimestamp);
     
-    const now = new Date();
-    const minutesSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+    const minutesSinceUpdate = (currentTime - lastUpdate.getTime()) / (1000 * 60);
     
     const baseColor = getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
     return alpha(baseColor, isDeparted ? 0.3 : 0.5);
-  };
+  }, [vehicle.vehicle?.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor, alpha, isDeparted]);
 
   // Determine which stops to show based on showShortStopList
   const stopsToShow = React.useMemo(() => {
@@ -132,8 +131,6 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     // Sort by sequence to maintain route order
     return stopsToInclude.sort((a, b) => a.sequence - b.sequence);
   }, [vehicle.stopSequence, showShortStopList, stationId]);
-
-  const isDeparted = vehicle._internalDirection === 'departing';
 
   const backgrounds = getBackgroundColors();
   const borders = getBorderColors();
@@ -519,10 +516,10 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 height: { xs: 8, sm: 10 },
                 borderRadius: '50%',
                 bgcolor: isDeparted 
-                  ? alpha(getStatusDotColor(), 0.5) 
-                  : getStatusDotColor(),
-                border: `1px solid ${alpha(getStatusDotColor(), 0.3)}`,
-                boxShadow: `0 0 4px ${alpha(getStatusDotColor(), 0.4)}`,
+                  ? alpha(statusDotColor, 0.5) 
+                  : statusDotColor,
+                border: `1px solid ${alpha(statusDotColor, 0.3)}`,
+                boxShadow: `0 0 4px ${alpha(statusDotColor, 0.4)}`,
                 flexShrink: 0,
               }}
             />
@@ -536,7 +533,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             position: 'absolute',
             bottom: 8,
             right: 12,
-            color: getTimestampColor(), // Color based on data freshness and stale threshold
+            color: timestampColor, // Color based on data freshness and stale threshold
             fontSize: { xs: '0.65rem', sm: '0.7rem' },
             lineHeight: 1,
             whiteSpace: 'nowrap',
@@ -660,3 +657,20 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     </Card>
   );
 };
+
+// Memoized export to prevent unnecessary re-renders
+export const VehicleCard = React.memo(VehicleCardComponent, (prevProps, nextProps) => {
+  // Custom comparison to prevent re-renders when only timestamp changes slightly
+  return (
+    prevProps.vehicle.id === nextProps.vehicle.id &&
+    prevProps.vehicle.routeId === nextProps.vehicle.routeId &&
+    prevProps.vehicle.minutesAway === nextProps.vehicle.minutesAway &&
+    prevProps.vehicle._internalDirection === nextProps.vehicle._internalDirection &&
+    prevProps.isExpanded === nextProps.isExpanded &&
+    prevProps.stationId === nextProps.stationId &&
+    prevProps.showShortStopList === nextProps.showShortStopList &&
+    prevProps.showFullStopsButton === nextProps.showFullStopsButton
+  );
+});
+
+VehicleCard.displayName = 'VehicleCard';

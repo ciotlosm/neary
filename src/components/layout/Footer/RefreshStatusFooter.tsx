@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
@@ -13,9 +11,10 @@ import {
 import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
 import { logger } from '../../../utils/logger';
+import { useThemeUtils } from '../../../hooks';
 
 export const RefreshStatusFooter: React.FC = () => {
-  const theme = useTheme();
+  const { theme, alpha } = useThemeUtils();
   const { cacheStats, lastUpdate, lastApiUpdate, lastCacheUpdate } = useEnhancedBusStore();
   const { refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
   const [currentTime, setCurrentTime] = useState(Date.now());

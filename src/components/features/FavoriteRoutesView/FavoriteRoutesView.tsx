@@ -82,6 +82,37 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
   // State for route filtering per station
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
 
+  // Memoize callbacks to prevent unnecessary re-renders
+  const handleToggleExpanded = React.useCallback((vehicleId: string) => {
+    setExpandedVehicles(prev => {
+      const newExpanded = new Set(prev);
+      if (prev.has(vehicleId)) {
+        newExpanded.delete(vehicleId);
+      } else {
+        newExpanded.add(vehicleId);
+      }
+      return newExpanded;
+    });
+  }, []);
+
+  const handleShowMap = React.useCallback((vehicle: EnhancedVehicleInfoWithDirection, stationId: string) => {
+    setSelectedVehicleForMap(vehicle);
+    setTargetStationId(stationId);
+    setMapModalOpen(true);
+  }, []);
+
+  const handleRouteSelect = React.useCallback((stationId: string, routeId: string | null) => {
+    setSelectedRoutePerStation(prev => {
+      const newSelection = new Map(prev);
+      if (routeId) {
+        newSelection.set(stationId, routeId);
+      } else {
+        newSelection.delete(stationId);
+      }
+      return newSelection;
+    });
+  }, []);
+
   // Convert vehicle to FavoriteBusInfo format for map modal
   const convertVehicleToFavoriteBusInfo = (vehicle: EnhancedVehicleInfoWithDirection, targetStationId: string): FavoriteBusInfo => {
     return {
@@ -383,15 +414,7 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
                   <RouteFilterChips
                     routes={stationGroup.allRoutes}
                     selectedRouteId={selectedRoutePerStation.get(stationGroup.station.station.id)}
-                    onRouteSelect={(routeId) => {
-                      const newSelection = new Map(selectedRoutePerStation);
-                      if (routeId) {
-                        newSelection.set(stationGroup.station.station.id, routeId);
-                      } else {
-                        newSelection.delete(stationGroup.station.station.id);
-                      }
-                      setSelectedRoutePerStation(newSelection);
-                    }}
+                    onRouteSelect={(routeId) => handleRouteSelect(stationGroup.station.station.id, routeId)}
                   />
                 </Box>
               )}
@@ -406,30 +429,11 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
                     vehicle={vehicle}
                     stationId={stationGroup.station.station.id}
                     isExpanded={expandedVehicles.has(vehicle.id)}
-                    onToggleExpanded={() => {
-                      const newExpanded = new Set(expandedVehicles);
-                      if (expandedVehicles.has(vehicle.id)) {
-                        newExpanded.delete(vehicle.id);
-                      } else {
-                        newExpanded.add(vehicle.id);
-                      }
-                      setExpandedVehicles(newExpanded);
-                    }}
-                    onShowMap={() => {
-                      setSelectedVehicleForMap(vehicle);
-                      setTargetStationId(stationGroup.station.station.id);
-                      setMapModalOpen(true);
-                    }}
+                    onToggleExpanded={() => handleToggleExpanded(vehicle.id)}
+                    onShowMap={() => handleShowMap(vehicle, stationGroup.station.station.id)}
                     onRouteClick={() => {
-                      const newSelection = new Map(selectedRoutePerStation);
                       const isSelected = selectedRoutePerStation.get(stationGroup.station.station.id) === vehicle.routeId;
-                      
-                      if (isSelected) {
-                        newSelection.delete(stationGroup.station.station.id);
-                      } else {
-                        newSelection.set(stationGroup.station.station.id, vehicle.routeId);
-                      }
-                      setSelectedRoutePerStation(newSelection);
+                      handleRouteSelect(stationGroup.station.station.id, isSelected ? null : vehicle.routeId);
                     }}
                     showShortStopList={true} // Show short stop list always visible
                     showFullStopsButton={true} // Show "Show all stops" button
