@@ -54,6 +54,7 @@ export interface UserConfig {
   staleDataThreshold: number; // minutes - when to consider vehicle data as stale
   defaultLocation?: Coordinates; // Default fallback location for direction detection
   favoriteBuses?: FavoriteRoute[]; // Array of complete route objects (1-3 buses)
+  favoriteStations?: string[]; // Array of favorite station IDs
   logLevel?: number; // Log level: 0=DEBUG, 1=INFO, 2=WARN, 3=ERROR
   maxVehiclesPerStation?: number; // Maximum vehicles to show per station (default: 5)
 }
@@ -79,40 +80,110 @@ export interface TranzyApiService {
   validateApiKey(key: string): Promise<boolean>;
 }
 
-// Store interfaces
+// New Clean Store Interfaces (4-Store Architecture)
+
+export type ThemeMode = 'light' | 'dark';
+
 export interface ConfigStore {
+  // Configuration
   config: UserConfig | null;
   isConfigured: boolean;
   isFullyConfigured: boolean;
-  updateConfig: (config: Partial<UserConfig>) => void;
+  
+  // Theme (integrated from themeStore)
+  theme: ThemeMode;
+  
+  // Agencies (integrated from agencyStore)
+  agencies: Agency[];
+  isAgenciesLoading: boolean;
+  agenciesError: ErrorState | null;
+  isApiValidated: boolean;
+  
+  // Actions - Configuration
+  updateConfig: (updates: Partial<UserConfig>) => void;
   resetConfig: () => void;
+  validateConfig: () => boolean;
+  
+  // Actions - Theme
+  setTheme: (mode: ThemeMode) => void;
+  toggleTheme: () => void;
+  
+  // Actions - Agencies
+  fetchAgencies: () => Promise<void>;
+  validateApiKey: (apiKey: string) => Promise<boolean>;
+  clearAgenciesError: () => void;
+  
+  // Actions - Favorites (integrated from removed FavoritesStore)
+  addFavoriteRoute: (route: FavoriteRoute) => void;
+  removeFavoriteRoute: (routeId: string) => void;
+  addFavoriteStation: (stationId: string) => void;
+  removeFavoriteStation: (stationId: string) => void;
+  getFavoriteRoutes: () => FavoriteRoute[];
+  getFavoriteStations: () => string[];
 }
 
-export interface BusStore {
-  buses: BusInfo[];
+export interface RefreshOptions {
+  forceRefresh?: boolean;
+  includeSchedule?: boolean;
+  includeLive?: boolean;
+  includeStations?: boolean;
+}
+
+export interface CacheStats {
+  totalEntries: number;
+  totalSize: number;
+  entriesByType: Record<string, number>;
+  entriesWithTimestamps: Record<string, { 
+    createdAt: number; 
+    updatedAt: number; 
+    age: number;
+    accessCount: number;
+  }>;
+  lastCacheUpdate: number;
+  hitRate?: number;
+  missRate?: number;
+}
+
+export interface VehicleStore {
+  // Unified Data (using EnhancedVehicleInfo as primary model)
+  vehicles: any[]; // Will be properly typed as EnhancedVehicleInfo[]
   stations: Station[];
-  lastUpdate: Date | null;
-  lastApiUpdate: Date | null; // When we last received fresh data from API
-  lastCacheUpdate: Date | null; // When we last updated cache
+  
+  // State Management
   isLoading: boolean;
   error: ErrorState | null;
-  refreshBuses: () => Promise<void>;
-  clearError: () => void;
-  // Real-time refresh system
+  lastUpdate: Date | null;
+  lastApiUpdate: Date | null;
+  lastCacheUpdate: Date | null;
+  
+  // Cache and Offline (integrated from offlineStore)
+  cacheStats: CacheStats;
+  isOnline: boolean;
+  isUsingCachedData: boolean;
+  
+  // Actions - Data Management
+  refreshVehicles: (options?: RefreshOptions) => Promise<void>;
+  refreshStations: (forceRefresh?: boolean) => Promise<void>;
+  refreshScheduleData: () => Promise<void>;
+  refreshLiveData: () => Promise<void>;
+  forceRefreshAll: () => Promise<void>;
+  
+  // Actions - Auto Refresh
   isAutoRefreshEnabled: boolean;
   startAutoRefresh: () => void;
   stopAutoRefresh: () => void;
   manualRefresh: () => Promise<void>;
+  
+  // Actions - Cache Management
+  getCacheStats: () => void;
+  clearCache: () => void;
+  clearError: () => void;
+  
+  // Helper Methods
+  calculateDistance: (from: Coordinates, to: Coordinates) => number;
 }
 
-export interface FavoritesStore {
-  favorites: Favorites;
-  addFavoriteBus: (routeShortName: string) => void;
-  removeFavoriteBus: (routeShortName: string) => void;
-  addFavoriteStation: (stationId: string) => void;
-  removeFavoriteStation: (stationId: string) => void;
-  getFilteredStations: () => Station[];
-}
+// Favorites Store removed - functionality integrated into ConfigStore
 
 export interface LocationStore {
   currentLocation: Coordinates | null;
@@ -128,16 +199,34 @@ export interface LocationStore {
   checkLocationPermission: () => Promise<'granted' | 'denied' | 'prompt'>;
 }
 
-export interface AgencyStore {
-  agencies: Agency[];
-  isLoading: boolean;
-  error: ErrorState | null;
-  isApiValidated: boolean;
-  fetchAgencies: () => Promise<void>;
-  validateAndFetchAgencies: (apiKey: string) => Promise<boolean>;
-  clearError: () => void;
-  resetStore: () => void;
-  checkAndFixCorruptedData: () => boolean;
+
+
+// Shared Utility Types
+export interface StoreEventData {
+  [key: string]: any;
+}
+
+export interface CacheConfig {
+  ttl: number; // Time to live in milliseconds
+  maxSize?: number; // Maximum cache size in bytes
+  staleWhileRevalidate?: boolean; // Serve stale data while fetching fresh
+  maxEntries?: number; // Maximum number of entries
+}
+
+export interface RefreshConfig {
+  key: string;
+  callback: () => Promise<void>;
+  intervalMs: number;
+  immediate?: boolean;
+  onError?: (error: Error) => void;
+  enabled?: boolean;
+}
+
+export interface ErrorContext {
+  storeName: string;
+  operation: string;
+  timestamp: Date;
+  metadata?: Record<string, any>;
 }
 
 // Export Tranzy API types

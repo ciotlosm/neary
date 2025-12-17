@@ -26,7 +26,7 @@ import {
 
 
 import LocationPicker from './components/features/LocationPicker/LocationPicker';
-import { useConfigurationManager } from './hooks/useConfigurationManager';
+import { useConfigurationManager } from './hooks/shared/useConfigurationManager';
 
 
 
@@ -39,21 +39,22 @@ import RefreshControl from './components/layout/Indicators/RefreshControl';
 import { SetupWizard } from './components/features/Setup';
 import OfflineIndicator from './components/layout/Indicators/OfflineIndicator';
 import StatusIndicators from './components/layout/Indicators/StatusIndicators';
-import { useConfigStore, useOfflineStore, useAgencyStore } from './stores';
-import { useThemeStore } from './stores/themeStore';
-import { useRefreshSystem } from './hooks/useRefreshSystem';
-import { useErrorHandler } from './hooks/useErrorHandler';
-import { useAppInitialization } from './hooks/useAppInitialization';
+import { useConfigStore, useVehicleStore } from './stores';
+import { useStoreEvents, StoreEvents } from './stores/shared/storeEvents';
+import { useModernRefreshSystem } from './hooks/shared/useModernRefreshSystem';
+import { useErrorHandler } from './hooks/shared/useErrorHandler';
+import { useAppInitialization } from './hooks/shared/useAppInitialization';
 import { useThemeUtils, useMuiUtils } from './hooks';
 
 import { useComponentLifecycle, logPerformanceMetrics } from './utils/performance';
 import { logger } from './utils/logger';
-import { DebugPanel } from './components/features/Debug/DebugPanel';
+
+
 
 import { StationDisplay } from './components/features/StationDisplay';
 import { FavoriteRoutesView } from './components/features/FavoriteRoutesView';
 import UpdateNotification from './components/layout/UpdateNotification';
-import { useFavoriteBusStore } from './stores/favoriteBusStore';
+
 import { initializeServiceWorker } from './utils/serviceWorkerManager';
 
 
@@ -253,7 +254,14 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 
 function AppMaterial() {
   const [currentView, setCurrentView] = useState<'station' | 'routes' | 'settings'>('station');
-  const { isConfigured, isFullyConfigured } = useConfigStore();
+  const { isConfigured: initialConfigured, isFullyConfigured: initialFullyConfigured } = useConfigStore();
+  
+  // Use local state to track configuration changes via events
+  const [configState, setConfigState] = React.useState({
+    isConfigured: initialConfigured,
+    isFullyConfigured: initialFullyConfigured
+  });
+  
   const { 
     locationPickerOpen, 
     locationPickerType, 
@@ -261,10 +269,35 @@ function AppMaterial() {
     handleLocationSelected
   } = useConfigurationManager();
 
-  useRefreshSystem();
+  const { startAutoRefresh } = useModernRefreshSystem();
   const { error: globalError, clearError } = useErrorHandler();
-  const { initialize: initializeOffline, cleanup: cleanupOffline } = useOfflineStore();
-  const { checkAndFixCorruptedData } = useAgencyStore();
+  const vehicleStore = useVehicleStore();
+  const configStore = useConfigStore();
+  
+  // Subscribe to configuration change events
+  useStoreEvents([
+    {
+      event: StoreEvents.CONFIG_CHANGED,
+      handler: React.useCallback((data: any) => {
+        // Update local state when configuration changes
+        const config = data.config;
+        const isConfigured = !!(config?.apiKey && config?.refreshRate);
+        const isFullyConfigured = !!(
+          config?.city &&
+          config?.agencyId &&
+          config?.apiKey &&
+          config?.refreshRate &&
+          config?.homeLocation &&
+          config?.workLocation
+        );
+        
+        setConfigState({
+          isConfigured,
+          isFullyConfigured
+        });
+      }, [])
+    }
+  ], []);
   const { 
     isInitializing, 
     initializationProgress, 
@@ -283,24 +316,20 @@ function AppMaterial() {
 
   // Initialize offline capabilities and check for corrupted data
   useEffect(() => {
-    logger.info('App initializing', { isConfigured, currentView });
-    initializeOffline();
+    logger.info('App initializing', { isConfigured: configState.isConfigured, currentView });
     
     // Initialize service worker for PWA functionality and updates
     initializeServiceWorker().catch((error) => {
       logger.error('Failed to initialize service worker:', error);
     });
     
-    // Check for corrupted agency data on startup
-    const wasCorrupted = checkAndFixCorruptedData();
-    if (wasCorrupted) {
-      logger.info('Corrupted agency data was cleared on startup');
-    }
+    // The new unified stores handle initialization automatically
+    // No need for manual offline initialization or corruption checks
     
-    // Initialize favorite bus store if fully configured
-    if (isFullyConfigured) {
-      const { startAutoRefresh: startFavoritesRefresh } = useFavoriteBusStore.getState();
-      startFavoritesRefresh();
+    // Initialize modern refresh system and favorite bus store if fully configured
+    if (configState.isFullyConfigured) {
+      startAutoRefresh(); // Start modern refresh system
+      vehicleStore.startAutoRefresh(); // Start vehicle auto-refresh
     }
     
     // Log performance metrics in development
@@ -308,33 +337,32 @@ function AppMaterial() {
       const interval = setInterval(logPerformanceMetrics, 30000);
       return () => {
         clearInterval(interval);
-        cleanupOffline();
+        // Cleanup is handled automatically by the new unified stores
       };
     }
     
     // Cleanup on unmount
     return () => {
       logger.info('App cleanup');
-      const { stopAutoRefresh: stopFavoritesRefresh } = useFavoriteBusStore.getState();
-      stopFavoritesRefresh();
-      cleanupOffline();
+      // Auto-refresh cleanup is handled automatically by the new unified stores
+      vehicleStore.stopAutoRefresh();
     };
-  }, [isFullyConfigured]);
+  }, [configState.isFullyConfigured]);
 
   // Auto-switch to station view when full configuration is complete (only from setup flow)
   const hasAutoSwitched = React.useRef(false);
   
   useEffect(() => {
     // Only auto-switch if we're coming from the setup flow, not from user navigation
-    if (isFullyConfigured && currentView === 'settings' && !hasAutoSwitched.current && isFromSetupFlow.current) {
+    if (configState.isFullyConfigured && currentView === 'settings' && !hasAutoSwitched.current && isFromSetupFlow.current) {
       logger.info('Auto-switching to station view after full configuration');
       hasAutoSwitched.current = true;
       setCurrentView('station');
     }
-  }, [isFullyConfigured, currentView]);
+  }, [configState.isFullyConfigured, currentView]);
 
   // Show setup wizard if not configured (includes API key + city selection)
-  if (!isConfigured) {
+  if (!configState.isConfigured) {
     return (
       <ErrorBoundary>
         <SetupWizard onComplete={() => {
@@ -414,7 +442,7 @@ function AppMaterial() {
 
     switch (currentView) {
       case 'station':
-        if (!isFullyConfigured) {
+        if (!configState.isFullyConfigured) {
           return (
             <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
               <Avatar
@@ -467,7 +495,7 @@ function AppMaterial() {
         );
 
       case 'routes':
-        if (!isFullyConfigured) {
+        if (!configState.isFullyConfigured) {
           return (
             <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
               <Avatar
@@ -562,15 +590,14 @@ function AppMaterial() {
         <MaterialBottomNav 
           currentView={currentView}
           onViewChange={setCurrentView}
-          isConfigured={isFullyConfigured}
+          isConfigured={configState.isFullyConfigured}
           isFromSetupFlowRef={isFromSetupFlow}
         />
 
         {/* Update Notification for PWA */}
         <UpdateNotification />
 
-        {/* Debug Panel (Development Only) */}
-        {import.meta.env.DEV && <DebugPanel />}
+
 
         {/* Location Picker Dialog */}
         <LocationPicker

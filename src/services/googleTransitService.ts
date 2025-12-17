@@ -1,4 +1,4 @@
-import { cacheManager as unifiedCache, CacheKeys } from './cacheManager';
+import { cacheManager, CacheKeys } from './cacheManager';
 import { logger } from '../utils/logger';
 import { useConfigStore } from '../stores/configStore';
 
@@ -64,7 +64,7 @@ class GoogleTransitService {
   async calculateTransitTime(request: TransitRequest): Promise<TransitEstimate> {
     const cacheKey = this.getCacheKey(request);
     
-    return unifiedCache.getLive(
+    return cacheManager.getLive(
       cacheKey,
       async () => {
         if (!this.checkApiKeyOnce()) {

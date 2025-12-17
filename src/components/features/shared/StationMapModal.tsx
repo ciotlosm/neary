@@ -17,7 +17,7 @@ import L from 'leaflet';
 import { enhancedTranzyApi } from '../../../services/tranzyApiService';
 import { logger } from '../../../utils/logger';
 import { calculateDistance } from '../../../utils/distanceUtils';
-import { useAsyncOperation } from '../../../hooks/useAsyncOperation';
+import { useAsyncOperation } from '../../../hooks/shared/useAsyncOperation';
 import type { Station, Coordinates } from '../../../types';
 
 // Import Leaflet CSS

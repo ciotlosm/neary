@@ -1,6 +1,7 @@
 import React, { Component, type ReactNode } from 'react';
 import { ErrorDisplay } from './ErrorDisplay';
 import type { ErrorState } from '../../../types';
+import { StoreErrorHandler } from '../../../stores/shared/errorHandler';
 import { logger } from '../../../utils/logger';
 
 interface ErrorBoundaryProps {
@@ -23,23 +24,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Classify the error type
-    let errorType: ErrorState['type'] = 'network';
-    
-    if (error.name === 'ChunkLoadError' || error.message.includes('Loading chunk')) {
-      errorType = 'network';
-    } else if (error.name === 'SyntaxError' || error.message.includes('JSON')) {
-      errorType = 'parsing';
-    } else if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
-      errorType = 'authentication';
-    }
-
-    const errorState: ErrorState = {
-      type: errorType,
-      message: error.message || 'An unexpected error occurred',
+    // Use standardized error handler to create consistent error state
+    const errorState = StoreErrorHandler.createError(error, {
+      storeName: 'ErrorBoundary',
+      operation: 'componentRender',
       timestamp: new Date(),
-      retryable: errorType === 'network' || errorType === 'authentication',
-    };
+      metadata: {
+        errorName: error.name,
+        componentStack: 'React component tree',
+      },
+    });
 
     return {
       hasError: true,

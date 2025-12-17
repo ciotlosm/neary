@@ -9,7 +9,7 @@ import { Key as KeyIcon } from '@mui/icons-material';
 import { InfoCard } from '../../ui/Card';
 import { ApiKeySection } from '../Configuration/sections/ApiKeySection';
 import { GoogleMapsApiKeySection } from '../Configuration/sections/GoogleMapsApiKeySection';
-import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
+import { useConfigurationManager } from '../../../hooks/shared/useConfigurationManager';
 
 export const ApiConfigurationPanel: React.FC = () => {
   const {

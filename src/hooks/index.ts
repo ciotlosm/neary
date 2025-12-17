@@ -1,19 +1,26 @@
-// Core utility hooks
-export { useApiConfig } from './useApiConfig';
-export { useAsyncOperation, executeAsync } from './useAsyncOperation';
+/**
+ * Hooks Index
+ * 
+ * Organized hook exports following the layered architecture:
+ * - Data Layer: Raw data fetching and caching
+ * - Processing Layer: Data transformation and business logic
+ * - Shared Layer: Reusable utilities and system functions
+ * - Controllers Layer: High-level orchestration and workflows
+ */
 
-// Theme and UI utility hooks
-export { useThemeUtils, useStatusColors, useBackgroundColors } from './useThemeUtils';
-export { useMuiUtils, useCardStyles, useButtonStyles } from './useMuiUtils';
+// === DATA LAYER ===
+// Raw data fetching hooks
+export * from './data';
 
-// Form and validation utility hooks
-export { useFormValidation, useApiKeyValidation, ValidationRules } from './useFormValidation';
-export { useFormHandler, useApiKeyForm, useConfigForm, FormPatterns } from './useFormHandler';
+// === PROCESSING LAYER ===
+// Data transformation and analysis hooks
+export * from './processing';
 
-// Existing hooks
-export { useAppInitialization } from './useAppInitialization';
-export { useConfigurationManager } from './useConfigurationManager';
-export { useErrorHandler } from './useErrorHandler';
-export { useFavoriteBusManager } from './useFavoriteBusManager';
-export { useRefreshSystem } from './useRefreshSystem';
-export { useVehicleProcessing } from './useVehicleProcessing';
+// === SHARED LAYER ===
+// Reusable utility hooks
+export * from './shared';
+
+// === CONTROLLERS LAYER ===
+// High-level business logic and orchestration hooks
+export * from './controllers';
+

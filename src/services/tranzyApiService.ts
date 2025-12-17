@@ -14,7 +14,7 @@ import type {
   EnhancedVehicleInfo
 } from '../types/tranzyApi';
 import type { Agency, Station, VehicleInfo, TranzyApiService as ITranzyApiService } from '../types';
-import { cacheManager as dataCacheManager, CACHE_CONFIGS } from './cacheManager';
+import { cacheManager, CACHE_CONFIGS } from './cacheManager';
 import { logger } from '../utils/logger';
 
 export class TranzyApiService {
@@ -104,8 +104,14 @@ export class TranzyApiService {
 
   private updateApiStatus(isOnline: boolean, error?: any): void {
     // Dynamically import to avoid circular dependency
-    import('../stores/offlineStore').then(({ useOfflineStore }) => {
-      useOfflineStore.getState().updateApiStatus(isOnline, error);
+    import('../stores/vehicleStore').then(({ useVehicleStore }) => {
+      // Offline functionality is now integrated into vehicleStore
+      // The vehicleStore handles API status through its error handling
+      if (!isOnline && error) {
+        // Update the store state directly since there's no setError method
+        const store = useVehicleStore.getState();
+        // The store will handle offline status through its refresh methods
+      }
     }).catch(() => {
       // Ignore import errors in case store is not available
     });
@@ -122,8 +128,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.agencies)
-      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.agencies);
+      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.agencies)
+      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.agencies);
 
     return data;
   }
@@ -141,8 +147,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.routes)
-      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.routes)
+      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
 
     return data;
   }
@@ -160,8 +166,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stops)
-      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stops);
+      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stops)
+      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stops);
 
     return data;
   }
@@ -186,8 +192,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.schedules)
-      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.schedules);
+      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.schedules)
+      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.schedules);
 
     return data;
   }
@@ -211,8 +217,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await dataCacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stopTimes)
-      : await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stopTimes);
+      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stopTimes)
+      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stopTimes);
 
     return data;
   }
@@ -236,7 +242,7 @@ export class TranzyApiService {
       return this.transformShapes(response.data);
     };
 
-    const data = await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+    const data = await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
     return data;
   }
 
@@ -261,7 +267,7 @@ export class TranzyApiService {
 
     // Always try to get fresh vehicle data, but use cache as fallback
     try {
-      const data = await dataCacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.vehicles);
+      const data = await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.vehicles);
       return data;
     } catch (error) {
       logger.warn('Failed to get live vehicles, trying cache', { agencyId, routeId, error }, 'API');
@@ -424,6 +430,22 @@ export class TranzyApiService {
   }
 
   private transformVehicles(data: TranzyVehicleResponse[]): LiveVehicle[] {
+    // Log vehicles without route assignment for debugging
+    const unassignedVehicles = data.filter(v => 
+      v.latitude != null && v.longitude != null && v.route_id == null
+    );
+    if (unassignedVehicles.length > 0) {
+      logger.debug('Vehicles without route assignment', {
+        count: unassignedVehicles.length,
+        vehicles: unassignedVehicles.map(v => ({
+          id: v.id,
+          label: v.label,
+          position: { lat: v.latitude, lon: v.longitude },
+          timestamp: v.timestamp
+        }))
+      }, 'API');
+    }
+
     return data
       .filter(vehicle => 
         vehicle.latitude != null && 

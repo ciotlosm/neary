@@ -1,5 +1,5 @@
 import { enhancedTranzyApi } from './tranzyApiService';
-import { cacheManager as unifiedCache, CacheKeys } from './cacheManager';
+import { cacheManager, CacheKeys } from './cacheManager';
 import { logger } from '../utils/logger';
 
 class LiveVehicleService {
@@ -14,7 +14,7 @@ class LiveVehicleService {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
     // First attempt: get from cache
-    const allVehiclesRaw = await unifiedCache.getLive(
+    const allVehiclesRaw = await cacheManager.getLive(
       cacheKey,
       () => this.fetchAllVehicles(agencyId)
     );
@@ -50,7 +50,7 @@ class LiveVehicleService {
     // Smart cache refresh: If no vehicles found for ANY requested route,
     // check if cache is stale and refresh if needed
     if (!hasAnyVehicles) {
-      const cacheAge = unifiedCache.getCacheAge(cacheKey);
+      const cacheAge = cacheManager.getCacheAge(cacheKey);
       const isStale = cacheAge > 15000; // 15 seconds threshold for favorite routes
       
       if (isStale) {
@@ -62,7 +62,7 @@ class LiveVehicleService {
         
         try {
           // Force refresh and try again
-          const freshVehiclesRaw = await unifiedCache.getLive(
+          const freshVehiclesRaw = await cacheManager.getLive(
             cacheKey,
             () => this.fetchAllVehicles(agencyId),
             true // Force refresh
@@ -112,7 +112,7 @@ class LiveVehicleService {
   async getAllVehicles(agencyId: number): Promise<Map<string, any[]>> {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
-    const allVehiclesRaw = await unifiedCache.getLive(
+    const allVehiclesRaw = await cacheManager.getLive(
       cacheKey,
       () => this.fetchAllVehicles(agencyId)
     );
@@ -128,7 +128,7 @@ class LiveVehicleService {
     const cacheKey = CacheKeys.vehicles(agencyId);
     
     try {
-      const vehiclesByRouteRaw = await unifiedCache.getLive(
+      const vehiclesByRouteRaw = await cacheManager.getLive(
         cacheKey,
         () => this.fetchAllVehicles(agencyId),
         true // Force refresh
@@ -229,7 +229,7 @@ class LiveVehicleService {
     totalVehicles?: number;
     cacheAge?: number;
   } {
-    const stats = unifiedCache.getStats();
+    const stats = cacheManager.getStats();
     
     return {
       isValid: stats.validEntries > 0,
@@ -245,7 +245,7 @@ class LiveVehicleService {
    * Clear the cache (useful for testing or manual refresh)
    */
   clearCache(): void {
-    unifiedCache.clearAll();
+    cacheManager.clearAll();
     logger.debug('Vehicle cache cleared');
   }
 

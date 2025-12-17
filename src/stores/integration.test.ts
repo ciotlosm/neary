@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useConfigStore, useBusStore, useFavoritesStore, useLocationStore } from './index';
+import { useConfigStore, useVehicleStore, useLocationStore } from './index';
 
 // Mock localStorage for testing
 const localStorageMock = (() => {
@@ -45,20 +45,28 @@ describe('Store Integration Tests', () => {
     localStorageMock.clear();
     // Reset all stores
     useConfigStore.getState().resetConfig();
-    useFavoritesStore.setState({ favorites: { buses: [], stations: [] } });
-    useBusStore.setState({
-      buses: [],
+    useVehicleStore.setState({
+      vehicles: [],
       stations: [],
       lastUpdate: null,
       isLoading: false,
       error: null,
+      lastApiUpdate: null,
+      lastCacheUpdate: null,
+      cacheStats: {
+        totalEntries: 0,
+        totalSize: 0,
+        entriesByType: {},
+        entriesWithTimestamps: {},
+        lastCacheUpdate: 0,
+      },
+      isOnline: true,
     });
   });
 
   it('should export all stores correctly', () => {
     expect(useConfigStore).toBeDefined();
-    expect(useBusStore).toBeDefined();
-    expect(useFavoritesStore).toBeDefined();
+    expect(useVehicleStore).toBeDefined();
     expect(useLocationStore).toBeDefined();
   });
 
@@ -75,13 +83,17 @@ describe('Store Integration Tests', () => {
 
     expect(useConfigStore.getState().isConfigured).toBe(true);
 
-    // Test favorites store
-    const favoritesStore = useFavoritesStore.getState();
-    favoritesStore.addFavoriteBus('24');
-    favoritesStore.addFavoriteStation('station-1');
+    // Test favorites management in config store
+    configStore.addFavoriteRoute({
+      id: '24',
+      shortName: '24',
+      longName: 'Zorilor',
+      direction: 'work',
+    });
+    configStore.addFavoriteStation('station-1');
 
-    expect(useFavoritesStore.getState().favorites.buses).toContain('24');
-    expect(useFavoritesStore.getState().favorites.stations).toContain('station-1');
+    expect(configStore.getFavoriteRoutes().some(route => route.id === '24')).toBe(true);
+    expect(configStore.getFavoriteStations()).toContain('station-1');
 
     // Test location store
     const locationStore = useLocationStore.getState();

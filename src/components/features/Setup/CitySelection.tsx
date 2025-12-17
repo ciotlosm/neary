@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAgencyStore } from '../../../stores/agencyStore';
+import { useConfigStore } from '../../../stores/configStore';
 import { logger } from '../../../utils/logger';
 
 interface CitySelectionProps {
@@ -9,7 +9,7 @@ interface CitySelectionProps {
 
 export const CitySelection: React.FC<CitySelectionProps> = ({ onCitySelected, onBack }) => {
   const [selectedAgency, setSelectedAgency] = useState<{city: string, agencyId: string} | null>(null);
-  const { agencies } = useAgencyStore();
+  const { agencies } = useConfigStore();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
