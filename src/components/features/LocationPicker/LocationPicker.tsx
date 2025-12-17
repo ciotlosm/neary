@@ -20,7 +20,7 @@ import {
 } from '@mui/icons-material';
 
 import { Button } from '../../ui/Button';
-import { useLocationPicker } from '../../../hooks/useLocationPicker';
+import { useLocationPicker } from '../../../hooks/shared/useLocationPicker';
 import { CurrentLocationSection } from './components/CurrentLocationSection';
 import { PopularLocations } from './components/PopularLocations';
 import { LocationPickerMap } from './components/LocationPickerMap';

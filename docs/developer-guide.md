@@ -37,10 +37,120 @@ src/
 │   └── layout/         # Layout components
 ├── services/           # API services and business logic
 ├── stores/             # Zustand state management
-├── hooks/              # Custom React hooks
+├── hooks/              # Custom React hooks (modern data architecture)
 ├── utils/              # Pure utility functions
 ├── types/              # TypeScript definitions
 └── theme/              # Material-UI theme
+```
+
+### Modern Data Architecture (December 2024)
+
+**API Service Architecture**:
+- **Single Source of Truth**: All components must use `enhancedTranzyApi` singleton instance
+- **Unified Authentication**: API key set once on singleton, shared across entire app
+
+**State Management Architecture**:
+- **Zustand Stores**: Lightweight, TypeScript-first state management
+- **4-Store System**: Clean, focused stores with single responsibilities
+- **Event-Based Communication**: Stores communicate via events, not direct calls
+- **No Legacy Code**: Clean implementation without backward compatibility concerns
+
+#### Store Architecture (Clean 4-Store System)
+
+**Core Stores**:
+- `configStore`: User configuration, theme, and agency management
+- `vehicleStore`: All vehicle/bus data (live, scheduled, enhanced) + offline functionality
+- `locationStore`: GPS and geolocation management (existing, well-designed)
+- `favoritesStore`: Simple user favorites management
+
+**Shared Utilities**:
+- `storeEvents`: Type-safe event system for store communication
+- `autoRefresh`: Unified auto-refresh manager
+- `errorHandler`: Standardized error handling
+- `cacheManager`: Unified cache management
+
+#### Store Responsibilities
+
+**ConfigStore**:
+- User configuration (API keys, locations, settings)
+- Theme management (light/dark mode with system detection)
+- Agency management (fetching, validation, caching)
+- Encrypted storage for sensitive data
+
+**VehicleStore**:
+- All vehicle data (live, scheduled, enhanced)
+- Station information
+- Cache and offline management
+- Auto-refresh coordination
+- Error handling for data operations
+
+**LocationStore** (Keep Existing):
+- GPS and geolocation services
+- Permission management
+- Distance calculations
+- Location watching and validation
+
+**FavoritesStore**:
+- Simple favorite routes and stations
+- User preference persistence
+- Event-based reactivity to config/vehicle changes
+
+**Usage Example**:
+```typescript
+// Clean, simple store usage
+const { config, theme, setTheme } = useConfigStore();
+const { vehicles, refreshVehicles, isLoading } = useVehicleStore();
+const { currentLocation, requestLocation } = useLocationStore();
+const { favoriteRoutes, addFavoriteRoute } = useFavoritesStore();
+
+// Event-based communication
+StoreEventManager.emit(StoreEvents.CONFIG_CHANGED, { 
+  config: newConfig, 
+  changes: updates 
+});
+```
+- **Pattern-Based Usage**: Use singleton for data operations, factory for validation
+
+**Individual Data Hooks** (Recommended):
+- `useStationData` - Station/stop data with intelligent caching
+- `useVehicleData` - Live vehicle positions with auto-refresh
+- `useRouteData` - Route information with caching
+- `useStopTimesData` - Schedule data with GTFS integration
+
+**Critical Patterns**:
+```typescript
+// ✅ CORRECT - Use singleton for data operations (has API key)
+import { enhancedTranzyApi } from '../../services/tranzyApiService';
+const agencies = await enhancedTranzyApi.getAgencies();
+
+// ✅ CORRECT - Use factory for API key validation (testing new keys)
+import { tranzyApiService } from '../../services/tranzyApiService';
+const testService = tranzyApiService();
+testService.setApiKey(newApiKey);
+const isValid = await testService.validateApiKey(newApiKey);
+
+// ❌ WRONG - Factory for data operations (no API key)
+const apiService = tranzyApiService();
+const agencies = await apiService.getAgencies(); // Will fail
+```
+- `useRouteData` - Route information with caching
+- `useStopTimesData` - GTFS schedule data with caching
+- `useModernRefreshSystem` - Centralized refresh control
+
+**Benefits**:
+- ✅ Single source of truth for each data type
+- ✅ Focused, efficient caching per data type
+- ✅ No duplicate API calls
+- ✅ Clear separation of concerns
+- ✅ Better performance and maintainability
+
+**Usage Example**:
+```typescript
+const { data: stations, isLoading, refresh } = useStationData({
+  agencyId: config.agencyId,
+  forceRefresh: false,
+  cacheMaxAge: 60000 // 1 minute
+});
 ```
 
 ## 🔌 API Integration
@@ -77,6 +187,115 @@ export default defineConfig({
 - **CTP Cluj Route Label**: "42"
 - **User sees**: Route 42
 - **Code uses**: ID 40 for API calls, Label 42 for CTP Cluj schedules
+
+## 🪝 Hook Architecture
+
+### Layered Hook System (December 2024 Refactoring)
+
+The app uses a three-layer hook architecture that replaced the original monolithic `useVehicleProcessing` hook (829 lines) with focused, composable hooks:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 Orchestration Layer                     │
+│  useVehicleProcessing() - Coordinates all sub-hooks    │
+└─────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────┐
+│                 Processing Layer                        │
+│  useVehicleFiltering()    useVehicleGrouping()         │
+│  useDirectionAnalysis()   useProximityCalculation()    │
+└─────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────┐
+│                   Data Layer                            │
+│  useStationData()    useVehicleData()                  │
+│  useRouteData()      useStopTimesData()                │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Data Layer Hooks
+Focused hooks for API data fetching with caching and error handling:
+
+```typescript
+// Station data with caching
+const { data: stations, isLoading, error, refetch } = useStationData({
+  agencyId: '123',
+  cacheMaxAge: 5 * 60 * 1000, // 5 minutes
+  forceRefresh: false
+});
+
+// Live vehicle data with auto-refresh
+const { data: vehicles } = useVehicleData({
+  agencyId: '123',
+  autoRefresh: true,
+  refreshInterval: 30 * 1000 // 30 seconds
+});
+```
+
+#### Processing Layer Hooks
+Pure business logic hooks that transform data without side effects:
+
+```typescript
+// Filter vehicles by criteria
+const { filteredVehicles, filterStats } = useVehicleFiltering(vehicles, {
+  filterByFavorites: true,
+  favoriteRoutes: ['42', '24'],
+  maxSearchRadius: 5000,
+  userLocation: currentLocation
+});
+
+// Group vehicles by stations
+const { stationGroups, groupingStats } = useVehicleGrouping(
+  filteredVehicles,
+  stations,
+  userLocation,
+  { maxStations: 2, proximityThreshold: 200 }
+);
+```
+
+#### Orchestration Layer Hook
+Coordinates all sub-hooks while maintaining backward compatibility:
+
+```typescript
+// Main hook with exact API compatibility
+const {
+  stationVehicleGroups,
+  isLoading,
+  effectiveLocationForDisplay,
+  favoriteRoutes,
+  allStations,
+  vehicles,
+  error
+} = useVehicleProcessing({
+  filterByFavorites: true,
+  maxStations: 2,
+  maxVehiclesPerStation: 5,
+  showAllVehiclesPerRoute: false
+});
+```
+
+#### Migration Support
+Gradual migration with feature flags:
+
+```typescript
+// Migration wrapper with automatic switching
+const result = useVehicleProcessingMigrated(options, 'ComponentName');
+
+// Monitor migration status
+const migrationStatus = useVehicleProcessingMigrationStatus('ComponentName');
+```
+
+#### Benefits Achieved
+- **Code Reduction**: 829-line hook → focused sub-hooks
+- **Testability**: Each hook can be tested independently
+- **Reusability**: Hooks can be composed in different ways
+- **Performance**: Selective re-execution and focused caching
+- **Maintainability**: Single responsibility per hook
+
+#### Documentation
+- **[Hook Architecture Guide](hook-architecture-guide.md)**: Comprehensive architecture overview
+- **[Hook Examples](hook-examples.md)**: Practical usage examples
+- **[Migration Guide](hook-migration-guide.md)**: Best practices for future migrations
 
 ## 🏪 State Management
 

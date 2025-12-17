@@ -12,17 +12,17 @@ import {
 } from '@mui/material';
 import { Favorite as FavoriteIcon } from '@mui/icons-material';
 import { useConfigStore } from '../../../stores/configStore';
-import { useFavoriteBusStore } from '../../../stores/favoriteBusStore';
+// Favorites are now managed through configStore
 import { withPerformanceMonitoring } from '../../../utils/performance';
 import { calculateDistance } from '../../../utils/distanceUtils';
 import { BusIcon, MapPinIcon } from '../../ui/Icons/Icons';
 import { useThemeUtils } from '../../../hooks';
-import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
+import { BusRouteMapModal } from '../shared/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
 import { StationHeader } from '../shared/StationHeader';
 import { StationMapModal } from '../shared/StationMapModal';
-import { useVehicleProcessing } from '../../../hooks/useVehicleProcessing';
+import { useVehicleProcessing } from '../../../hooks/controllers/useVehicleProcessing';
 import type { EnhancedVehicleInfo, Station } from '../../../types';
 import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
 
@@ -43,7 +43,7 @@ interface FavoriteRoutesViewProps {
 
 const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavigateToSettings }) => {
   const { config } = useConfigStore();
-  const { favoriteBusResult } = useFavoriteBusStore();
+  // Favorites are now managed through configStore and accessed via useVehicleProcessing
   const { getStatusColors, alpha } = useThemeUtils();
   
   // Use the shared vehicle processing hook

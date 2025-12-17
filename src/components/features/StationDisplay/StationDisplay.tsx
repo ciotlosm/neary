@@ -8,18 +8,20 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useConfigStore } from '../../../stores/configStore';
-import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
 import { withPerformanceMonitoring } from '../../../utils/performance';
 import { logger } from '../../../utils/logger';
 import { MapPinIcon } from '../../ui/Icons/Icons';
-import { BusRouteMapModal } from '../FavoriteBuses/components/BusRouteMapModal';
+import { BusRouteMapModal } from '../shared/BusRouteMapModal';
 import { VehicleCard } from '../shared/VehicleCard';
 import { StationHeader } from '../shared/StationHeader';
 import { StationMapModal } from '../shared/StationMapModal';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
-import { useVehicleProcessing } from '../../../hooks/useVehicleProcessing';
+import { useNearbyViewController } from '../../../hooks/controllers/useNearbyViewController';
 import type { EnhancedVehicleInfo } from '../../../types';
 import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
+
+
+import { useModernRefreshSystem } from '../../../hooks/shared/useModernRefreshSystem';
 
 interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
   _internalDirection?: 'arriving' | 'departing' | 'unknown';
@@ -38,7 +40,11 @@ interface StationDisplayProps {
 
 const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
   const { config } = useConfigStore();
-  const { refreshBuses, lastUpdate } = useEnhancedBusStore();
+  
+  // MIGRATION: Use modern refresh system instead of enhanced bus store
+  const { refreshAll, lastUpdate } = useModernRefreshSystem();
+  
+
   
   // State for route filtering per station (must be declared before use)
   const [selectedRoutePerStation, setSelectedRoutePerStation] = React.useState<Map<string, string>>(new Map());
@@ -56,30 +62,62 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     };
 
     if (shouldRefresh()) {
-      logger.debug('Triggering store refresh for station display', {
+      logger.debug('Triggering modern refresh for station display', {
         hasLastUpdate: !!lastUpdate,
         lastUpdate
       }, 'STATION_DISPLAY');
-      refreshBuses();
+      refreshAll();
     }
-  }, [config?.agencyId, config?.apiKey, lastUpdate, refreshBuses]);
+  }, [config?.agencyId, config?.apiKey, lastUpdate, refreshAll]);
   
-  // Use the shared vehicle processing hook
-  // Always get full vehicle data, we'll handle filtering per station
+  // Use the new nearby view controller for improved station selection
   const {
     stationVehicleGroups,
     isLoading,
     effectiveLocationForDisplay,
-    allStations,
-  } = useVehicleProcessing({
-    filterByFavorites: false,
-    maxStations: 2,
-    maxVehiclesPerStation: 999, // Get all vehicles, we'll filter per station
-    showAllVehiclesPerRoute: true, // Get all vehicles per route
+    selectedStations,
+    error: nearbyViewError,
+    selectionMetadata,
+  } = useNearbyViewController({
+    enableSecondStation: true,
+    customDistanceThreshold: 200,
+    stabilityMode: 'normal',
     maxSearchRadius: 5000,
-    maxStationsToCheck: 20,
-    proximityThreshold: 200,
+    maxVehiclesPerStation: 999, // Get all vehicles, we'll filter per station
+    requireActiveRoutes: true,
+    enableStabilityTracking: true,
+    autoRefresh: true,
+    refreshInterval: 30000,
   });
+
+  // Log nearby view integration for debugging
+  React.useEffect(() => {
+    if (selectedStations && selectionMetadata) {
+      logger.debug('StationDisplay using nearby view controller', {
+        hasClosestStation: !!selectedStations.closestStation,
+        hasSecondStation: !!selectedStations.secondStation,
+        stationGroupsCount: stationVehicleGroups.length,
+        totalStationsEvaluated: selectionMetadata.totalStationsEvaluated,
+        stationsWithRoutes: selectionMetadata.stationsWithRoutes,
+        selectionTime: selectionMetadata.selectionTime,
+        stabilityApplied: selectionMetadata.stabilityApplied,
+        hasError: !!nearbyViewError
+      }, 'STATION_DISPLAY_INTEGRATION');
+    }
+  }, [selectedStations, selectionMetadata, stationVehicleGroups.length, nearbyViewError]);
+
+  // Additional debug logging for empty states (will be added after processedStationGroups is defined)
+
+  // Get all stations for map functionality (fallback to empty array)
+  const allStations = React.useMemo(() => {
+    const stations: any[] = [];
+    stationVehicleGroups.forEach(group => {
+      if (group.station?.station && !stations.find(s => s.id === group.station.station.id)) {
+        stations.push(group.station.station);
+      }
+    });
+    return stations;
+  }, [stationVehicleGroups]);
   
   // State for managing expanded stops per vehicle
   const [expandedVehicles, setExpandedVehicles] = React.useState<Set<string>>(new Set());
@@ -211,6 +249,49 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     });
   }, [stationVehicleGroups, selectedRoutePerStation, config?.maxVehiclesPerStation]);
 
+  // Check if we have any stations with vehicles after processing
+  const hasStationsWithVehicles = processedStationGroups.some(group => group.vehicles.length > 0);
+
+  // Debug logging for processed data
+  React.useEffect(() => {
+    logger.debug('StationDisplay processed data state', {
+      isLoading,
+      hasError: !!nearbyViewError,
+      errorType: nearbyViewError?.type,
+      stationGroupsCount: stationVehicleGroups.length,
+      processedGroupsCount: processedStationGroups.length,
+      groupsWithVehicles: processedStationGroups.filter(g => g.vehicles.length > 0).length,
+      hasStationsWithVehicles,
+      effectiveLocation: !!effectiveLocationForDisplay,
+      locationCoords: effectiveLocationForDisplay ? 
+        `${effectiveLocationForDisplay.latitude.toFixed(4)}, ${effectiveLocationForDisplay.longitude.toFixed(4)}` : 
+        'none'
+    }, 'STATION_DISPLAY_DEBUG');
+  }, [isLoading, nearbyViewError, stationVehicleGroups.length, processedStationGroups.length, hasStationsWithVehicles, effectiveLocationForDisplay]);
+
+  // Show empty state if no stations have vehicles
+  if (!isLoading && !nearbyViewError && !hasStationsWithVehicles) {
+    return (
+      <Box sx={{ px: 3, pb: 3, pt: 1 }}>
+        <Card sx={{ 
+          p: 3, 
+          textAlign: 'center',
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" sx={{ mb: 1, color: 'text.primary' }}>
+            No Active Buses
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No buses are currently serving nearby stations. Try refreshing or check back later.
+          </Typography>
+        </Card>
+      </Box>
+    );
+  }
+
   // Convert vehicle to FavoriteBusInfo format for map modal
   const convertVehicleToFavoriteBusInfo = (vehicle: EnhancedVehicleInfoWithDirection, targetStationId: string): FavoriteBusInfo => {
     return {
@@ -257,7 +338,40 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     };
   };
 
-  if (!effectiveLocationForDisplay) {
+  // Handle nearby view errors with appropriate messages
+  if (nearbyViewError) {
+    const getErrorMessage = () => {
+      switch (nearbyViewError.type) {
+        case 'no_gps_location':
+          return {
+            title: 'Location Required',
+            message: 'Please enable location services to see nearby station buses'
+          };
+        case 'no_stations_in_range':
+          return {
+            title: 'No Nearby Stations',
+            message: 'No bus stations found within 5km of your location'
+          };
+        case 'no_routes_available':
+          return {
+            title: 'No Active Routes',
+            message: 'No active routes found for nearby stations'
+          };
+        case 'configuration_error':
+          return {
+            title: 'Configuration Required',
+            message: 'Please configure your API settings to see bus data'
+          };
+        default:
+          return {
+            title: 'Unable to Load Data',
+            message: nearbyViewError.message || 'Please try again later'
+          };
+      }
+    };
+
+    const { title, message } = getErrorMessage();
+
     return (
       <Box sx={{ px: 3, pb: 3, pt: 1 }}>
         <Card sx={{ 
@@ -280,10 +394,10 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
                 <MapPinIcon size={28} className="text-gray-400" />
               </Box>
               <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
-                Location Required
+                {title}
               </Typography>
               <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                Please enable location services to see nearby station buses
+                {message}
               </Typography>
             </Stack>
           </CardContent>
@@ -316,40 +430,9 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
     );
   }
 
-  if (!effectiveLocationForDisplay) {
-    return (
-      <Box sx={{ px: 3, pb: 3, pt: 1 }}>
-        <Card sx={{ 
-          bgcolor: 'rgba(30, 41, 59, 0.3)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(100, 116, 139, 0.2)'
-        }}>
-          <CardContent>
-            <Stack spacing={3} alignItems="center" sx={{ py: 8 }}>
-              <Box sx={{ 
-                width: 64, 
-                height: 64, 
-                borderRadius: 3,
-                bgcolor: 'rgba(71, 85, 105, 0.5)',
-                border: '1px solid rgba(100, 116, 139, 0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <MapPinIcon size={28} className="text-gray-400" />
-              </Box>
-              <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
-                No nearby stations
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'grey.400', textAlign: 'center' }}>
-                {!stationVehicleGroups.length ? 'No bus stations found within 5km of your location' : 'Please enable location services to see nearby station buses'}
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-      </Box>
-    );
-  }
+
+
+
 
   return (
     <Box sx={{ px: 3, pb: 3, pt: 1 }}>
@@ -499,6 +582,8 @@ const StationDisplayComponent: React.FC<StationDisplayProps> = () => {
           agencyId={config?.agencyId}
         />
       )}
+
+
     </Box>
   );
 };

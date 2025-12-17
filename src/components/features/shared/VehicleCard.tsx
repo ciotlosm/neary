@@ -23,7 +23,7 @@ import {
 import { formatRefreshTime } from '../../../utils/timeFormat';
 import type { EnhancedVehicleInfo } from '../../../types';
 import { useConfigStore } from '../../../stores/configStore';
-import { useOfflineStore } from '../../../stores/offlineStore';
+import { useVehicleStore } from '../../../stores/vehicleStore';
 import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
 interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
@@ -59,7 +59,10 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
   showFullStopsButton = true
 }) => {
   const { config } = useConfigStore();
-  const { isOnline, isApiOnline } = useOfflineStore();
+  // Offline functionality is now integrated into vehicleStore
+  const { error } = useVehicleStore();
+  const isOnline = !error || error.type !== 'network';
+  const isApiOnline = isOnline;
   const { getDataFreshnessColor, getBackgroundColors, getBorderColors, alpha, theme } = useThemeUtils();
   const { getCardStyles } = useMuiUtils();
   
@@ -303,9 +306,6 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
             {/* Short stop list (always visible for favorite routes) */}
             {showShortStopList && stopsToShow.length > 0 && (
               <Box sx={{ mt: 1 }}>
-                <Typography variant="caption" sx={{ color: 'grey.500', mb: 0.5, display: 'block' }}>
-                  Next stops:
-                </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {stopsToShow.map((stop, index) => (
                     <Box

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useBusStore } from './busStore';
 import { useConfigStore } from './configStore';
+import { useVehicleStore } from './vehicleStore';
 import type { UserConfig } from '../types';
 
 describe('Refresh System Integration', () => {
@@ -9,8 +9,8 @@ describe('Refresh System Integration', () => {
     vi.useFakeTimers();
     
     // Reset stores
-    useBusStore.setState({
-      buses: [],
+    useVehicleStore.setState({
+      vehicles: [],
       stations: [],
       lastUpdate: null,
       isLoading: false,
@@ -26,7 +26,7 @@ describe('Refresh System Integration', () => {
 
   afterEach(() => {
     // Clean up any intervals
-    const store = useBusStore.getState();
+    const store = useVehicleStore.getState();
     if (store.isAutoRefreshEnabled) {
       store.stopAutoRefresh();
     }
@@ -49,11 +49,11 @@ describe('Refresh System Integration', () => {
     });
 
     // Start auto refresh
-    const store = useBusStore.getState();
+    const store = useVehicleStore.getState();
     store.startAutoRefresh();
 
     // Verify auto refresh is enabled
-    expect(useBusStore.getState().isAutoRefreshEnabled).toBe(true);
+    expect(useVehicleStore.getState().isAutoRefreshEnabled).toBe(true);
   });
 
   it('should stop auto refresh when configuration is cleared', () => {
@@ -71,15 +71,15 @@ describe('Refresh System Integration', () => {
       isConfigured: true,
     });
     
-    const store = useBusStore.getState();
+    const store = useVehicleStore.getState();
     store.startAutoRefresh();
-    expect(useBusStore.getState().isAutoRefreshEnabled).toBe(true);
+    expect(useVehicleStore.getState().isAutoRefreshEnabled).toBe(true);
 
     // Clear configuration
     store.stopAutoRefresh();
 
     // Verify auto refresh is disabled
-    expect(useBusStore.getState().isAutoRefreshEnabled).toBe(false);
+    expect(useVehicleStore.getState().isAutoRefreshEnabled).toBe(false);
   });
 
   it('should handle manual refresh independently of auto refresh', async () => {
@@ -96,12 +96,12 @@ describe('Refresh System Integration', () => {
       isConfigured: true,
     });
 
-    const store = useBusStore.getState();
+    const store = useVehicleStore.getState();
     
-    // Mock the refreshBuses function to track calls
+    // Mock the refreshVehicles function to track calls
     const refreshSpy = vi.fn().mockResolvedValue(undefined);
-    useBusStore.setState({
-      refreshBuses: refreshSpy,
+    useVehicleStore.setState({
+      refreshVehicles: refreshSpy,
     });
 
     // Trigger manual refresh
@@ -126,7 +126,7 @@ describe('Refresh System Integration', () => {
     });
 
     // Set an error state
-    useBusStore.setState({
+    useVehicleStore.setState({
       error: {
         type: 'network',
         message: 'Test error',
@@ -135,12 +135,12 @@ describe('Refresh System Integration', () => {
       },
     });
 
-    const store = useBusStore.getState();
+    const store = useVehicleStore.getState();
     
-    // Mock refreshBuses to succeed
+    // Mock refreshVehicles to succeed
     const refreshSpy = vi.fn().mockResolvedValue(undefined);
-    useBusStore.setState({
-      refreshBuses: refreshSpy,
+    useVehicleStore.setState({
+      refreshVehicles: refreshSpy,
     });
 
     // Trigger manual refresh

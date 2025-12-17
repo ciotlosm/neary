@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act } from '@testing-library/react';
-import { useConfigStore, useBusStore, useFavoritesStore } from './stores';
-import type { UserConfig, BusInfo } from './types';
+import { useConfigStore, useVehicleStore } from './stores';
+import type { UserConfig, EnhancedVehicleInfo } from './types';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -33,36 +33,56 @@ describe('Integration Tests - Complete User Flows', () => {
     refreshRate: 30000,
   };
 
-  const mockBuses: BusInfo[] = [
+  const mockVehicles: EnhancedVehicleInfo[] = [
     {
       id: 'bus-1',
-      route: '24',
-      destination: 'Zorilor',
+      routeId: '24',
+      routeShortName: '24',
+      routeLongName: 'Zorilor',
+      tripId: 'trip-1',
+      vehicleId: 'vehicle-1',
+      latitude: 46.7712,
+      longitude: 23.6236,
+      bearing: 90,
+      speed: 30,
+      timestamp: Date.now(),
+      stopId: 'station-1',
+      stopName: 'Piața Unirii',
+      stopSequence: 1,
       arrivalTime: new Date(Date.now() + 5 * 60 * 1000),
+      departureTime: new Date(Date.now() + 5 * 60 * 1000),
+      scheduleRelationship: 'SCHEDULED',
+      occupancyStatus: 'MANY_SEATS_AVAILABLE',
+      congestionLevel: 'UNKNOWN_CONGESTION_LEVEL',
       isLive: true,
       minutesAway: 5,
-      station: {
-        id: 'station-1',
-        name: 'Piața Unirii',
-        coordinates: { latitude: 46.7712, longitude: 23.6236 },
-        isFavorite: false,
-      },
       direction: 'work',
+      confidence: 'high',
     },
     {
       id: 'bus-2',
-      route: '35',
-      destination: 'Mănăștur',
+      routeId: '35',
+      routeShortName: '35',
+      routeLongName: 'Mănăștur',
+      tripId: 'trip-2',
+      vehicleId: 'vehicle-2',
+      latitude: 46.7833,
+      longitude: 23.6167,
+      bearing: 180,
+      speed: 25,
+      timestamp: Date.now(),
+      stopId: 'station-2',
+      stopName: 'Piața Mărăști',
+      stopSequence: 1,
       arrivalTime: new Date(Date.now() + 8 * 60 * 1000),
+      departureTime: new Date(Date.now() + 8 * 60 * 1000),
+      scheduleRelationship: 'SCHEDULED',
+      occupancyStatus: 'MANY_SEATS_AVAILABLE',
+      congestionLevel: 'UNKNOWN_CONGESTION_LEVEL',
       isLive: false,
       minutesAway: 8,
-      station: {
-        id: 'station-2',
-        name: 'Piața Mărăști',
-        coordinates: { latitude: 46.7833, longitude: 23.6167 },
-        isFavorite: false,
-      },
       direction: 'home',
+      confidence: 'medium',
     },
   ];
 
@@ -72,16 +92,22 @@ describe('Integration Tests - Complete User Flows', () => {
     
     // Reset stores
     useConfigStore.getState().resetConfig();
-    useBusStore.setState({
-      buses: [],
+    useVehicleStore.setState({
+      vehicles: [],
       stations: [],
       lastUpdate: null,
       isLoading: false,
       error: null,
-      isAutoRefreshEnabled: false,
-    });
-    useFavoritesStore.setState({
-      favorites: { buses: [], stations: [] },
+      lastApiUpdate: null,
+      lastCacheUpdate: null,
+      cacheStats: {
+        totalEntries: 0,
+        totalSize: 0,
+        entriesByType: {},
+        entriesWithTimestamps: {},
+        lastCacheUpdate: 0,
+      },
+      isOnline: true,
     });
   });
 
@@ -139,15 +165,15 @@ describe('Integration Tests - Complete User Flows', () => {
     });
   });
 
-  describe('Bus Data Management Integration', () => {
+  describe('Vehicle Data Management Integration', () => {
     beforeEach(() => {
       useConfigStore.getState().updateConfig(mockConfig);
     });
 
-    it('should manage bus data correctly', () => {
+    it('should manage vehicle data correctly', () => {
       act(() => {
-        useBusStore.setState({
-          buses: mockBuses,
+        useVehicleStore.setState({
+          vehicles: mockVehicles,
           stations: [],
           lastUpdate: new Date(),
           isLoading: false,
@@ -155,20 +181,20 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      expect(busStore.buses).toHaveLength(2);
-      expect(busStore.buses[0].route).toBe('24');
-      expect(busStore.buses[0].direction).toBe('work');
-      expect(busStore.buses[0].isLive).toBe(true);
-      expect(busStore.buses[1].route).toBe('35');
-      expect(busStore.buses[1].direction).toBe('home');
-      expect(busStore.buses[1].isLive).toBe(false);
+      const vehicleStore = useVehicleStore.getState();
+      expect(vehicleStore.vehicles).toHaveLength(2);
+      expect(vehicleStore.vehicles[0].routeShortName).toBe('24');
+      expect(vehicleStore.vehicles[0].direction).toBe('work');
+      expect(vehicleStore.vehicles[0].isLive).toBe(true);
+      expect(vehicleStore.vehicles[1].routeShortName).toBe('35');
+      expect(vehicleStore.vehicles[1].direction).toBe('home');
+      expect(vehicleStore.vehicles[1].isLive).toBe(false);
     });
 
-    it('should filter buses by direction', () => {
+    it('should filter vehicles by direction', () => {
       act(() => {
-        useBusStore.setState({
-          buses: mockBuses,
+        useVehicleStore.setState({
+          vehicles: mockVehicles,
           stations: [],
           lastUpdate: new Date(),
           isLoading: false,
@@ -176,20 +202,20 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      const workBuses = busStore.buses.filter(bus => bus.direction === 'work');
-      const homeBuses = busStore.buses.filter(bus => bus.direction === 'home');
+      const vehicleStore = useVehicleStore.getState();
+      const workVehicles = vehicleStore.vehicles.filter(vehicle => vehicle.direction === 'work');
+      const homeVehicles = vehicleStore.vehicles.filter(vehicle => vehicle.direction === 'home');
 
-      expect(workBuses).toHaveLength(1);
-      expect(workBuses[0].route).toBe('24');
-      expect(homeBuses).toHaveLength(1);
-      expect(homeBuses[0].route).toBe('35');
+      expect(workVehicles).toHaveLength(1);
+      expect(workVehicles[0].routeShortName).toBe('24');
+      expect(homeVehicles).toHaveLength(1);
+      expect(homeVehicles[0].routeShortName).toBe('35');
     });
 
-    it('should handle empty bus data', () => {
+    it('should handle empty vehicle data', () => {
       act(() => {
-        useBusStore.setState({
-          buses: [],
+        useVehicleStore.setState({
+          vehicles: [],
           stations: [],
           lastUpdate: new Date(),
           isLoading: false,
@@ -197,9 +223,9 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      expect(busStore.buses).toHaveLength(0);
-      expect(busStore.error).toBeNull();
+      const vehicleStore = useVehicleStore.getState();
+      expect(vehicleStore.vehicles).toHaveLength(0);
+      expect(vehicleStore.error).toBeNull();
     });
   });
 
@@ -209,43 +235,55 @@ describe('Integration Tests - Complete User Flows', () => {
     });
 
     it('should manage favorites across app sessions', () => {
-      const favoritesStore = useFavoritesStore.getState();
+      const configStore = useConfigStore.getState();
       
       // Add favorites
       act(() => {
-        favoritesStore.addFavoriteBus('24');
-        favoritesStore.addFavoriteStation('station-1');
+        configStore.addFavoriteRoute({
+          id: '24',
+          shortName: '24',
+          longName: 'Zorilor',
+          direction: 'work',
+        });
+        configStore.addFavoriteStation('station-1');
       });
 
       // Verify favorites were added
-      expect(useFavoritesStore.getState().favorites.buses).toContain('24');
-      expect(useFavoritesStore.getState().favorites.stations).toContain('station-1');
+      const favoriteRoutes = configStore.getFavoriteRoutes();
+      const favoriteStations = configStore.getFavoriteStations();
+      expect(favoriteRoutes.some(route => route.id === '24')).toBe(true);
+      expect(favoriteStations).toContain('station-1');
 
-      // Verify localStorage was called (favorites store uses Zustand persistence)
+      // Verify localStorage was called (config store uses Zustand persistence)
       expect(localStorageMock.setItem).toHaveBeenCalled();
     });
 
     it('should update filtered views when favorites change', () => {
-      const favoritesStore = useFavoritesStore.getState();
+      const configStore = useConfigStore.getState();
       
       // Initially no favorites
-      expect(useFavoritesStore.getState().favorites.buses).toHaveLength(0);
+      expect(configStore.getFavoriteRoutes()).toHaveLength(0);
 
-      // Add favorite bus
+      // Add favorite route
       act(() => {
-        favoritesStore.addFavoriteBus('24');
+        configStore.addFavoriteRoute({
+          id: '24',
+          shortName: '24',
+          longName: 'Zorilor',
+          direction: 'work',
+        });
       });
 
       // Should be in favorites now
-      expect(useFavoritesStore.getState().favorites.buses).toContain('24');
+      expect(configStore.getFavoriteRoutes().some(route => route.id === '24')).toBe(true);
 
       // Remove favorite
       act(() => {
-        favoritesStore.removeFavoriteBus('24');
+        configStore.removeFavoriteRoute('24');
       });
 
       // Should be removed
-      expect(useFavoritesStore.getState().favorites.buses).not.toContain('24');
+      expect(configStore.getFavoriteRoutes().some(route => route.id === '24')).toBe(false);
     });
   });
 
@@ -256,8 +294,8 @@ describe('Integration Tests - Complete User Flows', () => {
 
     it('should handle network errors gracefully', () => {
       act(() => {
-        useBusStore.setState({
-          buses: [],
+        useVehicleStore.setState({
+          vehicles: [],
           stations: [],
           lastUpdate: null,
           isLoading: false,
@@ -270,16 +308,16 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      expect(busStore.error).toBeTruthy();
-      expect(busStore.error?.type).toBe('network');
-      expect(busStore.error?.retryable).toBe(true);
+      const vehicleStore = useVehicleStore.getState();
+      expect(vehicleStore.error).toBeTruthy();
+      expect(vehicleStore.error?.type).toBe('network');
+      expect(vehicleStore.error?.retryable).toBe(true);
     });
 
     it('should handle authentication errors', () => {
       act(() => {
-        useBusStore.setState({
-          buses: [],
+        useVehicleStore.setState({
+          vehicles: [],
           stations: [],
           lastUpdate: null,
           isLoading: false,
@@ -292,17 +330,17 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      expect(busStore.error).toBeTruthy();
-      expect(busStore.error?.type).toBe('authentication');
-      expect(busStore.error?.retryable).toBe(false);
+      const vehicleStore = useVehicleStore.getState();
+      expect(vehicleStore.error).toBeTruthy();
+      expect(vehicleStore.error?.type).toBe('authentication');
+      expect(vehicleStore.error?.retryable).toBe(false);
     });
 
     it('should recover from errors when new data is loaded', () => {
       // Start with error state
       act(() => {
-        useBusStore.setState({
-          buses: [],
+        useVehicleStore.setState({
+          vehicles: [],
           stations: [],
           lastUpdate: null,
           isLoading: false,
@@ -315,12 +353,12 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      expect(useBusStore.getState().error).toBeTruthy();
+      expect(useVehicleStore.getState().error).toBeTruthy();
 
       // Clear error and add data
       act(() => {
-        useBusStore.setState({
-          buses: mockBuses,
+        useVehicleStore.setState({
+          vehicles: mockVehicles,
           stations: [],
           lastUpdate: new Date(),
           isLoading: false,
@@ -328,16 +366,15 @@ describe('Integration Tests - Complete User Flows', () => {
         });
       });
 
-      const busStore = useBusStore.getState();
-      expect(busStore.error).toBeNull();
-      expect(busStore.buses).toHaveLength(2);
+      const vehicleStore = useVehicleStore.getState();
+      expect(vehicleStore.error).toBeNull();
+      expect(vehicleStore.vehicles).toHaveLength(2);
     });
   });
 
   describe('Store Coordination and Integration', () => {
     it('should coordinate between all stores correctly', () => {
       const configStore = useConfigStore.getState();
-      const favoritesStore = useFavoritesStore.getState();
 
       // Update configuration
       act(() => {
@@ -346,30 +383,39 @@ describe('Integration Tests - Complete User Flows', () => {
 
       // Add favorites
       act(() => {
-        favoritesStore.addFavoriteBus('24');
-        favoritesStore.addFavoriteStation('station-1');
+        configStore.addFavoriteRoute({
+          id: '24',
+          shortName: '24',
+          longName: 'Zorilor',
+          direction: 'work',
+        });
+        configStore.addFavoriteStation('station-1');
       });
 
-      // Update bus data
+      // Update vehicle data
       act(() => {
-        useBusStore.setState({ buses: mockBuses });
+        useVehicleStore.setState({ vehicles: mockVehicles });
       });
 
       // Verify all stores are coordinated
       expect(useConfigStore.getState().config?.city).toBe(mockConfig.city);
-      expect(useFavoritesStore.getState().favorites.buses).toContain('24');
-      expect(useFavoritesStore.getState().favorites.stations).toContain('station-1');
-      expect(useBusStore.getState().buses).toHaveLength(2);
+      expect(configStore.getFavoriteRoutes().some(route => route.id === '24')).toBe(true);
+      expect(configStore.getFavoriteStations()).toContain('station-1');
+      expect(useVehicleStore.getState().vehicles).toHaveLength(2);
     });
 
     it('should handle configuration persistence across stores', () => {
       const configStore = useConfigStore.getState();
-      const favoritesStore = useFavoritesStore.getState();
 
       // Update stores
       act(() => {
         configStore.updateConfig(mockConfig);
-        favoritesStore.addFavoriteBus('24');
+        configStore.addFavoriteRoute({
+          id: '24',
+          shortName: '24',
+          longName: 'Zorilor',
+          direction: 'work',
+        });
       });
 
       // Verify localStorage calls for stores
@@ -377,7 +423,7 @@ describe('Integration Tests - Complete User Flows', () => {
         'config',
         expect.stringContaining(mockConfig.city)
       );
-      // Favorites store also persists via Zustand
+      // Config store also persists favorites via Zustand
       expect(localStorageMock.setItem).toHaveBeenCalled();
     });
   });
@@ -389,29 +435,34 @@ describe('Integration Tests - Complete User Flows', () => {
       // Multiple rapid updates should work correctly
       act(() => {
         configStore.updateConfig(mockConfig);
-        useBusStore.setState({ buses: mockBuses });
-        useFavoritesStore.getState().addFavoriteBus('24');
+        useVehicleStore.setState({ vehicles: mockVehicles });
+        configStore.addFavoriteRoute({
+          id: '24',
+          shortName: '24',
+          longName: 'Zorilor',
+          direction: 'work',
+        });
       });
 
       // All updates should be applied
       expect(useConfigStore.getState().isConfigured).toBe(true);
-      expect(useBusStore.getState().buses).toHaveLength(2);
-      expect(useFavoritesStore.getState().favorites.buses).toContain('24');
+      expect(useVehicleStore.getState().vehicles).toHaveLength(2);
+      expect(configStore.getFavoriteRoutes().some(route => route.id === '24')).toBe(true);
     });
 
     it('should validate mobile-specific data structures', () => {
-      // Test that bus data includes mobile-friendly properties
+      // Test that vehicle data includes mobile-friendly properties
       act(() => {
-        useBusStore.setState({ buses: mockBuses });
+        useVehicleStore.setState({ vehicles: mockVehicles });
       });
 
-      const buses = useBusStore.getState().buses;
-      buses.forEach(bus => {
-        expect(bus.minutesAway).toBeTypeOf('number');
-        expect(bus.isLive).toBeTypeOf('boolean');
-        expect(bus.direction).toMatch(/^(work|home|unknown)$/);
-        expect(bus.station.coordinates).toHaveProperty('latitude');
-        expect(bus.station.coordinates).toHaveProperty('longitude');
+      const vehicles = useVehicleStore.getState().vehicles;
+      vehicles.forEach(vehicle => {
+        expect(vehicle.minutesAway).toBeTypeOf('number');
+        expect(vehicle.isLive).toBeTypeOf('boolean');
+        expect(vehicle.direction).toMatch(/^(work|home|unknown)$/);
+        expect(vehicle.latitude).toBeTypeOf('number');
+        expect(vehicle.longitude).toBeTypeOf('number');
       });
     });
   });

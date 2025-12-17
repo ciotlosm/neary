@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { LocationStore, Coordinates } from '../types';
+import { StoreEventManager, StoreEvents } from './shared/storeEvents';
 
 // Coordinate validation and bounds checking
 export const validateCoordinates = (coords: Coordinates): boolean => {
@@ -182,7 +183,7 @@ export class LocationService {
   }
 }
 
-export const useLocationStore = create<LocationStore>((set, get) => ({
+export const useLocationStore = create<LocationStore>((set) => ({
   currentLocation: null,
   locationPermission: 'prompt',
 
@@ -202,6 +203,12 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
       set({
         currentLocation: coordinates,
         locationPermission: 'granted',
+      });
+      
+      // Emit location change event
+      StoreEventManager.emit(StoreEvents.LOCATION_CHANGED, {
+        location: coordinates,
+        source: 'gps'
       });
       
       return coordinates;
@@ -243,6 +250,13 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
       const watchId = await LocationService.watchPosition(
         (coordinates) => {
           set({ currentLocation: coordinates });
+          
+          // Emit location change event
+          StoreEventManager.emit(StoreEvents.LOCATION_CHANGED, {
+            location: coordinates,
+            source: 'gps'
+          });
+          
           callback(coordinates);
         },
         errorCallback

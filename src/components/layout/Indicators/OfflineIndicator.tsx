@@ -11,11 +11,16 @@ import {
   CloudOff as CloudOffIcon,
 } from '@mui/icons-material';
 
-import { useOfflineStore } from '../../../stores/offlineStore';
+import { useVehicleStore } from '../../../stores/vehicleStore';
 import { useThemeUtils } from '../../../hooks';
 
 export const OfflineIndicator: React.FC = () => {
-  const { isOnline, isApiOnline, lastApiError, isUsingCachedData } = useOfflineStore();
+  // Offline functionality is now integrated into vehicleStore
+  const { error, cacheStats } = useVehicleStore();
+  const isOnline = navigator.onLine;
+  const isApiOnline = !error || error.type !== 'network';
+  const lastApiError = error?.timestamp;
+  const isUsingCachedData = cacheStats?.totalEntries > 0;
   const { getStatusColors, alpha } = useThemeUtils();
 
   // Show indicator if either network is offline OR API is unavailable

@@ -25,7 +25,7 @@ import ApiConfigurationPanel from './ApiConfigurationPanel';
 import { Button } from '../../ui/Button';
 import { InfoCard } from '../../ui/Card';
 import { VersionControl } from '../../ui/VersionControl';
-import FavoriteBusManager from '../FavoriteBuses/FavoriteBusManager';
+import SettingsRoute from './SettingsRoute';
 import { useThemeUtils, useMuiUtils } from '../../../hooks';
 import type { UserConfig } from '../../../types';
 
@@ -187,7 +187,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
       {/* Tab Panels */}
       <TabPanel value={activeTab} index={0}>
-        <FavoriteBusManager />
+        <SettingsRoute />
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>

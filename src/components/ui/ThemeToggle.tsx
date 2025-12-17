@@ -7,7 +7,8 @@ import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
 } from '@mui/icons-material';
-import { useThemeStore } from '../../stores/themeStore';
+import { useConfigStore } from '../../stores/configStore';
+import { useStoreEvent, StoreEvents } from '../../stores/shared/storeEvents';
 import { useThemeUtils } from '../../hooks';
 
 interface ThemeToggleProps {
@@ -22,7 +23,19 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   iconOnly = false
 }) => {
   const { alpha } = useThemeUtils();
-  const { mode, toggleTheme } = useThemeStore();
+  const { theme: initialMode, toggleTheme } = useConfigStore();
+  
+  // Use local state to track theme changes via events
+  const [mode, setMode] = React.useState(initialMode);
+  
+  // Subscribe to theme change events instead of direct store access
+  useStoreEvent(
+    StoreEvents.THEME_CHANGED,
+    React.useCallback((data) => {
+      setMode(data.theme);
+    }, []),
+    []
+  );
   
   const isDark = mode === 'dark';
   

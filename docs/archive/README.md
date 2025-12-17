@@ -8,6 +8,7 @@ This directory contains older documentation that has been consolidated into the 
 - **OVERVIEW.md** - Original detailed project overview (now consolidated into [user-guide.md](../user-guide.md))
 - **PROJECT_STRUCTURE.md** - Original project structure (now part of [developer-guide.md](../developer-guide.md))
 - **COMPREHENSIVE_IMPLEMENTATION_SUMMARY.md** - Detailed implementation summary (key points in [changelog.md](../changelog.md))
+- **detailed-changelog-2024.md** - Complete detailed changelog history (1964+ lines archived from main changelog)
 
 ### Detailed Technical Documentation
 
