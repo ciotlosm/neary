@@ -22,7 +22,7 @@ import { VehicleCard } from '../shared/VehicleCard';
 import { RouteFilterChips } from '../shared/RouteFilterChips';
 import { StationHeader } from '../shared/StationHeader';
 import { StationMapModal } from '../shared/StationMapModal';
-import { useVehicleProcessing } from '../../../hooks/controllers/useVehicleProcessing';
+import { useVehicleDisplay } from '../../../hooks/controllers/useVehicleDisplay';
 import type { EnhancedVehicleInfo, Station } from '../../../types';
 import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
 
@@ -46,20 +46,19 @@ const FavoriteRoutesViewComponent: React.FC<FavoriteRoutesViewProps> = ({ onNavi
   // Favorites are now managed through configStore and accessed via useVehicleProcessing
   const { getStatusColors, alpha } = useThemeUtils();
   
-  // Use the shared vehicle processing hook
+  // Use the new vehicle display composition hook
   const {
     stationVehicleGroups,
     isLoading,
     effectiveLocationForDisplay,
     favoriteRoutes,
     allStations,
-  } = useVehicleProcessing({
+  } = useVehicleDisplay({
     filterByFavorites: true,
     maxStations: 1,
     maxVehiclesPerStation: 999, // No limit for favorites
     showAllVehiclesPerRoute: true,
     maxSearchRadius: 10000, // Larger radius for favorites
-    maxStationsToCheck: 50,
     proximityThreshold: 0, // No proximity limit for favorites
   });
   

@@ -24,7 +24,7 @@ Welcome to the Cluj Bus App documentation! This is a real-time bus tracking appl
 ## 🎯 Key Features
 
 - **Real-time bus tracking** with live GPS positions
-- **Official CTP Cluj schedules** fetched directly from their website
+- **Comprehensive schedule data** from Tranzy API
 - **Smart favorites** that adapt to your location
 - **Mobile-first design** optimized for phones
 - **Offline support** for core functionality

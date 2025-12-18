@@ -78,39 +78,39 @@ This implementation plan systematically removes all Google Transit service and G
     - Update help text to reflect current Tranzy API capabilities
     - _Requirements: 7.3, 7.4, 7.5_
 
-- [ ] 7. Update specifications and documentation
-  - [ ] 7.1 Remove Google Maps directions from bus-tracker requirements
+- [x] 7. Update specifications and documentation
+  - [x] 7.1 Remove Google Maps directions from bus-tracker requirements
     - Remove requirement for "Directions" button opening Google Maps
     - Update station display requirements to reflect current functionality
     - _Requirements: 8.1, 8.2, 8.4_
 
-  - [ ] 7.2 Update service-store-alignment specifications
+  - [x] 7.2 Update service-store-alignment specifications
     - Remove googleTransitService from LocationStore dependencies
     - Update architecture documentation to reflect Tranzy API only approach
     - _Requirements: 8.2, 8.3, 8.5_
 
-  - [ ] 7.3 Clean up archived documentation references
+  - [x] 7.3 Clean up archived documentation references
     - Update or remove Google Maps API integration documentation
     - Remove Google Transit service references from implementation docs
     - _Requirements: 8.5_
 
-- [ ] 8. Final verification and testing
-  - [ ] 8.1 Run complete build and test suite
+- [x] 8. Final verification and testing
+  - [x] 8.1 Run complete build and test suite
     - Verify application builds without errors
     - Run existing tests to ensure no functionality is broken
     - _Requirements: 1.1, 1.2_
 
-  - [ ] 8.2 Verify settings interface functionality
+  - [x] 8.2 Verify settings interface functionality
     - Test configuration panel loads and functions correctly
     - Verify only Tranzy API settings are displayed
     - _Requirements: 1.3, 4.5_
 
-  - [ ] 8.3 Confirm no Google service dependencies remain
+  - [x] 8.3 Confirm no Google service dependencies remain
     - Search codebase for any remaining Google references
     - Verify no Google API calls are attempted
     - _Requirements: 1.4, 1.5_
 
-- [ ] 9. Documentation update and cleanup
+- [x] 9. Documentation update and cleanup
   - Update developer documentation to reflect removed functionality
   - Update user documentation to remove Google API key setup instructions
   - Document the extraction process for future reference
