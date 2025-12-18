@@ -2,7 +2,7 @@
 
 ## Phase 1: Enhance Stores to Replace Data Hooks
 
-- [-] 1. Add specific data fetching methods to vehicle store
+- [x] 1. Add specific data fetching methods to vehicle store
   - Add `getStationData(options)` method to replace useStationData
   - Add `getVehicleData(options)` method to replace useVehicleData  
   - Add `getRouteData(options)` method to replace useRouteData
@@ -10,7 +10,7 @@
   - Ensure all methods support same options as current data hooks
   - _Requirements: 1.1, 3.1, 3.2_
 
-- [ ] 2. Add store subscription helpers for reactive data access
+- [-] 2. Add store subscription helpers for reactive data access
   - Create `useVehicleStoreData()` hook for reactive vehicle data access
   - Create `useStationStoreData()` hook for reactive station data access
   - Create `useRouteStoreData()` hook for reactive route data access
