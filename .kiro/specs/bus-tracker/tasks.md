@@ -210,9 +210,9 @@
 
 - [x] 22. Implement nearby stations feature
   - Create NearbyStations component with 3-station limit and expand option
-  - Add "Show Buses" and "Directions" buttons per station
+  - Add "Show Buses" button per station
   - Integrate with enhanced API for station data
-  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+  - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
 - [x] 23. Implement direction intelligence based on station proximity
   - Update enhancedBusStore to classify buses by closest station to home/work

@@ -156,6 +156,5 @@ A mobile reactive application that provides comprehensive bus tracking functiona
 
 1. WHEN displaying nearby stations, THE Bus_Tracker_System SHALL show only 3 stations initially
 2. WHEN user wants more stations, THE Bus_Tracker_System SHALL provide an "expand" option to show all nearby stations
-3. WHEN displaying a station, THE Bus_Tracker_System SHALL show both "Show Buses" and "Directions" buttons
+3. WHEN displaying a station, THE Bus_Tracker_System SHALL show a "Show Buses" button
 4. WHEN "Show Buses" is clicked, THE Bus_Tracker_System SHALL display buses arriving at that specific station
-5. WHEN "Directions" is clicked, THE Bus_Tracker_System SHALL open Google Maps with directions to the station

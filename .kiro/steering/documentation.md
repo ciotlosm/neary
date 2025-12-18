@@ -5,6 +5,8 @@
 ### **CRITICAL: Root Directory Policy**
 
 **❌ NEVER create markdown files in the project root directory (except README.md)**
+**❌ NEVER create .md files anywhere in the root directory**
+**❌ NEVER create documentation files outside of docs/ folder**
 
 ### **✅ UPDATED CONSOLIDATED STRUCTURE (December 2024):**
 
@@ -122,12 +124,14 @@ When working on this project:
 
 ### **Large File Management:**
 
-**Current File Status (December 2024):**
-- ✅ `getting-started.md` (134 lines) - Optimal size
-- ✅ `user-guide.md` (386 lines) - Good size  
-- 🚨 `developer-guide.md` (775 lines) - CRITICAL: Must split immediately
-- 🚨 `changelog.md` (670 lines) - CRITICAL: Must archive old entries immediately
-- ✅ `troubleshooting/` - Split into manageable files (all under 400 lines)
+**Current File Status (December 2024) - AFTER MAJOR CLEANUP:**
+- ✅ `getting-started.md` (138 lines) - Optimal size
+- ✅ `user-guide.md` (387 lines) - Good size  
+- ✅ `developer-guide.md` (157 lines) - Optimal size ✅ FIXED
+- ✅ `changelog.md` (21 lines) - Optimal size ✅ FIXED
+- ✅ `troubleshooting/` - All files under 113 lines ✅ FIXED
+
+**MAJOR SUCCESS**: Reduced from 103 files (8,869 lines) to 14 files (1,382 lines) - 84% reduction!
 
 **When to Archive Content:**
 - **Changelog entries older than 3 months** - Move to `docs/archive/changelog-YYYY-QX.md`
@@ -189,4 +193,86 @@ find docs -name "*.md" -exec wc -l {} + | sort -nr | head -10
 
 ---
 
-**Remember: Consolidated, human-friendly documentation is better than scattered technical files, but files must remain manageable in size for both humans and AI systems!**
+## 🚫 **ANTI-BLOATING ENFORCEMENT (December 2024)**
+
+### **CRITICAL: Prevent Documentation Hell**
+
+**We successfully reduced documentation from 103 files (8,869 lines) to 14 files (1,382 lines). NEVER let it bloat again!**
+
+### **FORBIDDEN PRACTICES:**
+
+❌ **NEVER create new .md files** - Update existing files instead
+❌ **NEVER create detailed implementation docs** - Keep technical details minimal
+❌ **NEVER create micro-documentation** - One issue per section maximum
+❌ **NEVER create step-by-step guides over 20 lines** - Summarize instead
+❌ **NEVER create hook/component documentation** - Code should be self-documenting
+❌ **NEVER create architecture deep-dives** - High-level overview only
+❌ **NEVER create troubleshooting novels** - Problem + Solution format only
+❌ **NEVER create changelog novels** - Recent changes only (3 months max)
+
+### **MANDATORY PRACTICES:**
+
+✅ **ALWAYS update existing files** - Never create new ones
+✅ **ALWAYS keep entries under 5 lines** - Problem + Solution format
+✅ **ALWAYS archive old content** - Move detailed history to archive
+✅ **ALWAYS check file sizes** - Monitor with `wc -l docs/*.md`
+✅ **ALWAYS use minimal language** - No verbose explanations
+✅ **ALWAYS prioritize user needs** - Skip implementation details
+✅ **ALWAYS maintain the 14-file limit** - No exceptions
+
+### **FILE SIZE ENFORCEMENT:**
+
+**HARD LIMITS (Enforced):**
+- **Maximum files**: 14 total (current structure)
+- **Maximum lines per file**: 400 lines (AI processing limit)
+- **Target lines per file**: Under 200 lines (optimal)
+- **Troubleshooting files**: Under 150 lines each
+
+**MONITORING COMMANDS:**
+```bash
+# Check total file count (must be ≤ 14)
+find docs -name "*.md" | wc -l
+
+# Check file sizes (none over 400 lines)
+wc -l docs/*.md docs/troubleshooting/*.md | sort -nr
+
+# Alert if any file over 300 lines
+find docs -name "*.md" -exec wc -l {} + | awk '$1 > 300 {print "WARNING: " $2 " has " $1 " lines"}'
+```
+
+### **CONTENT QUALITY RULES:**
+
+**For Bug Fixes/Issues:**
+- **Format**: `**Problem**: Brief description **Solution**: One-line fix`
+- **Length**: Maximum 3 lines per issue
+- **Details**: None - just the essential fix
+
+**For Features:**
+- **Format**: `**Feature**: What it does **Usage**: How to use it`
+- **Length**: Maximum 2 lines per feature
+- **Examples**: Only if absolutely necessary
+
+**For Changes:**
+- **Format**: `**Date**: Brief change description`
+- **Length**: Maximum 1 line per change
+- **Archive**: Move entries older than 3 months
+
+### **EMERGENCY BLOAT DETECTION:**
+
+**Warning Signs:**
+- Any file over 300 lines
+- More than 14 total .md files
+- Detailed implementation explanations
+- Step-by-step guides over 10 steps
+- Multiple files for same topic
+
+**Immediate Action Required:**
+1. **Stop adding content** to the bloated file
+2. **Archive excessive content** to docs/archive/
+3. **Summarize remaining content** to essential points only
+4. **Split if necessary** but maintain 14-file limit
+5. **Update this steering file** if patterns change
+
+---
+
+**Remember: We achieved 84% documentation reduction. Maintain this streamlined approach - consolidated, human-friendly documentation that stays manageable for both humans and AI systems!**

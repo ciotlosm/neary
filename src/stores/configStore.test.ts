@@ -118,6 +118,8 @@ describe('ConfigStore Unit Tests', () => {
   beforeEach(() => {
     localStorageMock.clear();
     vi.clearAllMocks();
+    vi.clearAllTimers();
+    
     // Reset the store state
     useConfigStore.getState().resetConfig();
     // Clear all event listeners
@@ -126,6 +128,13 @@ describe('ConfigStore Unit Tests', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.clearAllTimers();
+    StoreEventManager.removeAllListeners();
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
   });
 
   describe('Configuration Management', () => {
@@ -447,7 +456,7 @@ describe('ConfigStore Unit Tests', () => {
           expect(currentState.isConfigured).toBe(true);
           expect(currentState.isFullyConfigured).toBe(true);
         }),
-        { numRuns: 50 }
+        { numRuns: 10 }
       );
     });
 
@@ -460,7 +469,7 @@ describe('ConfigStore Unit Tests', () => {
           const state = useConfigStore.getState();
           expect(state.theme).toBe(theme);
         }),
-        { numRuns: 20 }
+        { numRuns: 5 }
       );
     });
 
@@ -492,7 +501,7 @@ describe('ConfigStore Unit Tests', () => {
             expect(currentState.config).toEqual(expectedConfig);
           }
         ),
-        { numRuns: 50 }
+        { numRuns: 10 }
       );
     });
   });

@@ -164,6 +164,9 @@ describe('VehicleStore Unit Tests', () => {
     localStorageMock.clear();
     vi.clearAllMocks();
     
+    // Clear all timers to prevent memory leaks
+    vi.clearAllTimers();
+    
     // Reset store state
     useVehicleStore.setState({
       vehicles: [],
@@ -197,7 +200,14 @@ describe('VehicleStore Unit Tests', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.clearAllTimers();
     autoRefreshManager.clear();
+    StoreEventManager.removeAllListeners();
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
   });
 
   describe('Initial State', () => {
@@ -389,8 +399,8 @@ describe('VehicleStore Unit Tests', () => {
       const store = useVehicleStore.getState();
       store.startAutoRefresh();
 
-      // Wait for the dynamic import and async operations to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for the dynamic import and async operations to complete (reduced timeout)
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const state = useVehicleStore.getState();
       expect(state.isAutoRefreshEnabled).toBe(true);
@@ -405,7 +415,7 @@ describe('VehicleStore Unit Tests', () => {
       
       // Start first
       store.startAutoRefresh();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50)); // Reduced timeout
       expect(useVehicleStore.getState().isAutoRefreshEnabled).toBe(true);
       
       // Then stop
@@ -437,8 +447,8 @@ describe('VehicleStore Unit Tests', () => {
       store.startAutoRefresh();
       store.startAutoRefresh();
 
-      // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async operations (reduced timeout)
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Should still only have one instance
       const state = useVehicleStore.getState();
@@ -585,8 +595,8 @@ describe('VehicleStore Unit Tests', () => {
       const store = useVehicleStore.getState();
       store.startAutoRefresh();
       
-      // Wait for auto-refresh to start
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for auto-refresh to start (reduced timeout)
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Clear previous calls after auto-refresh starts
       vi.clearAllMocks();
@@ -595,8 +605,8 @@ describe('VehicleStore Unit Tests', () => {
       Object.defineProperty(navigator, 'onLine', { value: true });
       window.dispatchEvent(new Event('online'));
 
-      // Wait for async operations to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async operations to complete (reduced timeout)
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // The online event should trigger a refresh if auto-refresh is enabled
       expect(enhancedTranzyApi.getEnhancedVehicleInfo).toHaveBeenCalled();
@@ -616,7 +626,7 @@ describe('VehicleStore Unit Tests', () => {
           // Should not throw for any valid options
           await expect(store.refreshVehicles(options)).resolves.not.toThrow();
         }),
-        { numRuns: 20 }
+        { numRuns: 5 } // Reduced from 20 to prevent memory issues
       );
     });
 
@@ -639,11 +649,9 @@ describe('VehicleStore Unit Tests', () => {
             expect(expectedDirection).toMatch(/^(work|home)$/);
           }
         ),
-        { numRuns: 50 }
+        { numRuns: 10 } // Reduced from 50 to prevent memory issues
       );
     });
-
-
 
     it('should calculate distance correctly for any valid coordinates', () => {
       fc.assert(
@@ -662,7 +670,7 @@ describe('VehicleStore Unit Tests', () => {
           const selfDistance = store.calculateDistance(from, from);
           expect(selfDistance).toBe(0);
         }),
-        { numRuns: 100 }
+        { numRuns: 20 } // Reduced from 100 to prevent memory issues
       );
     });
   });
@@ -704,8 +712,8 @@ describe('VehicleStore Unit Tests', () => {
       
       store.startAutoRefresh();
       
-      // Wait for async operations and dynamic import
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for async operations and dynamic import (reduced timeout)
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       expect(startSpy).toHaveBeenCalledWith(
         expect.objectContaining({

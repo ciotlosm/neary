@@ -28,7 +28,7 @@ export default defineConfig({
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
-        // Simplified code splitting - let Vite handle it automatically
+        // Optimized code splitting to handle mixed import patterns
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
@@ -37,8 +37,33 @@ export default defineConfig({
             if (id.includes('zustand') || id.includes('axios')) {
               return 'vendor';
             }
+            return 'vendor';
+          }
+          
+          // Group stores together to minimize dynamic import warnings
+          if (id.includes('src/stores/')) {
+            return 'stores';
+          }
+          
+          // Group services together
+          if (id.includes('src/services/')) {
+            return 'services';
+          }
+          
+          // Group data hooks together (they all use dynamic imports)
+          if (id.includes('src/hooks/data/')) {
+            return 'data-hooks';
           }
         }
+      },
+      // Suppress dynamic import warnings for intentional patterns
+      onwarn(warning, warn) {
+        // Suppress warnings about dynamic imports that are also statically imported
+        if (warning.code === 'DYNAMIC_IMPORT_ALREADY_STATICALLY_IMPORTED') {
+          return;
+        }
+        // Show other warnings
+        warn(warning);
       }
     },
     // Optimize chunk size

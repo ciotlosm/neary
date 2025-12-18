@@ -151,8 +151,8 @@ export const CacheManagerPanel: React.FC = () => {
 
     const confirmed = confirm(
       'Clear all cached data?\n\n' +
-      '• All offline data will be removed\n' +
-      '• Routes, stops, and schedules will be re-downloaded\n' +
+      '• All cached Tranzy API data will be removed\n' +
+      '• Routes, stops, and live vehicle data will be re-downloaded\n' +
       '• This requires a stable internet connection\n\n' +
       'Continue?'
     );
@@ -671,7 +671,7 @@ export const CacheManagerPanel: React.FC = () => {
               Clear All Cached Data
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              This will remove all offline data including routes, stops, schedules, and live vehicle information. 
+              This will remove all cached data including routes, stops, and live vehicle information. 
               A stable internet connection is required to reload everything.
             </Typography>
             <Stack spacing={1}>

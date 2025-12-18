@@ -113,3 +113,55 @@ npm version major         # Breaking changes (1.0.0 → 2.0.0)
 - Version shown in app footer via MaterialVersionControl component
 - Helps users and developers track which version is running
 - Essential for debugging and support
+
+## Development Server Management
+
+### AI Assistant Process Management Rules
+**CRITICAL: Always use Kiro's built-in process management tools instead of system commands**
+
+#### **Required Workflow for Starting Dev Server:**
+1. **Always check existing processes first** using `listProcesses()`
+2. **Look for "npm run dev" process** in the results
+3. **Handle based on process state:**
+   - **If running:** Inform user server is available at http://localhost:5175
+   - **If stopped:** Restart using `controlBashProcess` with action="start"
+   - **If not found:** Start new process using `controlBashProcess` with action="start"
+4. **Never use aggressive system commands** like `lsof`, `kill -9`, or `pkill`
+
+#### **Process Management Commands:**
+```javascript
+// Check existing processes
+listProcesses()
+
+// Start dev server (if none exists or stopped)
+controlBashProcess({
+  action: "start",
+  command: "npm run dev",
+  path: "." // workspace root
+})
+
+// Stop dev server (if needed)
+controlBashProcess({
+  action: "stop", 
+  processId: <processId from listProcesses>
+})
+```
+
+#### **Error Handling:**
+- **Port conflict from external process:** Ask user to manually stop the conflicting process
+- **Process start failure:** Check package.json and dependencies before retrying
+- **Never force-kill processes:** Respect user's running processes
+
+#### **User Communication:**
+- **Process already running:** "Dev server is already running at http://localhost:5175"
+- **Restarting stopped process:** "Restarting existing dev server process..."
+- **Starting new process:** "Starting development server..."
+- **External conflict:** "Port 5175 appears to be in use by another process. Please stop it manually and try again."
+
+#### **Benefits of This Approach:**
+- ✅ Clean, controlled process management
+- ✅ No aggressive system commands
+- ✅ Respects user's existing processes
+- ✅ Leverages Kiro's built-in infrastructure
+- ✅ Provides clear user feedback
+- ✅ Handles all scenarios gracefully

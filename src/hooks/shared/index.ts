@@ -32,12 +32,7 @@ export { useCacheRefreshIndicator } from './useCacheRefreshIndicator';
 // Cache management utilities
 export { globalCache, CacheManager, createCacheKey } from './cacheManager';
 export { 
-  createDependencyTracker, 
-  useDependencyTracker, 
-  useSelectiveMemo, 
-  useSelectiveCallback, 
-  usePerformanceMonitor,
+  createDependencyTracker,
   type DependencyTracker,
-  type DependencyStats,
-  type PerformanceMetrics
+  type DependencyStats
 } from './dependencyTracker';

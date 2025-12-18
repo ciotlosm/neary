@@ -1,19 +1,18 @@
 /**
- * Main useVehicleProcessing hook - now exports the new orchestration implementation
+ * Main useVehicleProcessing hook - now exports the new composition implementation
  * 
- * This file has been updated to export the new orchestration hook that provides:
- * - Focused, composable sub-hooks for data and processing
+ * This file has been updated to export the new composition hook that provides:
+ * - Simple composition of data and processing hooks
  * - Exact backward compatibility with the original API
- * - Performance improvements through selective re-execution
- * - Comprehensive error handling and retry mechanisms
+ * - Performance improvements through elimination of complex orchestration
+ * - Clean error handling and loading state management
  * 
- * The original 829-line implementation has been archived to:
- * src/hooks/archive/useVehicleProcessing.legacy.ts
+ * The original 1,113-line orchestration implementation has been removed.
  */
 
-// Re-export the new orchestration hook as the main useVehicleProcessing
+// Re-export the new composition hook as the main useVehicleProcessing
 export {
-  useVehicleProcessing,
-  type VehicleProcessingOptions,
-  type VehicleProcessingResult
-} from './useVehicleProcessingOrchestration';
+  useVehicleDisplay as useVehicleProcessing,
+  type UseVehicleDisplayOptions as VehicleProcessingOptions,
+  type UseVehicleDisplayResult as VehicleProcessingResult
+} from './useVehicleDisplay';
