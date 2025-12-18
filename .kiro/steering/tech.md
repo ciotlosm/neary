@@ -41,23 +41,46 @@ npm run test:watch   # Run tests in watch mode (vitest)
 npm run test:ui      # Run tests with visual UI (vitest --ui)
 ```
 
+### 🚨 CRITICAL TEST COMMAND RULES (AI Assistant Must Follow)
+
+**PACKAGE.JSON TEST SCRIPT: `"test": "vitest --run"`**
+**The --run flag is ALREADY INCLUDED in the npm test script!**
+
+### ✅ CORRECT Test Commands
+```bash
+npm test                    # Run all tests (--run already included)
+npm test -- vehicleStore    # Run specific test files (NO --run needed)
+npm test -- --coverage     # Run with coverage (NO --run needed)
+npm test -- --reporter=verbose  # Verbose output (NO --run needed)
+npm run test:watch         # Watch mode (uses different script)
+npm run test:ui            # Visual test runner
+```
+
+### ❌ FORBIDDEN Commands (Will Cause Duplicate --run Error)
+```bash
+npm test -- --run          # ❌ DUPLICATE --run ERROR
+npm test -- --run vehicleStore  # ❌ DUPLICATE --run ERROR
+npm test -- --run --coverage    # ❌ DUPLICATE --run ERROR
+```
+
 ### Test Commands Reference
-- **`npm test`** - Single test run, exits after completion (production/CI)
-- **`npm run test:watch`** - Watch mode, re-runs tests on file changes (development)
+- **`npm test`** - Single test run, exits after completion (vitest --run)
+- **`npm run test:watch`** - Watch mode, re-runs tests on file changes (vitest)
 - **`npm run test:ui`** - Visual test runner with browser interface
-- **`npm test -- <pattern>`** - Run specific test files (e.g., `npm test -- stationSelector`)
+- **`npm test -- <pattern>`** - Run specific test files (e.g., `npm test -- vehicleStore`)
 - **`npm test -- --reporter=verbose`** - Run tests with detailed output
 - **`npm test -- --coverage`** - Run tests with coverage report
 - **`npm test -- --clearCache`** - Clear test cache before running
 - **`npm test -- --update`** - Update test snapshots
 
-### Important Test Command Notes
-- ❌ **NEVER** use `npm test -- --run` - the `--run` flag is already in the script definition
+### AI Assistant Test Command Rules
+- ❌ **NEVER EVER** add `--run` when using `npm test` - it's already in the script
 - ❌ **NO** `--verbose` option exists - use `--reporter=verbose`
 - ❌ **NO** `npm run test:coverage` script - use `npm test -- --coverage`
 - ❌ **NO** `--grep` option - use `--testNamePattern` for pattern matching
-- ✅ Use `--` to pass arguments to vitest through npm
-- ✅ Just use `npm test` for single run (--run is already included)
+- ✅ **ALWAYS** use `npm test -- <pattern>` for specific tests (NO --run)
+- ✅ **REMEMBER** the `--` separator passes args to vitest
+- ✅ **CHECK** package.json if unsure about script definitions
 
 ### Code Quality
 ```bash
