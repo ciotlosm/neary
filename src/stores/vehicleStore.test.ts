@@ -8,9 +8,10 @@ import * as fc from 'fast-check';
 import { useVehicleStore } from './vehicleStore';
 import { StoreEventManager, StoreEvents } from './shared/storeEvents';
 import { autoRefreshManager } from './shared/autoRefresh';
-import { cacheManager } from './shared/cacheManager';
+import { unifiedCache } from '../hooks/shared/cache/instance';
+import { CACHE_CONFIGS } from '../hooks/shared/cache/utils';
 import type { 
-  EnhancedVehicleInfo, 
+  CoreVehicle, 
   Coordinates, 
   UserConfig,
   TranzyStopResponse 
@@ -22,7 +23,7 @@ import type {
 vi.mock('../services/tranzyApiService', () => ({
   enhancedTranzyApi: {
     setApiKey: vi.fn(),
-    getEnhancedVehicleInfo: vi.fn(),
+    getVehicles: vi.fn(),
     getStops: vi.fn(),
     getRoutes: vi.fn().mockResolvedValue([]),
     getTrips: vi.fn().mockResolvedValue([]),
@@ -139,19 +140,21 @@ const stationArb = fc.record({
   isFavorite: fc.boolean(),
 });
 
-// Enhanced vehicle info generator for property-based testing
-const enhancedVehicleInfoArb = fc.record({
+// Core vehicle generator for property-based testing
+const coreVehicleArb = fc.record({
   id: fc.string({ minLength: 1, maxLength: 20 }),
-  route: fc.string({ minLength: 1, maxLength: 10 }),
-  routeId: fc.string({ minLength: 1, maxLength: 20 }),
-  destination: fc.string({ minLength: 1, maxLength: 50 }),
-  direction: fc.constantFrom('work', 'home', 'unknown'),
-  estimatedArrival: fc.date(),
-  minutesAway: fc.integer({ min: 0, max: 120 }),
-  isLive: fc.boolean(),
-  isScheduled: fc.boolean(),
-  confidence: fc.constantFrom('high', 'medium', 'low'),
-  station: stationArb,
+  routeId: fc.string({ minLength: 1, maxLength: 10 }),
+  tripId: fc.option(fc.string({ minLength: 1, maxLength: 20 })),
+  label: fc.string({ minLength: 1, maxLength: 10 }),
+  position: fc.record({
+    latitude: fc.float({ min: Math.fround(46.7), max: Math.fround(46.8) }),
+    longitude: fc.float({ min: Math.fround(23.5), max: Math.fround(23.7) })
+  }),
+  timestamp: fc.date(),
+  speed: fc.option(fc.float({ min: 0, max: 80 })),
+  bearing: fc.option(fc.float({ min: 0, max: 360 })),
+  isWheelchairAccessible: fc.boolean(),
+  isBikeAccessible: fc.boolean()
 });
 
 const refreshOptionsArb = fc.record({
@@ -197,7 +200,7 @@ describe('VehicleStore Unit Tests', () => {
     autoRefreshManager.clear();
     
     // Clear cache manager
-    cacheManager.clearAll();
+    unifiedCache.clearAll();
   });
 
   afterEach(() => {
@@ -229,29 +232,23 @@ describe('VehicleStore Unit Tests', () => {
 
   describe('Vehicle Data Management', () => {
     it('should refresh vehicles successfully', async () => {
-      const mockVehicles: EnhancedVehicleInfo[] = [
+      const mockVehicles: CoreVehicle[] = [
         {
           id: 'vehicle-1',
-          route: '42',
           routeId: 'route-42',
-          destination: 'Mănăștur',
-          direction: 'work',
-          estimatedArrival: new Date(),
-          minutesAway: 5,
-          isLive: true,
-          isScheduled: false,
-          confidence: 'high',
-          station: {
-            id: 'station-1',
-            name: 'Piața Unirii',
-            coordinates: { latitude: 46.7712, longitude: 23.6236 },
-            isFavorite: false,
-          },
+          tripId: 'trip-1',
+          label: '42A',
+          position: { latitude: 46.7712, longitude: 23.6236 },
+          timestamp: new Date(),
+          speed: 25,
+          bearing: 90,
+          isWheelchairAccessible: true,
+          isBikeAccessible: false,
         },
       ];
 
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue(mockVehicles);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue(mockVehicles);
 
       const eventHandler = vi.fn();
       StoreEventManager.subscribe(StoreEvents.VEHICLES_UPDATED, eventHandler);
@@ -291,7 +288,7 @@ describe('VehicleStore Unit Tests', () => {
 
       const mockError = new Error('Network error');
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockRejectedValue(mockError);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockRejectedValue(mockError);
 
       const store = useVehicleStore.getState();
       
@@ -308,48 +305,36 @@ describe('VehicleStore Unit Tests', () => {
       StoreErrorHandler.withRetry = originalWithRetry;
     });
 
-    it('should classify vehicle directions correctly', async () => {
-      const mockVehicles: EnhancedVehicleInfo[] = [
+    it('should store vehicle data correctly', async () => {
+      const mockVehicles: CoreVehicle[] = [
         {
           id: 'vehicle-1',
-          route: '42',
           routeId: 'route-42',
-          destination: 'Mănăștur',
-          direction: 'unknown', // Will be classified
-          estimatedArrival: new Date(),
-          minutesAway: 5,
-          isLive: true,
-          isScheduled: false,
-          confidence: 'high',
-          station: {
-            id: 'station-1',
-            name: 'Near Home',
-            coordinates: { latitude: 46.7712, longitude: 23.6236 }, // Close to home
-            isFavorite: false,
-          },
+          tripId: 'trip-1',
+          label: '42A',
+          position: { latitude: 46.7712, longitude: 23.6236 },
+          timestamp: new Date(),
+          speed: 25,
+          bearing: 90,
+          isWheelchairAccessible: true,
+          isBikeAccessible: false,
         },
         {
           id: 'vehicle-2',
-          route: '43',
           routeId: 'route-43',
-          destination: 'Centru',
-          direction: 'unknown', // Will be classified
-          estimatedArrival: new Date(),
-          minutesAway: 8,
-          isLive: true,
-          isScheduled: false,
-          confidence: 'high',
-          station: {
-            id: 'station-2',
-            name: 'Near Work',
-            coordinates: { latitude: 46.7833, longitude: 23.6167 }, // Close to work
-            isFavorite: false,
-          },
+          tripId: 'trip-2',
+          label: '43B',
+          position: { latitude: 46.7833, longitude: 23.6167 },
+          timestamp: new Date(),
+          speed: 30,
+          bearing: 180,
+          isWheelchairAccessible: false,
+          isBikeAccessible: true,
         },
       ];
 
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue(mockVehicles);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue(mockVehicles);
 
       const store = useVehicleStore.getState();
       await store.refreshVehicles();
@@ -357,13 +342,18 @@ describe('VehicleStore Unit Tests', () => {
       const state = useVehicleStore.getState();
       expect(state.vehicles).toHaveLength(2);
       
-      // Vehicle near home should be classified as going to work
-      const vehicleNearHome = state.vehicles.find(v => v.id === 'vehicle-1');
-      expect(vehicleNearHome?.direction).toBe('work');
+      // Check that vehicles are stored with correct CoreVehicle properties
+      const vehicle1 = state.vehicles.find(v => v.id === 'vehicle-1');
+      expect(vehicle1?.routeId).toBe('route-42');
+      expect(vehicle1?.label).toBe('42A');
+      expect(vehicle1?.position.latitude).toBe(46.7712);
+      expect(vehicle1?.isWheelchairAccessible).toBe(true);
       
-      // Vehicle near work should be classified as going home
-      const vehicleNearWork = state.vehicles.find(v => v.id === 'vehicle-2');
-      expect(vehicleNearWork?.direction).toBe('home');
+      const vehicle2 = state.vehicles.find(v => v.id === 'vehicle-2');
+      expect(vehicle2?.routeId).toBe('route-43');
+      expect(vehicle2?.label).toBe('43B');
+      expect(vehicle2?.position.longitude).toBe(23.6167);
+      expect(vehicle2?.isBikeAccessible).toBe(true);
     });
 
     it('should refresh stations successfully', async () => {
@@ -398,14 +388,14 @@ describe('VehicleStore Unit Tests', () => {
     it('should force refresh all data types', async () => {
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
       vi.mocked(enhancedTranzyApi.forceRefreshAll).mockResolvedValue(undefined);
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue([]);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue([]);
       vi.mocked(enhancedTranzyApi.getStops).mockResolvedValue([]);
 
       const store = useVehicleStore.getState();
       await store.forceRefreshAll();
 
       expect(enhancedTranzyApi.forceRefreshAll).toHaveBeenCalledWith(123);
-      expect(enhancedTranzyApi.getEnhancedVehicleInfo).toHaveBeenCalled();
+      expect(enhancedTranzyApi.getVehicles).toHaveBeenCalled();
       
       // Since Promise.allSettled is used, we need to check if the methods were called
       // even if some fail. Let's check the core functionality.
@@ -450,12 +440,12 @@ describe('VehicleStore Unit Tests', () => {
 
     it('should handle manual refresh', async () => {
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue([]);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue([]);
 
       const store = useVehicleStore.getState();
       await store.manualRefresh();
 
-      expect(enhancedTranzyApi.getEnhancedVehicleInfo).toHaveBeenCalled();
+      expect(enhancedTranzyApi.getVehicles).toHaveBeenCalled();
     });
 
     it('should not start multiple auto-refresh instances', async () => {
@@ -525,17 +515,17 @@ describe('VehicleStore Unit Tests', () => {
       const cachedVehicles = [{ id: 'cached-vehicle' }];
       
       // First, set up the cache with data
-      cacheManager.set('vehicles-enhanced', cachedVehicles, 60000);
+      unifiedCache.set('vehicles-enhanced', cachedVehicles, CACHE_CONFIGS.vehicles);
       
       // Mock cache manager to return stale data when getCachedStale is called
-      const getCachedStaleSpy = vi.spyOn(cacheManager, 'getCachedStale').mockReturnValue({
+      const getCachedStaleSpy = vi.spyOn(unifiedCache, 'getCachedStale').mockReturnValue({
         data: cachedVehicles,
         age: 60000, // 1 minute old
         isStale: true,
       });
 
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockRejectedValue(mockError);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockRejectedValue(mockError);
 
       const store = useVehicleStore.getState();
       
@@ -627,7 +617,7 @@ describe('VehicleStore Unit Tests', () => {
 
     it('should trigger refresh when coming back online', async () => {
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue([]);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue([]);
 
       // Mock the config store to ensure it's available
       const { useConfigStore } = await import('./configStore');
@@ -651,7 +641,7 @@ describe('VehicleStore Unit Tests', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // The online event should trigger a refresh if auto-refresh is enabled
-      expect(enhancedTranzyApi.getEnhancedVehicleInfo).toHaveBeenCalled();
+      expect(enhancedTranzyApi.getVehicles).toHaveBeenCalled();
     });
   });
 
@@ -661,7 +651,7 @@ describe('VehicleStore Unit Tests', () => {
       
       await fc.assert(
         fc.asyncProperty(refreshOptionsArb, async (options) => {
-          vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue([]);
+          vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue([]);
 
           const store = useVehicleStore.getState();
           
@@ -720,7 +710,7 @@ describe('VehicleStore Unit Tests', () => {
   describe('Integration with Shared Utilities', () => {
     it('should emit events through StoreEventManager', async () => {
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockResolvedValue([]);
+      vi.mocked(enhancedTranzyApi.getVehicles).mockResolvedValue([]);
 
       const eventHandler = vi.fn();
       const unsubscribe = StoreEventManager.subscribe(StoreEvents.VEHICLES_UPDATED, eventHandler);
@@ -782,8 +772,8 @@ describe('VehicleStore Unit Tests', () => {
         }
       });
 
-      const getCachedStaleSpy = vi.spyOn(cacheManager, 'getCachedStale');
-      const clearAllSpy = vi.spyOn(cacheManager, 'clearAll');
+      const getCachedStaleSpy = vi.spyOn(unifiedCache, 'getCachedStale');
+      const clearAllSpy = vi.spyOn(unifiedCache, 'clearAll');
 
       const store = useVehicleStore.getState();
       
@@ -794,7 +784,7 @@ describe('VehicleStore Unit Tests', () => {
       // Test cache fallback (mock an error scenario)
       // First, add some cached data
       const cachedVehicles = [{ id: 'cached-vehicle' }];
-      cacheManager.set('vehicles-enhanced', cachedVehicles, 60000);
+      unifiedCache.set('vehicles-enhanced', cachedVehicles, CACHE_CONFIGS.vehicles);
       
       getCachedStaleSpy.mockReturnValue({
         data: cachedVehicles,
@@ -803,7 +793,7 @@ describe('VehicleStore Unit Tests', () => {
       });
       
       const { enhancedTranzyApi } = await import('../services/tranzyApiService');
-      vi.mocked(enhancedTranzyApi.getEnhancedVehicleInfo).mockRejectedValue(new Error('Network error'));
+      vi.mocked(enhancedTranzyApi.getVehicles).mockRejectedValue(new Error('Network error'));
       
       // Call refreshVehicles and wait for it to complete
       await store.refreshVehicles();

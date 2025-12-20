@@ -226,9 +226,7 @@ export function useComponentLifecycle(componentName: string) {
 export function logPerformanceMetrics(): void {
   if (import.meta.env.DEV && logger.getLogLevel() === 0) { // LogLevel.DEBUG = 0
     const summary = performanceMonitor.getSummary();
-    console.group('🚀 Performance Metrics');
-    console.table(summary);
-    console.groupEnd();
+    // Performance metrics logging removed for production
   }
 }
 

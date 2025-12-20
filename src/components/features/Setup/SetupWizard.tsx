@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Alert,
   Autocomplete,
+  Link,
 } from '@mui/material';
 import {
   Key as KeyIcon,
@@ -24,7 +25,7 @@ import {
   ArrowBack as BackIcon,
   ArrowForward as ForwardIcon,
 } from '@mui/icons-material';
-import { Button } from '../../ui/Button';
+import { Button } from '../../ui';
 import { useConfigStore } from '../../../stores/configStore';
 // Agency functionality is now in configStore
 import { useFormHandler, useThemeUtils } from '../../../hooks';
@@ -197,9 +198,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Get your free API key from{' '}
-              <a href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" style={{ color: 'primary.main' }}>
+              <Link href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" color="primary">
                 tranzy.ai
-              </a>{' '}
+              </Link>{' '}
               to access live bus tracking data.
             </Typography>
 
@@ -325,7 +326,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             variant="outlined"
             onClick={handleBack}
             disabled={activeStep === 0}
-            icon={<BackIcon />}
+            startIcon={<BackIcon />}
           >
             Back
           </Button>
@@ -335,7 +336,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             onClick={handleNext}
             disabled={!canProceed() || isValidatingApiKey}
             loading={form.isSubmitting}
-            icon={activeStep === steps.length - 1 ? <CheckIcon /> : <ForwardIcon />}
+            startIcon={activeStep === steps.length - 1 ? <CheckIcon /> : <ForwardIcon />}
           >
             {activeStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
           </Button>

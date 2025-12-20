@@ -14,7 +14,7 @@ import React from 'react';
 import { useConfigStore, useVehicleStore, useLocationStore } from '../../stores';
 
 // Import key components that use stores
-import { ThemeToggle } from '../../components/ui/ThemeToggle';
+import { ThemeToggle } from '../../components/ui';
 import { OfflineIndicator } from '../../components/layout/Indicators/OfflineIndicator';
 import { StatusIndicators } from '../../components/layout/Indicators/StatusIndicators';
 

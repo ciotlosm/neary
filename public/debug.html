@@ -282,13 +282,12 @@
                 const allKeys = Object.keys(localStorage);
                 console.log('All localStorage keys:', allKeys);
                 
-                // Check config store (correct key: 'config')
-                const configStore = localStorage.getItem('config');
-                const agencyStore = localStorage.getItem('bus-tracker-agencies');
+                // Check unified config store (current key: 'unified-config-store')
+                const configStore = localStorage.getItem('unified-config-store');
+                // Note: Agencies are now stored in unified-config-store, not separately
                 // Note: Location store doesn't persist to localStorage
                 
                 let configData = null;
-                let agencyData = null;
                 
                 if (configStore) {
                     configData = JSON.parse(configStore);
@@ -306,21 +305,15 @@
                     console.log('Config data found:', { ...configData, state: { ...configData.state, config: { ...appConfig, apiKey: appConfig?.apiKey ? '[DECRYPTED]' : 'none' } } });
                 }
                 
-                if (agencyStore) {
-                    agencyData = JSON.parse(agencyStore);
-                    console.log('Agency data found:', agencyData);
-                }
-                
                 const summary = {
                     'All localStorage keys': allKeys.length > 0 ? `✅ ${allKeys.join(', ')}` : '❌ No keys found',
-                    'Config Store': configStore ? '✅ Found' : '❌ Missing',
+                    'Unified Config Store': configStore ? '✅ Found' : '❌ Missing',
                     'API Key': appConfig?.apiKey ? '✅ Set (encrypted)' : '❌ Missing',
                     'Agency ID': appConfig?.agencyId ? `✅ ${appConfig.agencyId}` : '❌ Missing',
                     'City': appConfig?.city || '❌ Not set',
                     'Refresh Rate': appConfig?.refreshRate ? `✅ ${appConfig.refreshRate}ms` : '❌ Not set',
-                    'Agency Store': agencyStore ? '✅ Found' : '❌ Missing',
-                    'Cached Agencies': agencyData?.agencies?.length ? `✅ ${agencyData.agencies.length} agencies` : '❌ No agencies cached',
-                    'API Validated': agencyData?.isApiValidated ? '✅ Yes' : '❌ No',
+                    'Cached Agencies': configData?.state?.agencies?.length ? `✅ ${configData.state.agencies.length} agencies` : '❌ No agencies cached',
+                    'Theme': configData?.state?.theme ? `✅ ${configData.state.theme}` : '❌ Not set',
                     'Location Store': '⚠️ Not persisted (runtime only)'
                 };
                 

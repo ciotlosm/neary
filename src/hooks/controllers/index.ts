@@ -3,16 +3,15 @@
  * 
  * High-level business logic hooks that orchestrate data and processing layers.
  * These hooks implement the main application workflows and user interactions.
+ * 
+ * Simplified architecture after consolidation:
+ * - Reduced useVehicleDisplay from 847 lines to under 200 lines
+ * - Uses unified infrastructure (useStoreData, standardized error handling)
+ * - Leverages shared processing utilities
  */
 
-// Main vehicle processing (now using composition pattern)
-export { useVehicleDisplay as useVehicleProcessing, type UseVehicleDisplayOptions as VehicleProcessingOptions, type UseVehicleDisplayResult as VehicleProcessingResult } from './useVehicleDisplay';
-
-// Simple composition hook (new architecture)
+// Main vehicle processing (simplified with unified infrastructure)
 export { useVehicleDisplay, type UseVehicleDisplayOptions, type UseVehicleDisplayResult } from './useVehicleDisplay';
 
-// View controllers
-export { useNearbyViewController } from './useNearbyViewController';
-
-// Business logic managers
+// Business logic managers (updated to use unified patterns)
 export { useRouteManager } from './useRouteManager';

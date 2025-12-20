@@ -4,9 +4,10 @@ import {
   Stack,
   Typography,
   Alert,
+  Button,
 } from '@mui/material';
 import { Key as KeyIcon } from '@mui/icons-material';
-import { InfoCard } from '../../ui/Card';
+import { InfoCard } from '../../ui';
 import { ApiKeySection } from '../Configuration/sections/ApiKeySection';
 import { useConfigurationManager } from '../../../hooks/shared/useConfigurationManager';
 
@@ -55,24 +56,21 @@ export const ApiConfigurationPanel: React.FC = () => {
 
         {/* Save Button */}
         <Box sx={{ pt: 2 }}>
-          <button
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
             onClick={handleSubmit}
             disabled={isValidatingApiKey || apiKeyValid === false || isSubmitting}
-            style={{
-              width: '100%',
-              padding: '12px 24px',
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
+            sx={{
+              py: 1.5,
+              fontSize: '1rem',
               fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              opacity: isSubmitting ? 0.6 : 1,
+              textTransform: 'none',
             }}
           >
             {isSubmitting ? 'Saving...' : 'Save API Configuration'}
-          </button>
+          </Button>
         </Box>
       </Stack>
     </InfoCard>

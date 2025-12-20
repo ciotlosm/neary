@@ -1,12 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  TextField,
-  InputAdornment,
   Chip,
   Stack,
   Alert,
-  CircularProgress,
   Typography,
 } from '@mui/material';
 import {
@@ -16,7 +13,8 @@ import {
 } from '@mui/icons-material';
 
 import { useRouteManager } from '../../../hooks/controllers';
-import { InfoCard } from '../../ui/Card';
+import { InfoCard, Input } from '../../ui';
+import { LoadingState } from '../../ui/feedback/Loading';
 import { RouteTypeFilters } from './components/RouteTypeFilters';
 import { RoutesList } from './components/RoutesList';
 import { StatusMessages } from './components/StatusMessages';
@@ -33,8 +31,10 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ className = '' }) 
     selectedTypes,
     
     // Data
+    availableRoutes,
     isLoading,
     config,
+    error,
     
     // Computed
     availableTypes,
@@ -46,6 +46,23 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ className = '' }) 
     handleToggleRoute,
     handleTypeFilterChange,
   } = useRouteManager();
+
+  // Local loading state to ensure we show loading initially
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+
+  // Mark as loaded when we have data or a definitive error
+  useEffect(() => {
+    if (!isLoading && (availableRoutes.length > 0 || error)) {
+      // Add a small delay to ensure loading state is visible
+      const timer = setTimeout(() => {
+        setHasInitiallyLoaded(true);
+      }, 500); // 500ms minimum loading time
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, availableRoutes.length, error]);
+
+
 
   if (!config?.city) {
     return (
@@ -63,6 +80,22 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ className = '' }) 
     );
   }
 
+  // Show loading state during initial data fetch
+  if (!hasInitiallyLoaded && config?.city) {
+    return (
+      <Box className={className}>
+        <InfoCard title="Favorite Routes">
+          <LoadingState
+            variant="spinner"
+            size="medium"
+            text="Loading route data..."
+            fullHeight={false}
+          />
+        </InfoCard>
+      </Box>
+    );
+  }
+
   return (
     <Box className={className}>
       <InfoCard title="Favorite Routes">
@@ -70,97 +103,110 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ className = '' }) 
 
           {/* Favorite Routes Section */}
           <Box>
-            <RoutesList
-              title="Favorites"
-              routes={favoriteRoutes as any}
-              isFavoriteList={true}
-              onToggleRoute={handleToggleRoute}
-            />
-
+            {isLoading && favoriteRoutes.length === 0 ? (
+              <LoadingState
+                variant="skeleton"
+                size="medium"
+                text="Loading favorites..."
+              />
+            ) : (
+              <RoutesList
+                title="Favorites"
+                routes={favoriteRoutes as any}
+                isFavoriteList={true}
+                onToggleRoute={handleToggleRoute}
+              />
+            )}
           </Box>
 
-          {/* Search and Filter Section */}
-          <Box>
-            {/* Search Bar */}
-            <TextField
-              fullWidth
-              placeholder="Search routes by number, name, or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{
-                mb: 2,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 3,
-                },
-              }}
-            />
+          {/* Search and Filter Section - Only show when not in initial loading */}
+          {hasInitiallyLoaded && (
+            <Box>
+              {/* Search Bar */}
+              <Input
+                placeholder="Search routes by number, name, or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                leftIcon={<SearchIcon color="action" />}
+                disabled={isLoading}
+                sx={{
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                  },
+                }}
+              />
 
-            {/* Route Type Filters */}
-            <RouteTypeFilters
-              availableTypes={availableTypes}
-              selectedTypes={selectedTypes}
-              onTypeFilterChange={handleTypeFilterChange}
-            />
-          </Box>
-
-          {/* Statistics */}
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-            <Chip
-              label={`${selectedRoutes.length} Favorite${selectedRoutes.length !== 1 ? 's' : ''}`}
-              color="primary"
-              icon={<FavoriteIcon />}
-              sx={{ fontWeight: 600 }}
-            />
-            <Chip
-              label={`${filteredAvailableRoutes.length} Available`}
-              variant="outlined"
-              icon={<RouteIcon />}
-            />
-          </Box>
-
-          {/* Loading State */}
-          {isLoading && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 4 }}>
-              <CircularProgress size={24} />
-              <Typography variant="body2" color="text.secondary">
-                Loading available routes...
-              </Typography>
+              {/* Route Type Filters */}
+              <RouteTypeFilters
+                availableTypes={availableTypes}
+                selectedTypes={selectedTypes}
+                onTypeFilterChange={handleTypeFilterChange}
+              />
             </Box>
           )}
 
-          {/* Available Routes Section */}
-          <Box>
-            <RoutesList
-              title="Available Routes"
-              routes={filteredAvailableRoutes as any}
-              isFavoriteList={false}
-              onToggleRoute={handleToggleRoute}
-              maxHeight={400}
+          {/* Statistics - Only show when not in initial loading */}
+          {hasInitiallyLoaded && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+              <Chip
+                label={`${selectedRoutes.length} Favorite${selectedRoutes.length !== 1 ? 's' : ''}`}
+                color="primary"
+                icon={<FavoriteIcon />}
+                sx={{ fontWeight: 600 }}
+              />
+              <Chip
+                label={`${filteredAvailableRoutes.length} Available`}
+                variant="outlined"
+                icon={<RouteIcon />}
+              />
+            </Box>
+          )}
+
+          {/* Loading State for subsequent data fetches */}
+          {hasInitiallyLoaded && isLoading && (
+            <LoadingState
+              variant="spinner"
+              size="small"
+              text="Updating routes..."
             />
+          )}
 
-          </Box>
+          {/* Available Routes Section */}
+          {hasInitiallyLoaded && (
+            <Box>
+              {isLoading && filteredAvailableRoutes.length === 0 ? (
+                <LoadingState
+                  variant="skeleton"
+                  size="medium"
+                  text="Loading available routes..."
+                />
+              ) : (
+                <RoutesList
+                  title="Available Routes"
+                  routes={filteredAvailableRoutes as any}
+                  isFavoriteList={false}
+                  onToggleRoute={handleToggleRoute}
+                  maxHeight={400}
+                />
+              )}
+            </Box>
+          )}
 
-          {/* Status Messages */}
-          <StatusMessages
-            isLoading={isLoading}
-            hasRoutes={favoriteRoutes.length > 0 || filteredAvailableRoutes.length > 0}
-            hasFilteredRoutes={filteredAvailableRoutes.length > 0}
-            hasFavorites={favoriteRoutes.length > 0}
-            searchTerm={searchTerm}
-            selectedTypes={selectedTypes}
-            cityName={config?.city}
-            selectedCount={selectedRoutes.length}
-            hasChanges={false}
-          />
+          {/* Status Messages - Only show when not in initial loading */}
+          {hasInitiallyLoaded && (
+            <StatusMessages
+              isLoading={isLoading}
+              hasRoutes={favoriteRoutes.length > 0 || filteredAvailableRoutes.length > 0}
+              hasFilteredRoutes={filteredAvailableRoutes.length > 0}
+              hasFavorites={favoriteRoutes.length > 0}
+              searchTerm={searchTerm}
+              selectedTypes={selectedTypes}
+              cityName={config?.city}
+              selectedCount={selectedRoutes.length}
+              hasChanges={false}
+            />
+          )}
         </Stack>
       </InfoCard>
     </Box>

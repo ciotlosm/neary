@@ -24,7 +24,7 @@ export interface RefreshStatus {
  * Centralized auto-refresh manager
  */
 export class AutoRefreshManager {
-  private intervals = new Map<string, number>();
+  private intervals = new Map<string, ReturnType<typeof setInterval>>();
   private configs = new Map<string, RefreshConfig>();
   private status = new Map<string, RefreshStatus>();
   private isPaused = false;

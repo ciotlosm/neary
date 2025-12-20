@@ -7,8 +7,9 @@
 **❌ NEVER create markdown files in the project root directory (except README.md)**
 **❌ NEVER create .md files anywhere in the root directory**
 **❌ NEVER create documentation files outside of docs/ folder**
+**✅ ALWAYS use /temporary folder for intermediate files, testing artifacts, and temporary documentation**
 
-### **✅ UPDATED CONSOLIDATED STRUCTURE (December 2024):**
+### **✅ CURRENT CONSOLIDATED STRUCTURE (December 2024):**
 
 All documentation MUST go in the `docs/` directory using our **human-friendly consolidated structure**:
 
@@ -18,29 +19,42 @@ docs/
 ├── getting-started.md     # Setup, installation, first run
 ├── user-guide.md         # How to use the app (for end users)
 ├── developer-guide.md    # Technical details (for developers)
-├── troubleshooting/       # ORGANIZED TROUBLESHOOTING (split for manageability)
-│   ├── README.md         # Troubleshooting index and navigation
-│   ├── common-issues.md  # Most frequent problems
-│   ├── api-authentication.md  # API and auth issues
-│   ├── station-route-issues.md  # Station/route problems
-│   ├── mobile-pwa-issues.md     # Mobile and PWA issues
-│   ├── performance-caching.md   # Performance and cache issues
-│   ├── testing-development.md   # Test and dev issues
-│   └── emergency-recovery.md    # Last resort procedures
 ├── changelog.md          # Recent updates and changes
-└── archive/              # Historical detailed documentation
-    ├── README.md         # Archive index
-    └── [old files]       # Previous docs (kept for reference)
+├── api/                  # API documentation and technical specs
+│   ├── README.md         # API documentation index
+│   └── vehicle-transformation-service.md  # Service specifications
+├── performance/          # Performance analysis and benchmarks
+│   ├── performance-summary.md  # Performance overview
+│   ├── migration-performance-analysis.md  # Migration analysis
+│   └── [benchmark files] # Performance data and reports
+└── troubleshooting/      # ORGANIZED TROUBLESHOOTING (split for manageability)
+    ├── README.md         # Troubleshooting index and navigation
+    ├── common-issues.md  # Most frequent problems
+    ├── api-authentication.md  # API and auth issues
+    ├── station-route-issues.md  # Station/route problems
+    ├── mobile-pwa-issues.md     # Mobile and PWA issues
+    ├── performance-caching.md   # Performance and cache issues
+    ├── testing-development.md   # Test and dev issues
+    └── emergency-recovery.md    # Last resort procedures
+
+temporary/                # TEMPORARY FILES (git-ignored except structure)
+├── README.md            # Temporary folder documentation
+├── analysis/            # Generated reports, codebase statistics
+├── screenshots/         # UI mockups, comparison images, visual tests
+├── testing/             # Test artifacts, debug outputs, logs
+└── experiments/         # Temporary code experiments, prototypes
 ```
 
-### **Documentation Categories (UPDATED):**
+### **Documentation Categories (CURRENT):**
 
 - **`docs/getting-started.md`** - Setup guides, installation, API key configuration
 - **`docs/user-guide.md`** - App usage, features, mobile tips, daily workflows
 - **`docs/developer-guide.md`** - Architecture, API integration, testing, debugging
-- **`docs/troubleshooting/`** - **ORGANIZED FOLDER** with categorized troubleshooting files
 - **`docs/changelog.md`** - Recent changes, breaking changes, migration guides
-- **`docs/archive/`** - Historical documentation (50+ old files preserved for reference)
+- **`docs/api/`** - API documentation, service specifications, technical references
+- **`docs/performance/`** - Performance analysis, benchmarks, optimization reports
+- **`docs/troubleshooting/`** - **ORGANIZED FOLDER** with categorized troubleshooting files
+- **`temporary/`** - **TEMPORARY FILES** for testing, analysis, screenshots, experiments (git-ignored)
 
 ### **Where to Add New Information:**
 
@@ -55,6 +69,19 @@ docs/
 **For Technical Details:**
 - ✅ Add to `docs/developer-guide.md`
 - Include architecture, APIs, code patterns, debugging
+
+**For API Documentation:**
+- ✅ Add to `docs/api/` folder
+- Include service specifications, technical references
+
+**For Performance Analysis:**
+- ✅ Add to `docs/performance/` folder
+- Include benchmarks, optimization reports, analysis
+
+**For Temporary/Intermediate Files:**
+- ✅ Use `temporary/` folder for all temporary work
+- Include testing artifacts, screenshots, analysis outputs, experiments
+- Files are git-ignored and cleaned up regularly
 
 **For Bug Fixes/Issues:**
 - ✅ Add to appropriate `docs/troubleshooting/` file based on category:
@@ -78,15 +105,20 @@ docs/
 - Setup issue → Update `docs/getting-started.md`
 - New feature → Update `docs/user-guide.md` + `docs/changelog.md`
 - API change → Update `docs/developer-guide.md` + `docs/changelog.md`
+- API specification → Update `docs/api/` folder
+- Performance analysis → Update `docs/performance/` folder
 - Bug fix → Update appropriate `docs/troubleshooting/` file + `docs/changelog.md`
 - Performance issue → Update `docs/troubleshooting/performance-caching.md`
 - Mobile problem → Update `docs/troubleshooting/mobile-pwa-issues.md`
+- **Temporary work** → Use `temporary/` folder for testing, screenshots, analysis
 
 ❌ **Old Approach (Don't Do):**
 - Creating `SETUP_ISSUE_FIX.md` in root
 - Creating new files in `docs/implementation/`
 - Adding to single large `troubleshooting.md` file
 - Scattering information across multiple small files
+- Creating new top-level folders in docs/
+- **Leaving temporary files in root directory**
 
 ## 🎯 **AI Assistant Guidelines (UPDATED)**
 
@@ -99,6 +131,7 @@ When working on this project:
 5. **Archive old approach** - Historical detailed docs are in `docs/archive/` for reference
 6. **Update changelog** - Always document significant changes in `docs/changelog.md`
 7. **TROUBLESHOOTING EXCEPTION** - Use the organized `docs/troubleshooting/` folder structure for bug fixes and issues
+8. **USE TEMPORARY FOLDER** - Always use `temporary/` for intermediate files, testing artifacts, screenshots, and experiments
 
 ## 📝 **Content Guidelines (UPDATED)**
 
@@ -124,14 +157,17 @@ When working on this project:
 
 ### **Large File Management:**
 
-**Current File Status (December 2024) - AFTER MAJOR CLEANUP:**
-- ✅ `getting-started.md` (138 lines) - Optimal size
+**Current File Status (December 2024) - NEEDS ATTENTION:**
+- ❌ `developer-guide.md` (504 lines) - **CRITICAL: Over 500 lines, causes AI truncation**
 - ✅ `user-guide.md` (387 lines) - Good size  
-- ✅ `developer-guide.md` (157 lines) - Optimal size ✅ FIXED
-- ✅ `changelog.md` (21 lines) - Optimal size ✅ FIXED
-- ✅ `troubleshooting/` - All files under 113 lines ✅ FIXED
+- ⚠️ `troubleshooting/testing-development.md` (309 lines) - Warning threshold
+- ⚠️ `changelog.md` (170 lines) - Good size
+- ✅ `getting-started.md` (138 lines) - Optimal size
+- ✅ Other troubleshooting files - All under 121 lines
 
-**MAJOR SUCCESS**: Reduced from 103 files (8,869 lines) to 14 files (1,382 lines) - 84% reduction!
+**URGENT ACTION REQUIRED**: `developer-guide.md` at 504 lines exceeds the 500-line critical threshold and causes AI processing truncation warnings. This file must be split immediately.
+
+**Current Status**: 17 total files (2,171 lines in main docs) - Structure is good but developer-guide.md needs immediate splitting.
 
 **When to Archive Content:**
 - **Changelog entries older than 3 months** - Move to `docs/archive/changelog-YYYY-QX.md`
@@ -209,6 +245,7 @@ find docs -name "*.md" -exec wc -l {} + | sort -nr | head -10
 ❌ **NEVER create architecture deep-dives** - High-level overview only
 ❌ **NEVER create troubleshooting novels** - Problem + Solution format only
 ❌ **NEVER create changelog novels** - Recent changes only (3 months max)
+❌ **NEVER leave temporary files in root** - Use `temporary/` folder
 
 ### **MANDATORY PRACTICES:**
 
@@ -218,23 +255,28 @@ find docs -name "*.md" -exec wc -l {} + | sort -nr | head -10
 ✅ **ALWAYS check file sizes** - Monitor with `wc -l docs/*.md`
 ✅ **ALWAYS use minimal language** - No verbose explanations
 ✅ **ALWAYS prioritize user needs** - Skip implementation details
-✅ **ALWAYS maintain the 14-file limit** - No exceptions
+✅ **ALWAYS maintain the current structure** - No exceptions
+✅ **ALWAYS use temporary/ folder** - For all intermediate and testing files
 
 ### **FILE SIZE ENFORCEMENT:**
 
 **HARD LIMITS (Enforced):**
-- **Maximum files**: 14 total (current structure)
+- **Current files**: 17 total (main docs structure)
 - **Maximum lines per file**: 400 lines (AI processing limit)
-- **Target lines per file**: Under 200 lines (optimal)
+- **Target lines per file**: Under 300 lines (optimal)
 - **Troubleshooting files**: Under 150 lines each
+- **CRITICAL**: Files over 500 lines cause AI truncation warnings
 
 **MONITORING COMMANDS:**
 ```bash
-# Check total file count (must be ≤ 14)
+# Check total file count (currently 17)
 find docs -name "*.md" | wc -l
 
-# Check file sizes (none over 400 lines)
+# Check file sizes (none should exceed 400 lines)
 wc -l docs/*.md docs/troubleshooting/*.md | sort -nr
+
+# Alert if any file over 400 lines (CRITICAL: developer-guide.md is 504 lines)
+find docs -name "*.md" -exec wc -l {} + | awk '$1 > 400 {print "CRITICAL: " $2 " has " $1 " lines - MUST SPLIT"}'
 
 # Alert if any file over 300 lines
 find docs -name "*.md" -exec wc -l {} + | awk '$1 > 300 {print "WARNING: " $2 " has " $1 " lines"}'
@@ -260,19 +302,20 @@ find docs -name "*.md" -exec wc -l {} + | awk '$1 > 300 {print "WARNING: " $2 " 
 ### **EMERGENCY BLOAT DETECTION:**
 
 **Warning Signs:**
-- Any file over 300 lines
-- More than 14 total .md files
+- Any file over 400 lines (CRITICAL: developer-guide.md is 504 lines)
+- Files over 300 lines (testing-development.md is 309 lines)
+- More than 20 total .md files
 - Detailed implementation explanations
 - Step-by-step guides over 10 steps
 - Multiple files for same topic
 
 **Immediate Action Required:**
-1. **Stop adding content** to the bloated file
-2. **Archive excessive content** to docs/archive/
-3. **Summarize remaining content** to essential points only
-4. **Split if necessary** but maintain 14-file limit
+1. **URGENT**: Split `docs/developer-guide.md` (504 lines) immediately
+2. **Review**: `docs/troubleshooting/testing-development.md` (309 lines) for splitting opportunities
+3. **Archive excessive content** to appropriate folders
+4. **Summarize remaining content** to essential points only
 5. **Update this steering file** if patterns change
 
 ---
 
-**Remember: We achieved 84% documentation reduction. Maintain this streamlined approach - consolidated, human-friendly documentation that stays manageable for both humans and AI systems!**
+**Remember: Current structure has 17 files with good organization, but `developer-guide.md` at 504 lines MUST be split immediately to prevent AI processing issues. Maintain the streamlined approach - consolidated, human-friendly documentation that stays manageable for both humans and AI systems!**

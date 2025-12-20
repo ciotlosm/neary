@@ -4,11 +4,12 @@ import * as fc from 'fast-check';
 import { useVehicleFiltering } from './useVehicleFiltering';
 import { propertyTestConfig } from '../../test/utils/propertyTestConfig';
 import { 
-  liveVehicleArb, 
+  coreVehicleArb, 
   clujCoordinatesArb, 
   createMockData 
 } from '../../test/utils/mockDataGenerators';
-import type { LiveVehicle, FavoriteRoute } from '../../types';
+import type { FavoriteRoute } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 
 describe('useVehicleFiltering', () => {
   describe('Property 4: Vehicle Filtering Determinism', () => {
@@ -22,15 +23,13 @@ describe('useVehicleFiltering', () => {
     it('should return identical results for identical inputs', () => {
       fc.assert(
         fc.property(
-          fc.array(liveVehicleArb, { minLength: 0, maxLength: 20 }),
+          fc.array(coreVehicleArb, { minLength: 0, maxLength: 20 }),
           fc.boolean(), // filterByFavorites
           fc.array(fc.record({
             id: fc.string({ minLength: 1, maxLength: 10 }),
             routeName: fc.string({ minLength: 1, maxLength: 5 })
           }), { minLength: 0, maxLength: 5 }), // favoriteRoutes
-          fc.double({ min: 100, max: 10000 }), // maxSearchRadius
-          fc.option(clujCoordinatesArb), // userLocation
-          (vehicles, filterByFavorites, favoriteRoutes, maxSearchRadius, userLocation) => {
+          (vehicles, filterByFavorites, favoriteRoutes) => {
             // Ensure vehicles have valid data for consistent testing
             const validVehicles = vehicles.map((vehicle, index) => ({
               ...vehicle,
@@ -44,20 +43,9 @@ describe('useVehicleFiltering', () => {
               }
             }));
 
-            // Ensure valid user location for consistent testing
-            const validUserLocation = userLocation && 
-              !isNaN(userLocation.latitude) && 
-              !isNaN(userLocation.longitude) &&
-              Math.abs(userLocation.latitude) <= 90 &&
-              Math.abs(userLocation.longitude) <= 180
-              ? userLocation 
-              : undefined;
-
             const options = {
               filterByFavorites,
-              favoriteRoutes,
-              maxSearchRadius,
-              userLocation: validUserLocation
+              favoriteRoutes
             };
 
             // Run the hook twice with identical inputs
@@ -94,11 +82,8 @@ describe('useVehicleFiltering', () => {
               expect(result1.current.filterStats.appliedFilters).toContain('favorites');
             }
 
-            // If proximity filtering is applied and we didn't return early due to favorites, 
-            // vehicles should be within radius
-            if (validUserLocation && !result1.current.filterStats.appliedFilters.includes('no-valid-favorites')) {
-              expect(result1.current.filterStats.appliedFilters).toContain('proximity');
-            }
+            // Proximity filtering has been removed - should not be in applied filters
+            expect(result1.current.filterStats.appliedFilters).not.toContain('proximity');
           }
         ),
         propertyTestConfig
@@ -146,7 +131,7 @@ describe('useVehicleFiltering', () => {
     it('should maintain consistent ordering', () => {
       fc.assert(
         fc.property(
-          fc.array(liveVehicleArb, { minLength: 2, maxLength: 10 }),
+          fc.array(coreVehicleArb, { minLength: 2, maxLength: 10 }),
           (vehicles) => {
             // Ensure vehicles have valid route IDs
             const validVehicles = vehicles.map((vehicle, index) => ({
@@ -184,10 +169,10 @@ describe('useVehicleFiltering', () => {
 
   describe('Unit Tests', () => {
     it('should filter by favorite routes correctly', () => {
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ id: 'v1', routeId: 'route-42' }),
-        createMockData.liveVehicle({ id: 'v2', routeId: 'route-43' }),
-        createMockData.liveVehicle({ id: 'v3', routeId: 'route-44' })
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ id: 'v1', routeId: 'route-42' }),
+        createMockData.coreVehicle({ id: 'v2', routeId: 'route-43' }),
+        createMockData.coreVehicle({ id: 'v3', routeId: 'route-44' })
       ];
 
       const favoriteRoutes: FavoriteRoute[] = [
@@ -207,37 +192,34 @@ describe('useVehicleFiltering', () => {
       expect(result.current.filterStats.appliedFilters).toContain('favorites');
     });
 
-    it('should filter by proximity correctly', () => {
-      const userLocation = { latitude: 46.75, longitude: 23.6 };
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ 
+    it('should not filter by proximity (proximity filtering removed)', () => {
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ 
           id: 'v1', 
-          position: { latitude: 46.75, longitude: 23.6 } // Same location
+          position: { latitude: 46.75, longitude: 23.6 }
         }),
-        createMockData.liveVehicle({ 
+        createMockData.coreVehicle({ 
           id: 'v2', 
-          position: { latitude: 46.76, longitude: 23.61 } // Close
+          position: { latitude: 46.76, longitude: 23.61 }
         }),
-        createMockData.liveVehicle({ 
+        createMockData.coreVehicle({ 
           id: 'v3', 
-          position: { latitude: 47.0, longitude: 24.0 } // Far away
+          position: { latitude: 47.0, longitude: 24.0 } // Far away but should not be filtered
         })
       ];
 
       const { result } = renderHook(() => 
-        useVehicleFiltering(vehicles, { 
-          userLocation, 
-          maxSearchRadius: 5000 // 5km
-        })
+        useVehicleFiltering(vehicles, {})
       );
 
-      expect(result.current.filteredVehicles.length).toBeLessThan(vehicles.length);
-      expect(result.current.filterStats.appliedFilters).toContain('proximity');
+      // All vehicles should be returned since proximity filtering is removed
+      expect(result.current.filteredVehicles.length).toBe(vehicles.length);
+      expect(result.current.filterStats.appliedFilters).not.toContain('proximity');
     });
 
     it('should return empty result when favorites enabled but no valid routes', () => {
       const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ id: 'v1', routeId: 'route-42' })
+        createMockData.coreVehicle({ id: 'v1', routeId: 'route-42' })
       ];
 
       const { result } = renderHook(() => 
@@ -253,7 +235,7 @@ describe('useVehicleFiltering', () => {
 
     it('should return all vehicles when favorites disabled', () => {
       const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ id: 'v1', routeId: 'route-42' })
+        createMockData.coreVehicle({ id: 'v1', routeId: 'route-42' })
       ];
 
       const { result } = renderHook(() => 

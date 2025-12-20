@@ -10,14 +10,14 @@ import type {
   VehicleStore, 
   RefreshOptions, 
   Coordinates,
-  Station,
-  EnhancedVehicleInfo 
+  Station
 } from '../types';
-import type { LiveVehicle, Route, StopTime } from '../types/tranzyApi';
+import type { Route, StopTime } from '../types/tranzyApi';
+import type { CoreVehicle } from '../types/coreVehicle';
 import { StoreEventManager, StoreEvents } from './shared/storeEvents';
 import { autoRefreshManager } from './shared/autoRefresh';
 import { StoreErrorHandler } from './shared/errorHandler';
-import { cacheManager } from './shared/cacheManager';
+import { unifiedCache } from '../hooks/shared/cache/instance';
 import { enhancedTranzyApi } from '../services/tranzyApiService';
 import { logger } from '../utils/logger';
 import { locationWarningTracker } from '../utils/locationWarningTracker';
@@ -29,7 +29,7 @@ import { locationWarningTracker } from '../utils/locationWarningTracker';
 export const useVehicleStore = create<VehicleStore>()(
   persist(
     (set, get) => ({
-      // Unified Data - using EnhancedVehicleInfo as primary model
+      // Unified Data - using CoreVehicle as primary model
       vehicles: [],
       stations: [],
       
@@ -77,13 +77,11 @@ export const useVehicleStore = create<VehicleStore>()(
           
           const agencyId = parseInt(config.agencyId);
 
-          // Fetch enhanced vehicle information with retry logic
-          const fetchVehicleData = async (): Promise<EnhancedVehicleInfo[]> => {
-            return await enhancedTranzyApi.getEnhancedVehicleInfo(
+          // Fetch core vehicle data with retry logic
+          const fetchVehicleData = async (): Promise<CoreVehicle[]> => {
+            return await enhancedTranzyApi.getVehicles(
               agencyId,
-              undefined, // stopId - get all stops
-              undefined, // routeId - get all routes  
-              options.forceRefresh
+              undefined // routeId - get all routes  
             );
           };
 
@@ -92,27 +90,8 @@ export const useVehicleStore = create<VehicleStore>()(
             context
           );
 
-          // Classify vehicles by direction using user locations
-          const classifiedVehicles = vehicles.map((vehicle) => {
-            if (!config.homeLocation || !config.workLocation) {
-              return { ...vehicle, direction: 'unknown' as const };
-            }
-
-            // Calculate distances from vehicle station to home and work
-            const distanceToHome = get().calculateDistance(
-              vehicle.station.coordinates, 
-              config.homeLocation
-            );
-            const distanceToWork = get().calculateDistance(
-              vehicle.station.coordinates, 
-              config.workLocation
-            );
-
-            // If station is closer to home, vehicles likely go to work (and vice versa)
-            const direction: 'work' | 'home' | 'unknown' = distanceToHome < distanceToWork ? 'work' : 'home';
-            
-            return { ...vehicle, direction };
-          });
+          // CoreVehicle data is already in the correct format
+          const classifiedVehicles = vehicles;
 
           const now = new Date();
           set({
@@ -137,8 +116,6 @@ export const useVehicleStore = create<VehicleStore>()(
 
           logger.info('Vehicles refreshed successfully', {
             vehicleCount: classifiedVehicles.length,
-            liveCount: classifiedVehicles.filter(v => v.isLive).length,
-            scheduledCount: classifiedVehicles.filter(v => v.isScheduled).length,
             forceRefresh: options.forceRefresh,
           });
 
@@ -150,10 +127,10 @@ export const useVehicleStore = create<VehicleStore>()(
           });
 
           // Try to use cached data as fallback
-          const cachedData = cacheManager.getCachedStale(`vehicles:${context.metadata?.agencyId}`);
+          const cachedData = unifiedCache.getCachedStale(`vehicles:${context.metadata?.agencyId}`);
           if (cachedData && Array.isArray(cachedData.data) && cachedData.data.length > 0) {
             set({
-              vehicles: cachedData.data as EnhancedVehicleInfo[],
+              vehicles: cachedData.data as CoreVehicle[],
               isUsingCachedData: true,
               lastCacheUpdate: new Date(Date.now() - cachedData.age),
             });
@@ -409,6 +386,26 @@ export const useVehicleStore = create<VehicleStore>()(
 
           const vehicles = await StoreErrorHandler.withRetry(fetchVehicleData, context);
           
+          // Update store state with fetched vehicles (same as refreshVehicles)
+          const now = new Date();
+          
+          set({
+            vehicles: vehicles,
+            lastUpdate: now,
+            lastApiUpdate: now,
+            lastCacheUpdate: now,
+            isLoading: false,
+            error: null,
+            isUsingCachedData: false,
+          });
+
+          // Emit event for other stores/components
+          StoreEventManager.emit(StoreEvents.VEHICLES_UPDATED, {
+            vehicles: vehicles,
+            timestamp: now,
+            source: 'api',
+          });
+          
           logger.info('Vehicle data fetched via store method', {
             agencyId,
             routeId: options.routeId,
@@ -420,7 +417,7 @@ export const useVehicleStore = create<VehicleStore>()(
             data: vehicles,
             isLoading: false,
             error: null,
-            lastUpdated: new Date()
+            lastUpdated: now
           };
 
         } catch (error) {
@@ -524,7 +521,7 @@ export const useVehicleStore = create<VehicleStore>()(
 
           const stopTimes = await StoreErrorHandler.withRetry(fetchStopTimesData, context);
           
-          logger.info('Stop times data fetched via store method', {
+          logger.debug('Stop times data fetched via store method', {
             agencyId,
             stopId: options.stopId,
             tripId: options.tripId,
@@ -620,12 +617,12 @@ export const useVehicleStore = create<VehicleStore>()(
 
       // Actions - Cache Management
       getCacheStats: () => {
-        const stats = cacheManager.getStats();
+        const stats = unifiedCache.getStats();
         set({ cacheStats: stats });
       },
 
       clearCache: () => {
-        cacheManager.clearAll();
+        unifiedCache.clearAll();
         enhancedTranzyApi.clearCache();
         
         set({

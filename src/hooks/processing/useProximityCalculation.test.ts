@@ -45,17 +45,12 @@ describe('useProximityCalculation', () => {
             // Basic structure validation
             expect(typeof proximityResult.distance).toBe('number');
             expect(typeof proximityResult.withinRadius).toBe('boolean');
-            expect(proximityResult.bearing === undefined || typeof proximityResult.bearing === 'number').toBe(true);
 
             // Distance should be non-negative and finite
             expect(proximityResult.distance).toBeGreaterThanOrEqual(0);
             expect(Number.isFinite(proximityResult.distance)).toBe(true);
 
-            // Bearing should be in valid range (0-360) if present
-            if (proximityResult.bearing !== undefined) {
-              expect(proximityResult.bearing).toBeGreaterThanOrEqual(0);
-              expect(proximityResult.bearing).toBeLessThan(360);
-            }
+
 
             // Radius check should be consistent with distance and maxRadius
             if (maxRadius !== undefined && maxRadius !== null && !isNaN(maxRadius) && maxRadius > 0) {
@@ -78,15 +73,7 @@ describe('useProximityCalculation', () => {
             const tolerance = 0.01; // 1cm tolerance
             expect(Math.abs(proximityResult.distance - reverseResult.current.distance)).toBeLessThan(tolerance);
 
-            // Bearing should be opposite (±180 degrees) for reverse direction
-            if (proximityResult.bearing !== undefined && reverseResult.current.bearing !== undefined) {
-              const bearingDiff = Math.abs(proximityResult.bearing - reverseResult.current.bearing);
-              const isOpposite = Math.abs(bearingDiff - 180) < 1 || Math.abs(bearingDiff - 180 + 360) < 1 || Math.abs(bearingDiff - 180 - 360) < 1;
-              // Only check bearing opposition for non-zero distances
-              if (proximityResult.distance > 1) { // More than 1 meter
-                expect(isOpposite).toBe(true);
-              }
-            }
+
           }
         ),
         propertyTestConfig
@@ -145,7 +132,6 @@ describe('useProximityCalculation', () => {
               // Truly invalid inputs should return safe defaults
               expect(result.current.distance).toBe(Infinity);
               expect(result.current.withinRadius).toBe(false);
-              expect(result.current.bearing).toBeUndefined();
             }
           }
         ),
@@ -183,7 +169,6 @@ describe('useProximityCalculation', () => {
             // Results should be identical
             expect(result1.current.distance).toBe(result2.current.distance);
             expect(result1.current.withinRadius).toBe(result2.current.withinRadius);
-            expect(result1.current.bearing).toBe(result2.current.bearing);
           }
         ),
         propertyTestConfig
@@ -234,9 +219,6 @@ describe('useProximityCalculation', () => {
 
       expect(result.current.distance).toBeGreaterThan(0);
       expect(result.current.withinRadius).toBe(true); // No radius specified
-      expect(result.current.bearing).toBeDefined();
-      expect(result.current.bearing).toBeGreaterThanOrEqual(0);
-      expect(result.current.bearing).toBeLessThan(360);
     });
 
     it('should return 0 distance for identical coordinates', () => {
@@ -270,7 +252,6 @@ describe('useProximityCalculation', () => {
 
       expect(result.current.distance).toBe(Infinity);
       expect(result.current.withinRadius).toBe(false);
-      expect(result.current.bearing).toBeUndefined();
     });
 
     it('should handle invalid coordinate values', () => {
@@ -283,37 +264,9 @@ describe('useProximityCalculation', () => {
 
       expect(result.current.distance).toBe(Infinity);
       expect(result.current.withinRadius).toBe(false);
-      expect(result.current.bearing).toBeUndefined();
     });
 
-    it('should calculate bearing correctly for cardinal directions', () => {
-      const center: Coordinates = { latitude: 46.75, longitude: 23.6 };
-      
-      // Test cardinal directions
-      const north: Coordinates = { latitude: 46.751, longitude: 23.6 };
-      const east: Coordinates = { latitude: 46.75, longitude: 23.601 };
-      const south: Coordinates = { latitude: 46.749, longitude: 23.6 };
-      const west: Coordinates = { latitude: 46.75, longitude: 23.599 };
 
-      const { result: northResult } = renderHook(() => 
-        useProximityCalculation(center, north)
-      );
-      const { result: eastResult } = renderHook(() => 
-        useProximityCalculation(center, east)
-      );
-      const { result: southResult } = renderHook(() => 
-        useProximityCalculation(center, south)
-      );
-      const { result: westResult } = renderHook(() => 
-        useProximityCalculation(center, west)
-      );
-
-      // Check approximate bearings (allowing for some tolerance due to Earth's curvature)
-      expect(northResult.current.bearing).toBeCloseTo(0, 0); // North ≈ 0°
-      expect(eastResult.current.bearing).toBeCloseTo(90, 0); // East ≈ 90°
-      expect(southResult.current.bearing).toBeCloseTo(180, 0); // South ≈ 180°
-      expect(westResult.current.bearing).toBeCloseTo(270, 0); // West ≈ 270°
-    });
 
     it('should round results to 2 decimal places', () => {
       const from: Coordinates = { latitude: 46.75, longitude: 23.6 };
@@ -330,14 +283,7 @@ describe('useProximityCalculation', () => {
         expect(distanceStr.length - decimalIndex - 1).toBeLessThanOrEqual(2);
       }
 
-      // Check that bearing is rounded to 2 decimal places (if present)
-      if (result.current.bearing !== undefined) {
-        const bearingStr = result.current.bearing.toString();
-        const decimalIndex = bearingStr.indexOf('.');
-        if (decimalIndex !== -1) {
-          expect(bearingStr.length - decimalIndex - 1).toBeLessThanOrEqual(2);
-        }
-      }
+
     });
   });
 });

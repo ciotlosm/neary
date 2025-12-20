@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useConfigStore } from '../../stores/configStore';
 import { useLocationStore } from '../../stores/locationStore';
-import { useModernRefreshSystem } from './useModernRefreshSystem';
+import { useRefreshSystem } from './useRefreshSystem';
 import { useApiConfig } from './useApiConfig';
 import { logger } from '../../utils/logger';
 
@@ -28,7 +28,7 @@ export const useAppInitialization = () => {
 
   const { config, isFullyConfigured } = useConfigStore();
   const { requestLocation, checkLocationPermission } = useLocationStore();
-  const { refreshAll, startAutoRefresh } = useModernRefreshSystem();
+  const { refreshAll, startAutoRefresh } = useRefreshSystem();
   const { fetchAgencies } = useConfigStore(); // Agencies are now managed in configStore
   const { setupApi, isConfigured: isApiConfigured } = useApiConfig();
 
@@ -132,7 +132,8 @@ export const useAppInitialization = () => {
         await refreshAll(true); // Force refresh to get fresh data
         logger.info('Transit data loaded successfully', {}, 'INIT');
       } catch (dataError) {
-        logger.error('Failed to load transit data', { error: dataError }, 'INIT');
+        const errorToLog = dataError instanceof Error ? dataError : new Error(String(dataError));
+        logger.error('Failed to load transit data', errorToLog, 'INIT');
         // This is more critical, but still continue
       }
 
@@ -174,8 +175,9 @@ export const useAppInitialization = () => {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
+      const errorToLog = error instanceof Error ? error : new Error(errorMessage);
       setError(errorMessage);
-      logger.error('App initialization failed', { error: errorMessage }, 'INIT');
+      logger.error('App initialization failed', errorToLog, 'INIT');
     }
   }, [
     isFullyConfigured,

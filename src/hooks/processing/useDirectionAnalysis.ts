@@ -1,34 +1,21 @@
 import { useMemo } from 'react';
-import type { LiveVehicle, Station, StopTime } from '../../types';
-import { calculateDistance } from '../../utils/distanceUtils';
+import type { Station, StopTime } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
+import { DirectionStatus, ConfidenceLevel } from '../../types/coreVehicle';
+import type { DirectionAnalysisResult } from '../shared/processing/types';
+// Distance calculation handled by direction analysis utilities
 import { logger } from '../../utils/logger';
+import { InputValidator } from '../shared/validation/InputValidator';
+import { validateCoordinates } from '../shared/validation/coordinateValidators';
+import { validateArray } from '../shared/validation/arrayValidators';
+import { ErrorHandler } from '../shared/errors/ErrorHandler';
+import { ErrorType } from '../shared/errors/types';
 
-/**
- * Direction status for a vehicle relative to a station
- */
-export type DirectionStatus = 'arriving' | 'departing' | 'unknown';
 
-/**
- * Confidence level for direction analysis
- */
-export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
-/**
- * Result of direction analysis
- */
-export interface DirectionAnalysisResult {
-  direction: DirectionStatus;
-  estimatedMinutes: number;
-  confidence: ConfidenceLevel;
-  stopSequence?: Array<{
-    stopId: string;
-    stopName: string;
-    sequence: number;
-    isCurrent: boolean;
-    isDestination: boolean;
-    estimatedArrival?: Date;
-  }>;
-}
+
+
+// DirectionAnalysisResult is imported from shared/processing/types
 
 /**
  * Hook for analyzing vehicle direction and arrival/departure status
@@ -47,96 +34,124 @@ export interface DirectionAnalysisResult {
  * @returns Direction analysis result with confidence scoring
  */
 export const useDirectionAnalysis = (
-  vehicle: LiveVehicle | null,
+  vehicle: CoreVehicle | null,
   targetStation: Station | null,
   stopTimes: StopTime[]
 ): DirectionAnalysisResult => {
   return useMemo(() => {
-    // Input validation - return safe defaults for invalid inputs
-    if (!vehicle || typeof vehicle !== 'object') {
-      logger.debug('Invalid vehicle provided for direction analysis', { 
-        vehicle 
-      }, 'useDirectionAnalysis');
+    const unknownResult: DirectionAnalysisResult = {
+      direction: DirectionStatus.UNKNOWN,
+      estimatedMinutes: 0,
+      confidence: ConfidenceLevel.LOW
+    };
+
+    // Input validation using shared validation library
+    const vehicleValidation = InputValidator.validateObject(
+      vehicle,
+      'vehicle',
+      ['id', 'tripId', 'position']
+    );
+    
+    if (!vehicleValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid vehicle provided for direction analysis',
+        { 
+          vehicle,
+          validationErrors: vehicleValidation.errors
+        }
+      );
       
-      return {
-        direction: 'unknown',
-        estimatedMinutes: 0,
-        confidence: 'low'
-      };
+      logger.debug(error.message, ErrorHandler.createErrorReport(error), 'useDirectionAnalysis');
+      return unknownResult;
     }
 
-    if (!targetStation || typeof targetStation !== 'object') {
-      logger.debug('Invalid target station provided for direction analysis', { 
-        targetStation 
-      }, 'useDirectionAnalysis');
+    const stationValidation = InputValidator.validateObject(
+      targetStation,
+      'targetStation',
+      ['id', 'coordinates']
+    );
+    
+    if (!stationValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid target station provided for direction analysis',
+        { 
+          targetStation,
+          validationErrors: stationValidation.errors
+        }
+      );
       
-      return {
-        direction: 'unknown',
-        estimatedMinutes: 0,
-        confidence: 'low'
-      };
+      logger.debug(error.message, ErrorHandler.createErrorReport(error), 'useDirectionAnalysis');
+      return unknownResult;
     }
 
-    if (!Array.isArray(stopTimes)) {
-      logger.debug('Invalid stop times provided for direction analysis', { 
-        stopTimesType: typeof stopTimes 
-      }, 'useDirectionAnalysis');
+    // Validate stop times array using shared validation
+    const stopTimesValidation = validateArray(
+      stopTimes,
+      (item) => {
+        const stopTimeValidation = InputValidator.validateObject(
+          item,
+          'stopTime',
+          ['tripId', 'stopId', 'sequence']
+        );
+        return stopTimeValidation;
+      },
+      'stopTimes',
+      true // allow empty
+    );
+    
+    if (!stopTimesValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid stop times provided for direction analysis',
+        { 
+          stopTimes,
+          validationErrors: stopTimesValidation.errors
+        }
+      );
       
-      return {
-        direction: 'unknown',
-        estimatedMinutes: 0,
-        confidence: 'low'
-      };
+      logger.debug(error.message, ErrorHandler.createErrorReport(error), 'useDirectionAnalysis');
+      return unknownResult;
     }
 
-    // Validate vehicle data
-    if (!vehicle.id || !vehicle.tripId || !vehicle.position ||
-        typeof vehicle.position.latitude !== 'number' ||
-        typeof vehicle.position.longitude !== 'number' ||
-        isNaN(vehicle.position.latitude) ||
-        isNaN(vehicle.position.longitude)) {
+    // Validate vehicle position coordinates
+    const vehiclePositionValidation = validateCoordinates(vehicle!.position, 'vehicle.position');
+    if (!vehiclePositionValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Vehicle position coordinates are invalid',
+        { 
+          vehicleId: vehicle!.id,
+          position: vehicle!.position,
+          validationErrors: vehiclePositionValidation.errors
+        }
+      );
       
-      logger.debug('Vehicle missing required data for direction analysis', {
-        vehicleId: vehicle.id,
-        hasTripId: !!vehicle.tripId,
-        hasPosition: !!vehicle.position,
-        positionValid: vehicle.position && 
-          typeof vehicle.position.latitude === 'number' && 
-          typeof vehicle.position.longitude === 'number'
-      }, 'useDirectionAnalysis');
-      
-      return {
-        direction: 'unknown',
-        estimatedMinutes: 0,
-        confidence: 'low'
-      };
+      logger.debug(error.message, ErrorHandler.createErrorReport(error), 'useDirectionAnalysis');
+      return unknownResult;
     }
 
-    // Validate target station data
-    if (!targetStation.id || !targetStation.coordinates ||
-        typeof targetStation.coordinates.latitude !== 'number' ||
-        typeof targetStation.coordinates.longitude !== 'number' ||
-        isNaN(targetStation.coordinates.latitude) ||
-        isNaN(targetStation.coordinates.longitude)) {
+    // Validate target station coordinates
+    const stationCoordinatesValidation = validateCoordinates(targetStation!.coordinates, 'targetStation.coordinates');
+    if (!stationCoordinatesValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Target station coordinates are invalid',
+        { 
+          stationId: targetStation!.id,
+          coordinates: targetStation!.coordinates,
+          validationErrors: stationCoordinatesValidation.errors
+        }
+      );
       
-      logger.debug('Target station missing required data for direction analysis', {
-        stationId: targetStation.id,
-        hasCoordinates: !!targetStation.coordinates,
-        coordinatesValid: targetStation.coordinates &&
-          typeof targetStation.coordinates.latitude === 'number' &&
-          typeof targetStation.coordinates.longitude === 'number'
-      }, 'useDirectionAnalysis');
-      
-      return {
-        direction: 'unknown',
-        estimatedMinutes: 0,
-        confidence: 'low'
-      };
+      logger.debug(error.message, ErrorHandler.createErrorReport(error), 'useDirectionAnalysis');
+      return unknownResult;
     }
 
-    // Filter stop times for this vehicle's trip
-    const tripStopTimes = stopTimes.filter(stopTime => 
-      stopTime && 
+    // Filter stop times for this vehicle's trip using validated data
+    const validStopTimes = stopTimesValidation.data!;
+    const tripStopTimes = validStopTimes.filter(stopTime => 
       stopTime.tripId === vehicle.tripId &&
       stopTime.stopId &&
       typeof stopTime.sequence === 'number' &&
@@ -151,14 +166,14 @@ export const useDirectionAnalysis = (
       }, 'useDirectionAnalysis');
       
       return {
-        direction: 'unknown',
+        direction: DirectionStatus.UNKNOWN,
         estimatedMinutes: 0,
-        confidence: 'low'
+        confidence: ConfidenceLevel.LOW
       };
     }
 
     // Sort stop times by sequence
-    const sortedStopTimes = tripStopTimes.sort((a, b) => a.sequence - b.sequence);
+    const sortedStopTimes = tripStopTimes.sort((a, b) => Number(a.sequence) - Number(b.sequence));
 
     // Find the target station in the trip's stop sequence
     const targetStopTime = sortedStopTimes.find(stopTime => stopTime.stopId === targetStation.id);
@@ -172,19 +187,17 @@ export const useDirectionAnalysis = (
       }, 'useDirectionAnalysis');
       
       return {
-        direction: 'unknown',
+        direction: DirectionStatus.UNKNOWN,
         estimatedMinutes: 0,
-        confidence: 'low'
+        confidence: ConfidenceLevel.LOW
       };
     }
 
-    const targetSequence = targetStopTime.sequence;
+    const targetSequence = targetStopTime.sequence as number;
 
     // Find the vehicle's current position in the stop sequence
     // We'll determine this by finding the closest stop to the vehicle's GPS position
-    let closestStopDistance = Infinity;
-    let closestStopSequence = 0;
-    let currentStopTime: StopTime | null = null;
+    // Note: These variables are for future implementation when station coordinates are available
 
     // We need station data to calculate distances, but we don't have it directly
     // For now, we'll use a simplified approach based on sequence position
@@ -200,7 +213,7 @@ export const useDirectionAnalysis = (
 
     // If we have arrival times, use them for better analysis
     let estimatedCurrentSequence = 0;
-    let confidence: ConfidenceLevel = 'low';
+    let confidence: ConfidenceLevel = ConfidenceLevel.LOW;
 
     if (targetStopTime.arrivalTime && typeof targetStopTime.arrivalTime === 'string') {
       try {
@@ -215,15 +228,15 @@ export const useDirectionAnalysis = (
         if (timeDiffMinutes > 0) {
           // Vehicle should arrive in the future
           estimatedCurrentSequence = Math.max(0, targetSequence - Math.ceil(timeDiffMinutes / 2)); // Assume 2 minutes per stop
-          confidence = 'medium';
+          confidence = ConfidenceLevel.MEDIUM;
         } else if (timeDiffMinutes > -10) {
           // Vehicle should have arrived recently (within 10 minutes)
           estimatedCurrentSequence = targetSequence;
-          confidence = 'medium';
+          confidence = ConfidenceLevel.MEDIUM;
         } else {
           // Vehicle is likely past this stop
           estimatedCurrentSequence = targetSequence + Math.ceil(Math.abs(timeDiffMinutes) / 2);
-          confidence = 'low';
+          confidence = ConfidenceLevel.LOW;
         }
       } catch (error) {
         logger.debug('Failed to parse arrival time', {
@@ -233,49 +246,49 @@ export const useDirectionAnalysis = (
         
         // Fallback to sequence-based estimation
         estimatedCurrentSequence = Math.floor(sortedStopTimes.length / 2);
-        confidence = 'low';
+        confidence = ConfidenceLevel.LOW;
       }
     } else {
       // No time data available, use middle of sequence as estimate
       estimatedCurrentSequence = Math.floor(sortedStopTimes.length / 2);
-      confidence = 'low';
+      confidence = ConfidenceLevel.LOW;
     }
 
     // Determine direction based on sequence comparison
-    let direction: DirectionStatus = 'unknown';
+    let direction: DirectionStatus = DirectionStatus.UNKNOWN;
     let estimatedMinutes = 0;
 
     if (estimatedCurrentSequence < targetSequence) {
       // Vehicle is before the target station → arriving
-      direction = 'arriving';
+      direction = DirectionStatus.ARRIVING;
       const remainingStops = targetSequence - estimatedCurrentSequence;
       estimatedMinutes = Math.max(1, remainingStops * 2); // 2 minutes per stop estimate
       
       // Adjust for vehicle age
       estimatedMinutes = Math.max(1, estimatedMinutes - minutesSinceUpdate);
       
-      if (confidence === 'medium' && remainingStops <= 3) {
-        confidence = 'high'; // High confidence for nearby arrivals with time data
+      if (confidence === ConfidenceLevel.MEDIUM && remainingStops <= 3) {
+        confidence = ConfidenceLevel.HIGH; // High confidence for nearby arrivals with time data
       }
     } else if (estimatedCurrentSequence > targetSequence) {
       // Vehicle is after the target station → departing
-      direction = 'departing';
+      direction = DirectionStatus.DEPARTING;
       const stopsSinceDeparture = estimatedCurrentSequence - targetSequence;
       estimatedMinutes = stopsSinceDeparture * 2; // Time since departure
       
       // Departing vehicles have lower confidence unless very recent
-      if (stopsSinceDeparture <= 2 && confidence === 'medium') {
-        confidence = 'medium';
+      if (stopsSinceDeparture <= 2 && confidence === ConfidenceLevel.MEDIUM) {
+        confidence = ConfidenceLevel.MEDIUM;
       } else {
-        confidence = 'low';
+        confidence = ConfidenceLevel.LOW;
       }
     } else {
       // Vehicle is at or very near the target station
-      direction = 'arriving';
+      direction = DirectionStatus.ARRIVING;
       estimatedMinutes = 0; // At station
       
-      if (confidence === 'medium') {
-        confidence = 'high'; // High confidence when at station with time data
+      if (confidence === ConfidenceLevel.MEDIUM) {
+        confidence = ConfidenceLevel.HIGH; // High confidence when at station with time data
       }
     }
 
@@ -291,7 +304,7 @@ export const useDirectionAnalysis = (
         let estimatedArrival: Date | undefined;
         if (stopTime.arrivalTime) {
           try {
-            const [hours, minutes, seconds] = stopTime.arrivalTime.split(':').map(Number);
+            const [hours, minutes, seconds] = (stopTime.arrivalTime as string).split(':').map(Number);
             estimatedArrival = new Date();
             estimatedArrival.setHours(hours, minutes, seconds || 0, 0);
           } catch (error) {
@@ -300,9 +313,9 @@ export const useDirectionAnalysis = (
         }
 
         return {
-          stopId: stopTime.stopId,
+          stopId: stopTime.stopId as string,
           stopName: `Stop ${stopTime.stopId}`, // Would need station data for actual names
-          sequence: stopTime.sequence,
+          sequence: stopTime.sequence as number,
           isCurrent,
           isDestination,
           estimatedArrival

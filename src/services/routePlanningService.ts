@@ -1,19 +1,20 @@
-import type { Coordinates, Station, EnhancedVehicleInfo } from '../types';
+import type { Coordinates, Station, CoreVehicle } from '../types';
+import type { VehicleDisplayData } from '../types/presentationLayer';
 import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
 import { logger } from '../utils/logger';
 
 export interface RouteConnection {
-  firstVehicle: EnhancedVehicleInfo;
+  firstVehicle: CoreVehicle;
   connectionStation: Station;
-  secondVehicle: EnhancedVehicleInfo;
+  secondVehicle: CoreVehicle;
   transferTime: number; // minutes
   totalTravelTime: number; // minutes
   arrivalTime: Date;
 }
 
 export interface DirectRoute {
-  vehicle: EnhancedVehicleInfo;
+  vehicle: CoreVehicle;
   arrivalTime: Date;
 }
 
@@ -97,8 +98,8 @@ class RoutePlanningService {
     }
   }
 
-  private async getBusesAtStations(stations: Station[], cityName: string): Promise<EnhancedVehicleInfo[]> {
-    const allVehicles: EnhancedVehicleInfo[] = [];
+  private async getBusesAtStations(stations: Station[], cityName: string): Promise<any[]> {
+    const allVehicles: any[] = [];
     
     // Get agency ID once for all stations
     const agencyId = await agencyService.getAgencyIdForCity(cityName);
@@ -155,11 +156,11 @@ class RoutePlanningService {
           // Process each trip for this route
           for (const { stopTime, trip } of routeStopTimes) {
             // Check if there's a live vehicle for this specific trip
-            let liveVehicle = routeVehicles.find(v => v.tripId === trip.id);
+            let coreVehicle = routeVehicles.find(v => v.tripId === trip.id);
             
             // If no specific trip match, use any vehicle on this route near this station
-            if (!liveVehicle && routeVehicles.length > 0) {
-              liveVehicle = routeVehicles.find(v => {
+            if (!coreVehicle && routeVehicles.length > 0) {
+              coreVehicle = routeVehicles.find(v => {
                 const distance = this.calculateDistance(v.position, station.coordinates);
                 return distance <= 1000; // Within 1km
               });
@@ -169,9 +170,9 @@ class RoutePlanningService {
             const now = new Date();
             let estimatedArrival: Date;
             
-            if (liveVehicle) {
-              // Use live vehicle position to estimate arrival
-              const distance = this.calculateDistance(liveVehicle.position, station.coordinates);
+            if (coreVehicle) {
+              // Use core vehicle position to estimate arrival
+              const distance = this.calculateDistance(coreVehicle.position, station.coordinates);
               const estimatedMinutes = Math.max(1, distance / 500); // Rough estimate: 500m per minute
               estimatedArrival = new Date(now.getTime() + estimatedMinutes * 60000);
             } else {
@@ -188,26 +189,26 @@ class RoutePlanningService {
             // Only include vehicles arriving within the next 60 minutes
             if (minutesAway <= 60) {
               allVehicles.push({
-                id: liveVehicle?.id || `schedule-${trip.id}-${station.id}`,
+                id: coreVehicle?.id || `schedule-${trip.id}-${station.id}`,
                 route: route.routeName || route.id,
                 routeId: route.id,
                 destination: trip.headsign || route.routeDesc || 'Unknown',
                 direction: this.determineDirectionFromTrip(trip, station),
-                routeType: route.type,
+
                 scheduledArrival: this.parseTimeToDate(stopTime.arrivalTime),
-                liveArrival: liveVehicle ? estimatedArrival : undefined,
+                liveArrival: coreVehicle ? estimatedArrival : undefined,
                 estimatedArrival,
                 minutesAway,
-                isLive: !!liveVehicle,
+                isLive: !!coreVehicle,
                 isScheduled: true,
-                confidence: liveVehicle ? 'high' : 'medium',
+                confidence: coreVehicle ? 'high' : 'medium',
                 station: {
                   id: station.id,
                   name: station.name,
                   coordinates: station.coordinates,
                   isFavorite: station.isFavorite,
                 },
-                vehicle: liveVehicle,
+                vehicle: coreVehicle,
                 schedule: {
                   stopId: station.id,
                   routeId: route.id,
@@ -242,34 +243,26 @@ class RoutePlanningService {
     return sortedVehicles;
   }
 
-  private convertVehicleToEnhancedVehicleInfo(vehicle: any, station: Station): EnhancedVehicleInfo {
-    const now = new Date();
-    const estimatedArrival = new Date(now.getTime() + Math.random() * 30 * 60000); // Random 0-30 min
-    
+  private convertVehicleToCoreVehicle(vehicle: any, station: Station): CoreVehicle {
     return {
-      id: vehicle.id,
-      route: vehicle.route_id?.toString() || 'Unknown',
+      id: vehicle.id || 'unknown',
       routeId: vehicle.route_id?.toString() || 'unknown',
-      destination: 'Unknown Destination',
-      direction: 'unknown',
-      scheduledArrival: estimatedArrival,
-      liveArrival: estimatedArrival,
-      estimatedArrival,
-      minutesAway: Math.floor((estimatedArrival.getTime() - now.getTime()) / 60000),
-      isLive: true,
-      isScheduled: false,
-      confidence: 'medium',
-      station: {
-        id: station.id,
-        name: station.name,
-        coordinates: station.coordinates,
-        isFavorite: station.isFavorite
-      }
+      tripId: vehicle.trip_id,
+      label: vehicle.label || vehicle.id || 'Unknown',
+      position: {
+        latitude: vehicle.latitude || station.coordinates.latitude,
+        longitude: vehicle.longitude || station.coordinates.longitude
+      },
+      timestamp: new Date(vehicle.timestamp || Date.now()),
+      speed: vehicle.speed,
+      bearing: vehicle.bearing,
+      isWheelchairAccessible: vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE',
+      isBikeAccessible: vehicle.bike_accessible === 'BIKE_ACCESSIBLE'
     };
   }
 
   private determineRouteDirection(
-    vehicle: EnhancedVehicleInfo,
+    vehicle: any,
     targetLocation: Coordinates
   ): boolean {
     // This is a simplified version - in reality, you'd need route shape data
@@ -326,7 +319,7 @@ class RoutePlanningService {
   }
 
   private findDirectRoutes(
-    vehicles: EnhancedVehicleInfo[],
+    vehicles: any[],
     destination: 'work' | 'home',
     targetLocation: Coordinates
   ): DirectRoute[] {
@@ -343,7 +336,7 @@ class RoutePlanningService {
   }
 
   private async findConnectionRoutes(
-    originVehicles: EnhancedVehicleInfo[],
+    originVehicles: any[],
     targetLocation: Coordinates,
     destination: 'work' | 'home',
     cityName: string

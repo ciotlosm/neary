@@ -19,20 +19,23 @@ src/
 ## Component Architecture
 
 ### Feature Components (`src/components/features/`)
-- **Material Design First**: All components have `Material*` variants
 - **Feature Folders**: Each feature has its own directory with index.ts
 - **Sub-components**: Complex features have `components/` subdirectory
-- **Examples**: `BusDisplay/`, `FavoriteBuses/`, `LocationPicker/`
+- **Examples**: `LocationPicker/`, `StationDisplay/`, `Configuration/`
 
 ### UI Components (`src/components/ui/`)
 - **Reusable**: Generic components used across features
-- **Material Wrappers**: Wrap MUI components with app-specific styling
+- **MUI Wrappers**: Wrap Material-UI components with app-specific styling
 - **Index Exports**: Each component folder exports via index.ts
+- **Examples**: `Button/`, `Card/`, `Input/`, `Loading/`
 
-### Component Naming
-- **Material Components**: Prefix with `Material` (e.g., `MaterialButton`)
-- **Feature Components**: Descriptive names (e.g., `IntelligentBusDisplay`)
+### Component Naming (ACTUAL PATTERNS)
+- **UI Components**: Simple names matching their purpose (e.g., `Button`, `Card`, `Input`)
+- **Feature Components**: Descriptive names (e.g., `LocationPicker`, `StationDisplay`)
+- **Specialized Cards**: Descriptive names (e.g., `InfoCard`, `VehicleCard`, `DataCard`)
 - **File Names**: PascalCase matching component name
+
+**IMPORTANT**: Components do NOT use "Material" prefix. The app uses simple, descriptive names like `Button` instead of `MaterialButton`. These components internally wrap Material-UI components with custom styling.
 
 ## State Management Patterns
 
@@ -63,12 +66,12 @@ src/
 ## File Naming Conventions
 
 ### Components
-- **PascalCase**: `MaterialButton.tsx`, `IntelligentBusDisplay.tsx`
+- **PascalCase**: `Button.tsx`, `StationDisplay.tsx`, `VehicleCard.tsx`
 - **Test Files**: `ComponentName.test.tsx`
 - **Index Files**: `index.ts` for barrel exports
 
 ### Services & Utilities
-- **camelCase**: `favoriteBusService.ts`, `locationUtils.ts`
+- **camelCase**: `tranzyApiService.ts`, `locationUtils.ts`
 - **Test Files**: `serviceName.test.ts`
 
 ### Stores
@@ -86,7 +89,11 @@ src/
 ```typescript
 // External libraries
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button as MuiButton } from '@mui/material';
+
+// Internal components
+import { Button } from '../components/ui';
+import { VehicleCard } from '../components/features/shared';
 
 // Internal imports (relative paths)
 import { useConfigStore } from '../stores';
@@ -186,100 +193,3 @@ import { logger } from '../utils/logger';
 
 **Always check existing working specs for reference when creating new task files!**
 
-## Parallel Work Detection and Coordination
-
-### **CRITICAL: Before Starting Any New Work**
-
-**AI Assistant must ALWAYS check for parallel work to prevent conflicts and ensure coordination.**
-
-#### **Pre-Work Checklist:**
-1. **Check active specs** - Look for `.kiro/specs/` directories with in-progress tasks
-2. **Identify file overlaps** - Compare target files with active work areas
-3. **Check git branch status** - Verify current branch and recent commits
-4. **Scan open editor files** - Check what files user currently has open
-5. **Ask about coordination** - If overlaps detected, clarify priorities with user
-
-#### **Overlap Detection Signals:**
-- **Multiple specs with uncompleted tasks** - Check for `- [ ]` or `- [-]` tasks
-- **Same files mentioned in different specs** - Look for file path overlaps
-- **Related architectural areas** - stores, hooks, components, services in same domain
-- **Recent commits on target files** - Files modified in last few commits
-- **Open editor files** - Files currently being worked on by user
-
-#### **File Conflict Risk Areas:**
-- **Stores** - `src/stores/` modifications (state management changes)
-- **Hooks** - `src/hooks/` refactoring or architectural changes
-- **Components** - Major component restructuring or API changes
-- **Services** - API service modifications or caching changes
-- **Types** - `src/types/` interface changes affecting multiple areas
-- **Tests** - Test file modifications that could break other work
-
-#### **Coordination Strategies:**
-- **Sequential execution** - Complete one spec entirely before starting another
-- **File-level coordination** - Avoid modifying files with active work
-- **Branch coordination** - Ensure work happens on appropriate branches
-- **User confirmation** - Always ask about priorities when conflicts detected
-- **Scope adjustment** - Modify task scope to avoid conflicts if needed
-
-#### **Detection Commands:**
-```bash
-# Check for active specs
-find .kiro/specs -name "tasks.md" -exec grep -l "\- \[ \]" {} \;
-
-# Check recent file modifications
-git log --oneline --name-only -10
-
-# Check current branch status
-git status --porcelain
-```
-
-#### **Communication Templates:**
-
-**When Overlap Detected:**
-```
-⚠️ **Parallel Work Detected**
-
-I found active work that may overlap with this request:
-- **Active Spec**: [spec-name] with [X] incomplete tasks
-- **File Overlaps**: [list of overlapping files]
-- **Risk Level**: [High/Medium/Low]
-
-**Options:**
-1. Complete active work first, then start new work
-2. Modify scope to avoid conflicts
-3. Coordinate parallel work on different files
-
-Which approach would you prefer?
-```
-
-**When No Conflicts:**
-```
-✅ **No Conflicts Detected**
-
-Checked for parallel work:
-- No active specs with overlapping files
-- No recent commits on target files
-- Safe to proceed with requested work
-```
-
-#### **Best Practices:**
-- **Always check first** - Never start work without overlap detection
-- **Be explicit** - Clearly communicate what conflicts were found
-- **Offer solutions** - Provide concrete options for handling conflicts
-- **Document decisions** - Update specs with coordination notes if needed
-- **Monitor during work** - Watch for new conflicts that emerge during execution
-
-#### **Emergency Conflict Resolution:**
-If conflicts emerge during work:
-1. **Stop immediately** - Don't continue conflicting changes
-2. **Assess damage** - Check what files have been modified
-3. **Communicate clearly** - Explain the conflict to the user
-4. **Offer rollback** - Provide option to revert changes if needed
-5. **Coordinate resolution** - Work with user to resolve conflicts
-
-### **Integration with Existing Workflows:**
-- **Spec creation** - Check for conflicts before creating new specs
-- **Task execution** - Verify no new conflicts before starting each task
-- **File modifications** - Double-check before modifying high-risk files
-- **Testing** - Ensure tests don't conflict with parallel work
-- **Documentation** - Update docs without conflicting with active changes

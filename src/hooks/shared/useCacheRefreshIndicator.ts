@@ -3,7 +3,8 @@
  * Shows a small hourglass chip for 0.5 seconds when cache is updated
  */
 import { useState, useEffect } from 'react';
-import { cacheManager, type CacheEvent } from '../../services/cacheManager';
+import { unifiedCache } from './cache/instance';
+import type { CacheEvent } from './cache/types';
 
 export interface RefreshIndicatorState {
   isRefreshing: boolean;
@@ -24,7 +25,7 @@ export const useCacheRefreshIndicator = (
 
   useEffect(() => {
     // Subscribe to cache events for this key
-    const unsubscribe = cacheManager.subscribe(cacheKey, (event: CacheEvent<any>) => {
+    const unsubscribe = unifiedCache.subscribe(cacheKey, (event: CacheEvent<any>) => {
       if (event.type === 'updated') {
         // Show refresh indicator
         setIsRefreshing(true);
@@ -63,7 +64,7 @@ export const useMultipleCacheRefreshIndicator = (
     const unsubscribers: (() => void)[] = [];
 
     cacheKeys.forEach(cacheKey => {
-      const unsubscribe = cacheManager.subscribe(cacheKey, (event: CacheEvent<any>) => {
+      const unsubscribe = unifiedCache.subscribe(cacheKey, (event: CacheEvent<any>) => {
         if (event.type === 'updated') {
           setIsRefreshing(true);
           setLastRefresh(new Date(event.timestamp));

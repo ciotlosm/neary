@@ -2,13 +2,14 @@ import { enhancedTranzyApi } from './tranzyApiService';
 import { agencyService } from './agencyService';
 import { useConfigStore } from '../stores/configStore';
 import { logger } from '../utils/logger';
+import { RouteType } from '../types';
 
 export interface RouteMapping {
   routeName: string; // What users see: "42", "43B", etc.
   routeId: string;        // Internal API ID: "40", "42", etc.
   routeDesc: string;  // Full name: "P-ta M. Viteazul - Str. Campului"
   routeDescription?: string;
-  routeType: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
+  routeType: RouteType;
 }
 
 class RouteMappingService {
@@ -193,7 +194,7 @@ class RouteMappingService {
         routeId: route.id,
         routeDesc: route.routeDesc || route.routeName || `Route ${route.id}`,
         routeDescription: route.routeDesc, // Use routeDesc for description
-        routeType: route.type || 'bus'
+        routeType: route.type || RouteType.BUS
       }));
 
       // Cache the results

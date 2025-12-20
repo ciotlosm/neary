@@ -8,6 +8,7 @@
  */
 
 import type { Station } from '../types';
+import { RouteType } from '../types';
 import type { Route, StopTime, Trip } from '../types/tranzyApi';
 import { logger } from '../utils/logger';
 
@@ -113,7 +114,7 @@ export const validateRouteData = (routes: Route[]): RouteValidationResult => {
     }
 
     // Validate route type
-    const validRouteTypes = ['tram', 'metro', 'rail', 'bus', 'ferry', 'trolleybus', 'other'];
+    const validRouteTypes = Object.values(RouteType);
     if (!route.type || !validRouteTypes.includes(route.type)) {
       routeErrors.push(`Route ${route.id} has invalid type: ${route.type}`);
     }

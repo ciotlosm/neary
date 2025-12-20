@@ -28,13 +28,21 @@
 
 ## Data Problems
 
-### No Buses Showing
-**Problem**: "No buses currently serving nearby stations"
+### No Vehicles Showing
+**Problem**: "No vehicles currently serving nearby stations"
 **Solution**: 
 1. Check during business hours
 2. Verify location is correct
 3. Try different location
 4. Check API key is valid
+
+### "Unable to Load Data" or "No stations have active route associations"
+**Problem**: Nearby view shows error about no active route associations
+**Solution**: 
+1. This is usually a temporary data loading issue
+2. Wait a few seconds for all data to load
+3. Refresh the page if issue persists
+4. The app automatically falls back to showing all routes when detailed schedule data is unavailable
 
 ### Outdated Information
 **Problem**: Bus times seem wrong or old

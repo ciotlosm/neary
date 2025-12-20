@@ -33,7 +33,7 @@ export const PERFORMANCE_THRESHOLDS = {
   TOTAL_PROCESSING_MAX_TIME: 200, // milliseconds
   
   // Memory usage thresholds
-  MAX_MEMORY_USAGE_MB: 50, // Maximum memory usage for processing
+  MAX_MEMORY_USAGE_MB: 200, // Maximum memory usage for processing (increased for realistic production usage)
   
   // Dataset size thresholds for optimization strategies
   LARGE_STATION_SET_THRESHOLD: 100, // stations

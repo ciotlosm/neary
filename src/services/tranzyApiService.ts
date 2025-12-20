@@ -9,13 +9,17 @@ import type {
   TranzyVehicleResponse,
   Route,
   Trip,
-  StopTime,
-  LiveVehicle,
-  EnhancedVehicleInfo
+  StopTime
 } from '../types/tranzyApi';
-import type { Agency, Station, VehicleInfo, TranzyApiService as ITranzyApiService } from '../types';
-import { cacheManager, CACHE_CONFIGS } from './cacheManager';
+import { RouteType } from '../types';
+import type { Agency, Station, TranzyApiService as ITranzyApiService } from '../types';
+import type { CoreVehicle } from '../types/coreVehicle';
+import { unifiedCache } from '../hooks/shared/cache/instance';
+import { CACHE_CONFIGS } from '../hooks/shared/cache/utils';
 import { logger } from '../utils/logger';
+import { vehicleTransformationService } from './VehicleTransformationService';
+import { createDefaultTransformationContext } from '../types/presentationLayer';
+import type { TransformationContext, VehicleDisplayData } from '../types/presentationLayer';
 
 export class TranzyApiService {
   private axiosInstance: AxiosInstance;
@@ -87,11 +91,7 @@ export class TranzyApiService {
         // Update API status to offline on error
         this.updateApiStatus(false, error);
         
-        logger.error('API request failed', {
-          url: error.config?.url,
-          status: error.response?.status,
-          message: error.message,
-        }, 'API');
+        logger.error('API request failed', error, 'API');
         return Promise.reject(error);
       }
     );
@@ -128,8 +128,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.agencies)
-      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.agencies);
+      ? await unifiedCache.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.agencies)
+      : await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.agencies);
 
     return data;
   }
@@ -147,8 +147,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.routes)
-      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+      ? await unifiedCache.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.routes)
+      : await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
 
     return data;
   }
@@ -166,8 +166,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stops)
-      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stops);
+      ? await unifiedCache.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stops)
+      : await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.stops);
 
     return data;
   }
@@ -192,8 +192,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.schedules)
-      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.schedules);
+      ? await unifiedCache.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.schedules)
+      : await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.schedules);
 
     return data;
   }
@@ -217,8 +217,8 @@ export class TranzyApiService {
     };
 
     const data = forceRefresh
-      ? await cacheManager.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stopTimes)
-      : await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.stopTimes);
+      ? await unifiedCache.forceRefresh(cacheKey, fetcher, CACHE_CONFIGS.stopTimes)
+      : await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.stopTimes);
 
     return data;
   }
@@ -242,14 +242,14 @@ export class TranzyApiService {
       return this.transformShapes(response.data);
     };
 
-    const data = await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
+    const data = await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.routes);
     return data;
   }
 
   /**
    * Get live vehicles (always fresh, but cached for offline)
    */
-  async getVehicles(agencyId: number, routeId?: number): Promise<LiveVehicle[]> {
+  async getVehicles(agencyId: number, routeId?: number): Promise<CoreVehicle[]> {
     const cacheKey = routeId 
       ? `vehicles:agency:${agencyId}:route:${routeId}`
       : `vehicles:agency:${agencyId}`;
@@ -262,12 +262,25 @@ export class TranzyApiService {
         headers: { 'X-Agency-Id': agencyId },
         params,
       });
-      return this.transformVehicles(response.data);
+      
+      // Create transformation context with route data for proper route name lookup
+      const context = createDefaultTransformationContext(this.apiKey || '', agencyId.toString());
+      
+      // Try to get route data for route name lookups
+      try {
+        const routes = await this.getRoutes(agencyId);
+        context.routeData = routes;
+      } catch (error) {
+        logger.warn('Failed to get route data for vehicle transformation', { agencyId, error }, 'API');
+        // Continue without route data - will fall back to route IDs
+      }
+      
+      return await vehicleTransformationService.normalizeApiData(response.data, context);
     };
 
     // Always try to get fresh vehicle data, but use cache as fallback
     try {
-      const data = await cacheManager.get(cacheKey, fetcher, CACHE_CONFIGS.vehicles);
+      const data = await unifiedCache.get(cacheKey, fetcher, CACHE_CONFIGS.vehicles);
       return data;
     } catch (error) {
       logger.warn('Failed to get live vehicles, trying cache', { agencyId, routeId, error }, 'API');
@@ -275,59 +288,61 @@ export class TranzyApiService {
     }
   }
 
+  // EnhancedVehicleInfo methods removed - use CoreVehicle and VehicleTransformationService directly
+
   /**
-   * Get enhanced vehicle information combining schedule and live data
+   * Create transformation context for the new transformation service
    */
-  async getEnhancedVehicleInfo(
+  private createTransformationContext(
     agencyId: number,
-    stopId?: number,
-    routeId?: number,
-    forceRefresh = false
-  ): Promise<EnhancedVehicleInfo[]> {
-    try {
-      // Get all required data in parallel
-      const [stops, routes, vehicles, stopTimes, trips] = await Promise.allSettled([
-        this.getStops(agencyId, forceRefresh),
-        this.getRoutes(agencyId, forceRefresh),
-        this.getVehicles(agencyId, routeId),
-        stopId ? this.getStopTimes(agencyId, stopId, undefined, forceRefresh) : Promise.resolve([]),
-        this.getTrips(agencyId, routeId, forceRefresh),
-      ]);
+    stops: Station[],
+    targetStopId?: number
+  ): TransformationContext {
+    // Create base context with API configuration
+    const context = createDefaultTransformationContext(
+      this.apiKey || '',
+      agencyId.toString()
+    );
 
-      const stopsData = stops.status === 'fulfilled' ? stops.value : [];
-      const routesData = routes.status === 'fulfilled' ? routes.value : [];
-      const vehiclesData = vehicles.status === 'fulfilled' ? vehicles.value : [];
-      const stopTimesData = stopTimes.status === 'fulfilled' ? stopTimes.value : [];
-      const tripsData = trips.status === 'fulfilled' ? trips.value : [];
-
-      // Combine the data
-      return this.combineScheduleAndLiveData(
-        stopsData,
-        routesData,
-        vehiclesData,
-        stopTimesData,
-        tripsData,
-        stopId,
-        routeId
-      );
-    } catch (error) {
-      logger.error('Failed to get enhanced vehicle info', { agencyId, stopId, routeId, error }, 'API');
-      throw error;
+    // Add target stations if specified
+    if (targetStopId) {
+      const targetStop = stops.find(stop => stop.id === targetStopId.toString());
+      if (targetStop) {
+        context.targetStations = [{
+          id: targetStop.id,
+          name: targetStop.name,
+          coordinates: targetStop.coordinates,
+          routeIds: [], // Would be populated from route data in a full implementation
+          isFavorite: targetStop.isFavorite,
+          accessibility: {
+            wheelchairAccessible: true, // Default values
+            bikeRacks: false,
+            audioAnnouncements: false
+          }
+        }];
+      }
+    } else {
+      // Use all stops as potential targets
+      context.targetStations = stops.slice(0, 10).map(stop => ({
+        id: stop.id,
+        name: stop.name,
+        coordinates: stop.coordinates,
+        routeIds: [],
+        isFavorite: stop.isFavorite,
+        accessibility: {
+          wheelchairAccessible: true,
+          bikeRacks: false,
+          audioAnnouncements: false
+        }
+      }));
     }
+
+    return context;
   }
 
-  /**
-   * @deprecated Use getEnhancedVehicleInfo instead
-   * Legacy alias for backward compatibility
-   */
-  async getEnhancedBusInfo(
-    agencyId: number,
-    stopId?: number,
-    routeId?: number,
-    forceRefresh = false
-  ): Promise<EnhancedVehicleInfo[]> {
-    return this.getEnhancedVehicleInfo(agencyId, stopId, routeId, forceRefresh);
-  }
+  // Legacy EnhancedVehicleInfo conversion methods removed - use VehicleTransformationService directly
+
+  // Legacy getEnhancedVehicleInfoLegacy method removed - use CoreVehicle and VehicleTransformationService
 
   /**
    * Force refresh all cached data
@@ -355,14 +370,14 @@ export class TranzyApiService {
    * Get cache statistics
    */
   getCacheStats() {
-    return cacheManager.getStats();
+    return unifiedCache.getStats();
   }
 
   /**
    * Clear all cached data
    */
   clearCache(): void {
-    cacheManager.clearAll();
+    unifiedCache.clearAll();
     logger.info('All cache cleared', {}, 'API');
   }
 
@@ -429,46 +444,7 @@ export class TranzyApiService {
     }));
   }
 
-  private transformVehicles(data: TranzyVehicleResponse[]): LiveVehicle[] {
-    // Log vehicles without route assignment for debugging
-    const unassignedVehicles = data.filter(v => 
-      v.latitude != null && v.longitude != null && v.route_id == null
-    );
-    if (unassignedVehicles.length > 0) {
-      logger.debug('Vehicles without route assignment', {
-        count: unassignedVehicles.length,
-        vehicles: unassignedVehicles.map(v => ({
-          id: v.id,
-          label: v.label,
-          position: { lat: v.latitude, lon: v.longitude },
-          timestamp: v.timestamp
-        }))
-      }, 'API');
-    }
-
-    return data
-      .filter(vehicle => 
-        vehicle.latitude != null && 
-        vehicle.longitude != null &&
-        vehicle.route_id != null
-      )
-      .map(vehicle => ({
-        id: vehicle.id,
-        routeId: vehicle.route_id.toString(),
-        tripId: vehicle.trip_id,
-        label: vehicle.label,
-        position: {
-          latitude: vehicle.latitude,
-          longitude: vehicle.longitude,
-          bearing: vehicle.bearing,
-        },
-        timestamp: vehicle.timestamp ? new Date(vehicle.timestamp) : new Date(),
-        speed: vehicle.speed,
-        occupancy: vehicle.occupancy_status,
-        isWheelchairAccessible: vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE',
-        isBikeAccessible: vehicle.bike_accessible === 'BIKE_ACCESSIBLE',
-      }));
-  }
+  // Legacy transformVehicles method removed - use VehicleTransformationService instead
 
   private transformShapes(data: any[]): any[] {
     return data
@@ -482,170 +458,24 @@ export class TranzyApiService {
       }));
   }
 
-  private combineScheduleAndLiveData(
-    stops: Station[],
-    routes: Route[],
-    vehicles: LiveVehicle[],
-    stopTimes: StopTime[],
-    trips: Trip[],
-    stopId?: number,
-    routeId?: number
-  ): EnhancedVehicleInfo[] {
-    const enhancedVehicles: EnhancedVehicleInfo[] = [];
-    const now = new Date();
+  // Legacy combineScheduleAndLiveData method removed - use VehicleTransformationService
 
-    // Create a map for quick lookups
-    const stopsMap = new Map(stops.map(stop => [stop.id, stop]));
-    const routesMap = new Map(routes.map(route => [route.id, route]));
-    const tripsMap = new Map(trips.map(trip => [trip.id, trip]));
-
-    // Process live vehicles
-    for (const vehicle of vehicles) {
-      if (routeId && vehicle.routeId !== routeId.toString()) continue;
-
-      const route = routesMap.get(vehicle.routeId);
-      if (!route) continue;
-
-      // Find the closest stop for this vehicle using intelligent sequence logic
-      const closestStop = this.findClosestStop(vehicle.position, stops, vehicle, stopTimes);
-      if (!closestStop) continue;
-
-      // Skip if we're filtering by stop and this isn't it
-      if (stopId && closestStop.id !== stopId.toString()) continue;
-
-      // Find corresponding schedule data
-      const scheduleData = stopTimes.find(st => 
-        st.stopId === closestStop.id && 
-        st.tripId === vehicle.tripId
-      );
-
-      // Calculate arrival estimates
-      const estimatedArrival = this.calculateArrivalTime(vehicle, closestStop, scheduleData);
-      const minutesAway = Math.max(0, Math.round((estimatedArrival.getTime() - now.getTime()) / 60000));
-
-      // Get trip data for headsign
-      const tripData = tripsMap.get(vehicle.tripId);
-      const destination = tripData?.headsign || route.routeDesc;
-
-      // Debug logging to see what headsign data we're getting
-      if (import.meta.env.DEV) {
-        logger.debug('Vehicle destination data', {
-          vehicleId: vehicle.id,
-          tripId: vehicle.tripId,
-          tripHeadsign: tripData?.headsign,
-          routeDesc: route.routeDesc,
-          finalDestination: destination
-        }, 'API');
-      }
-
-      enhancedVehicles.push({
-        vehicle,
-        schedule: scheduleData ? {
-          stopId: scheduleData.stopId,
-          routeId: vehicle.routeId,
-          tripId: scheduleData.tripId,
-          direction: tripData?.direction || 'inbound',
-          headsign: tripData?.headsign || scheduleData.headsign || route.routeDesc,
-          scheduledTimes: [{
-            arrival: this.parseTimeToDate(scheduleData.arrivalTime),
-            departure: this.parseTimeToDate(scheduleData.departureTime),
-          }],
-        } : undefined,
-        id: vehicle.id,
-        route: route.routeName,
-        routeId: vehicle.routeId,
-        destination: destination,
-        direction: this.determineDirection(vehicle, closestStop), // Simplified
-        scheduledArrival: scheduleData ? this.parseTimeToDate(scheduleData.arrivalTime) : undefined,
-        liveArrival: estimatedArrival,
-        estimatedArrival,
-        minutesAway,
-        delay: scheduleData ? this.calculateDelay(scheduleData, estimatedArrival) : undefined,
-        isLive: true,
-        isScheduled: !!scheduleData,
-        confidence: this.calculateConfidence(vehicle, scheduleData),
-        station: {
-          id: closestStop.id,
-          name: closestStop.name,
-          coordinates: closestStop.coordinates,
-          isFavorite: closestStop.isFavorite,
-        },
-      });
-    }
-
-    // Add schedule-only data for stops without live vehicles
-    if (stopId) {
-      const relevantStopTimes = stopTimes.filter(st => st.stopId === stopId.toString());
-      
-      for (const stopTime of relevantStopTimes) {
-        // Skip if we already have live data for this trip
-        if (enhancedVehicles.some(vehicle => vehicle.schedule?.tripId === stopTime.tripId)) continue;
-
-        const route = routesMap.get(stopTime.tripId.split('_')[0]); // Simplified route extraction
-        if (!route) continue;
-
-        const stop = stopsMap.get(stopTime.stopId);
-        if (!stop) continue;
-
-        const scheduledArrival = this.parseTimeToDate(stopTime.arrivalTime);
-        const minutesAway = Math.max(0, Math.round((scheduledArrival.getTime() - now.getTime()) / 60000));
-
-        // Get trip data for headsign (schedule-only vehicles)
-        const tripData = tripsMap.get(stopTime.tripId);
-        const destination = tripData?.headsign || stopTime.headsign || route.routeDesc;
-
-        enhancedVehicles.push({
-          schedule: {
-            stopId: stopTime.stopId,
-            routeId: route.id,
-            tripId: stopTime.tripId,
-            direction: tripData?.direction || 'inbound',
-            headsign: destination,
-            scheduledTimes: [{
-              arrival: scheduledArrival,
-              departure: this.parseTimeToDate(stopTime.departureTime),
-            }],
-          },
-          id: `schedule-${stopTime.tripId}-${stopTime.stopId}`,
-          route: route.routeName,
-          routeId: route.id,
-          destination: destination,
-          direction: 'unknown',
-          scheduledArrival,
-          estimatedArrival: scheduledArrival,
-          minutesAway,
-          isLive: false,
-          isScheduled: true,
-          confidence: 'medium',
-          station: {
-            id: stop.id,
-            name: stop.name,
-            coordinates: stop.coordinates,
-            isFavorite: stop.isFavorite,
-          },
-        });
-      }
-    }
-
-    return enhancedVehicles.sort((a, b) => a.minutesAway - b.minutesAway);
-  }
-
-  private getRouteType(type: number): Route['type'] {
+  private getRouteType(type: number): RouteType {
     switch (type) {
-      case 0: return 'tram';
-      case 1: return 'metro';
-      case 2: return 'rail';
-      case 3: return 'bus';
-      case 4: return 'ferry';
-      case 11: return 'trolleybus';
-      default: return 'other';
+      case 0: return RouteType.TRAM;
+      case 1: return RouteType.METRO;
+      case 2: return RouteType.RAIL;
+      case 3: return RouteType.BUS;
+      case 4: return RouteType.FERRY;
+      case 11: return RouteType.TROLLEYBUS;
+      default: return RouteType.OTHER;
     }
   }
 
   private findClosestStop(
     position: { latitude: number; longitude: number }, 
     stops: Station[], 
-    vehicle?: LiveVehicle,
+    vehicle?: CoreVehicle,
     stopTimes?: StopTime[]
   ): Station | null {
     // If we have trip information, use intelligent stop sequence logic
@@ -810,7 +640,7 @@ export class TranzyApiService {
   }
 
   private calculateArrivalTime(
-    vehicle: LiveVehicle,
+    vehicle: CoreVehicle,
     stop: Station,
     scheduleData?: StopTime
   ): Date {
@@ -850,7 +680,7 @@ export class TranzyApiService {
     return Math.round((estimatedArrival.getTime() - scheduledTime.getTime()) / 60000);
   }
 
-  private calculateConfidence(vehicle: LiveVehicle, scheduleData?: StopTime): 'high' | 'medium' | 'low' {
+  private calculateConfidence(vehicle: CoreVehicle, scheduleData?: StopTime): 'high' | 'medium' | 'low' {
     try {
       const timestamp = vehicle.timestamp instanceof Date ? vehicle.timestamp : new Date(vehicle.timestamp);
       const age = Date.now() - timestamp.getTime();
@@ -864,7 +694,7 @@ export class TranzyApiService {
     }
   }
 
-  private determineDirection(_vehicle: LiveVehicle, _stop: Station): 'work' | 'home' | 'unknown' {
+  private determineDirection(_vehicle: CoreVehicle, _stop: Station): 'work' | 'home' | 'unknown' {
     // This is a simplified implementation
     // In reality, you'd use the user's home/work locations and route analysis
     return 'unknown';
@@ -935,8 +765,9 @@ export class TranzyApiService {
         return false;
       }
     } catch (error) {
-      logger.error('API key validation failed', { 
-        error: error instanceof Error ? error.message : String(error),
+      const errorToLog = error instanceof Error ? error : new Error(String(error));
+      logger.error('API key validation failed', errorToLog, 'API');
+      logger.info('API validation context', { 
         status: error instanceof axios.AxiosError ? error.response?.status : 'unknown'
       }, 'API');
       
@@ -950,7 +781,7 @@ export class TranzyApiService {
     }
   }
 
-  async getBusesForCity(city: string): Promise<VehicleInfo[]> {
+  async getBusesForCity(city: string): Promise<CoreVehicle[]> {
     const requestKey = `vehicles-${city}`;
     if (!this.shouldAllowRequest(requestKey)) {
       logger.debug('Vehicles request debounced', { city }, 'API');
@@ -962,7 +793,7 @@ export class TranzyApiService {
     try {
       const agencyId = await this.getConfiguredAgencyId();
       const vehicles = await this.getVehicles(agencyId);
-      return this.transformVehiclesToBusInfo(vehicles, city);
+      return vehicles;
     } catch (error) {
       logger.error('Failed to fetch vehicles for city', { city, error }, 'API');
       return [];
@@ -988,7 +819,7 @@ export class TranzyApiService {
     }
   }
 
-  async getBusesAtStation(stationId: string): Promise<VehicleInfo[]> {
+  async getBusesAtStation(stationId: string): Promise<CoreVehicle[]> {
     const requestKey = `station-vehicles-${stationId}`;
     if (!this.shouldAllowRequest(requestKey)) {
       logger.debug('Station vehicles request debounced', { stationId }, 'API');
@@ -1019,31 +850,14 @@ export class TranzyApiService {
         return distance <= 0.5; // Within 500 meters
       });
 
-      return this.transformVehiclesToBusInfo(nearbyVehicles, 'Cluj-Napoca');
+      return nearbyVehicles;
     } catch (error) {
       logger.error('Failed to fetch vehicles at station', { stationId, error }, 'API');
       return [];
     }
   }
 
-  // Helper methods for legacy compatibility
-  private transformVehiclesToBusInfo(vehicles: LiveVehicle[], city: string): VehicleInfo[] {
-    return vehicles.map(vehicle => ({
-      id: vehicle.id,
-      route: vehicle.routeId?.toString() || 'Unknown',
-      destination: 'Unknown', // Would need route data to determine
-      arrivalTime: new Date(Date.now() + Math.random() * 30 * 60 * 1000), // Estimated
-      isLive: true,
-      minutesAway: Math.floor(Math.random() * 30), // Estimated
-      station: {
-        id: 'unknown',
-        name: 'Unknown Station',
-        coordinates: { latitude: vehicle.position.latitude, longitude: vehicle.position.longitude },
-        isFavorite: false
-      },
-      direction: 'unknown' as const
-    }));
-  }
+  // Legacy transformation methods removed - use VehicleTransformationService instead
 
 
 }

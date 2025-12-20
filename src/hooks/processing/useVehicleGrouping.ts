@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
-import type { LiveVehicle, Station, Coordinates } from '../../types';
+import type { Station, Coordinates } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 import { calculateDistance } from '../../utils/distanceUtils';
 import { logger } from '../../utils/logger';
+import { validateVehicleArray, validateStationArray } from '../shared/validation/arrayValidators';
+import { validateCoordinates } from '../shared/validation/coordinateValidators';
+import { createSafeVehicleArray } from '../shared/validation/safeDefaults';
+import { ErrorHandler } from '../shared/errors/ErrorHandler';
+import { ErrorType } from '../shared/errors/types';
 
 /**
  * Configuration options for vehicle grouping
@@ -9,7 +15,6 @@ import { logger } from '../../utils/logger';
 export interface UseVehicleGroupingOptions {
   maxStations?: number; // Maximum number of stations to return
   maxVehiclesPerStation?: number; // Maximum vehicles per station
-  proximityThreshold?: number; // Distance threshold for grouping nearby stations (meters)
 }
 
 /**
@@ -25,7 +30,7 @@ export interface StationWithDistance {
  */
 export interface StationVehicleGroup {
   station: StationWithDistance;
-  vehicles: LiveVehicle[];
+  vehicles: CoreVehicle[];
   allRoutes: Array<{
     routeId: string;
     routeName: string;
@@ -53,31 +58,45 @@ export interface VehicleGroupingResult {
  * This is a pure processing hook that takes vehicles, stations, and user location
  * and returns vehicles grouped by their nearest stations. It handles:
  * - Station-based vehicle grouping with distance calculations
- * - Capacity constraints and proximity thresholds
+ * - Capacity constraints (max stations and vehicles per station)
  * - Route aggregation and vehicle counting per station
  * - Input validation and safe defaults
  * 
- * @param vehicles Array of live vehicles to group
+ * Note: This hook does NOT handle vehicle-to-station proximity logic.
+ * Use useVehicleStationAnalysis for "at station" vs "between stations" detection.
+ * 
+ * @param vehicles Array of live vehicles to group (should be pre-analyzed with station info)
  * @param stations Array of stations to group vehicles by
  * @param userLocation User's current location for distance calculations
  * @param options Grouping configuration options
  * @returns Vehicles grouped by stations with statistics
  */
 export const useVehicleGrouping = (
-  vehicles: LiveVehicle[],
+  vehicles: CoreVehicle[],
   stations: Station[],
   userLocation: Coordinates,
   options: UseVehicleGroupingOptions = {}
 ): VehicleGroupingResult => {
   const {
     maxStations = 5,
-    maxVehiclesPerStation = 10,
-    proximityThreshold = 200 // 200 meters default
+    maxVehiclesPerStation = 10
   } = options;
 
-  // Early return if maxStations is 0
-  if (maxStations === 0) {
-    return {
+  return useMemo(() => {
+    // Early return if maxStations is 0
+    if (maxStations === 0) {
+      return {
+        stationGroups: [],
+        totalStations: 0,
+        totalVehicles: 0,
+        groupingStats: {
+          stationsWithVehicles: 0,
+          averageVehiclesPerStation: 0,
+          maxDistanceIncluded: 0
+        }
+      };
+    }
+    const emptyResult = {
       stationGroups: [],
       totalStations: 0,
       totalVehicles: 0,
@@ -87,101 +106,56 @@ export const useVehicleGrouping = (
         maxDistanceIncluded: 0
       }
     };
-  }
 
-  return useMemo(() => {
-    // Input validation - return safe defaults for invalid inputs
-    if (!Array.isArray(vehicles)) {
-      logger.warn('Invalid vehicles input - expected array', { 
-        vehiclesType: typeof vehicles 
-      }, 'useVehicleGrouping');
-      
-      return {
-        stationGroups: [],
-        totalStations: 0,
-        totalVehicles: 0,
-        groupingStats: {
-          stationsWithVehicles: 0,
-          averageVehiclesPerStation: 0,
-          maxDistanceIncluded: 0
+    // Input validation using shared validation library
+    const vehicleValidation = validateVehicleArray(vehicles, 'vehicles');
+    if (!vehicleValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid vehicles input for grouping',
+        { 
+          validationErrors: vehicleValidation.errors,
+          inputType: typeof vehicles
         }
-      };
-    }
-
-    if (!Array.isArray(stations)) {
-      logger.warn('Invalid stations input - expected array', { 
-        stationsType: typeof stations 
-      }, 'useVehicleGrouping');
-      
-      return {
-        stationGroups: [],
-        totalStations: 0,
-        totalVehicles: 0,
-        groupingStats: {
-          stationsWithVehicles: 0,
-          averageVehiclesPerStation: 0,
-          maxDistanceIncluded: 0
-        }
-      };
-    }
-
-    if (!userLocation || 
-        typeof userLocation.latitude !== 'number' || 
-        typeof userLocation.longitude !== 'number' ||
-        isNaN(userLocation.latitude) || 
-        isNaN(userLocation.longitude) ||
-        Math.abs(userLocation.latitude) > 90 ||
-        Math.abs(userLocation.longitude) > 180) {
-      
-      logger.warn('Invalid user location provided for vehicle grouping', {
-        userLocation
-      }, 'useVehicleGrouping');
-      
-      return {
-        stationGroups: [],
-        totalStations: 0,
-        totalVehicles: 0,
-        groupingStats: {
-          stationsWithVehicles: 0,
-          averageVehiclesPerStation: 0,
-          maxDistanceIncluded: 0
-        }
-      };
-    }
-
-    // Validate and filter vehicles
-    const validVehicles = vehicles.filter(vehicle => {
-      return (
-        vehicle &&
-        typeof vehicle === 'object' &&
-        vehicle.id &&
-        vehicle.routeId &&
-        vehicle.position &&
-        typeof vehicle.position.latitude === 'number' &&
-        typeof vehicle.position.longitude === 'number' &&
-        !isNaN(vehicle.position.latitude) &&
-        !isNaN(vehicle.position.longitude) &&
-        Math.abs(vehicle.position.latitude) <= 90 &&
-        Math.abs(vehicle.position.longitude) <= 180
       );
-    });
+      
+      logger.warn(error.message, ErrorHandler.createErrorReport(error), 'useVehicleGrouping');
+      return emptyResult;
+    }
 
-    // Validate and filter stations
-    const validStations = stations.filter(station => {
-      return (
-        station &&
-        typeof station === 'object' &&
-        station.id &&
-        station.name &&
-        station.coordinates &&
-        typeof station.coordinates.latitude === 'number' &&
-        typeof station.coordinates.longitude === 'number' &&
-        !isNaN(station.coordinates.latitude) &&
-        !isNaN(station.coordinates.longitude) &&
-        Math.abs(station.coordinates.latitude) <= 90 &&
-        Math.abs(station.coordinates.longitude) <= 180
+    const stationValidation = validateStationArray(stations, 'stations');
+    if (!stationValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid stations input for grouping',
+        { 
+          validationErrors: stationValidation.errors,
+          inputType: typeof stations
+        }
       );
-    });
+      
+      logger.warn(error.message, ErrorHandler.createErrorReport(error), 'useVehicleGrouping');
+      return emptyResult;
+    }
+
+    const locationValidation = validateCoordinates(userLocation, 'userLocation');
+    if (!locationValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid user location provided for vehicle grouping',
+        { 
+          userLocation,
+          validationErrors: locationValidation.errors
+        }
+      );
+      
+      logger.warn(error.message, ErrorHandler.createErrorReport(error), 'useVehicleGrouping');
+      return emptyResult;
+    }
+
+    const validVehicles = vehicleValidation.data!;
+    const validStations = stationValidation.data!;
+    const validUserLocation = locationValidation.data!;
 
     if (validVehicles.length === 0 || validStations.length === 0) {
       logger.debug('No valid vehicles or stations for grouping', {
@@ -207,29 +181,43 @@ export const useVehicleGrouping = (
     const stationsWithDistances: StationWithDistance[] = validStations
       .map(station => {
         try {
-          const distance = calculateDistance(userLocation, station.coordinates);
+          const distance = calculateDistance(validUserLocation, station.coordinates);
           return { station, distance };
         } catch (error) {
-          logger.debug('Distance calculation failed for station', {
-            stationId: station.id,
-            stationCoordinates: station.coordinates,
-            userLocation,
-            error: error instanceof Error ? error.message : String(error)
-          }, 'useVehicleGrouping');
+          const calcError = ErrorHandler.createError(
+            ErrorType.PROCESSING,
+            'Distance calculation failed for station',
+            {
+              stationId: station.id,
+              stationCoordinates: station.coordinates,
+              userLocation: validUserLocation,
+              originalError: error instanceof Error ? error : new Error(String(error))
+            }
+          );
+          
+          logger.debug(calcError.message, ErrorHandler.createErrorReport(calcError), 'useVehicleGrouping');
           return null;
         }
       })
       .filter((item): item is StationWithDistance => item !== null)
       .sort((a, b) => a.distance - b.distance); // Sort by distance (closest first)
 
-    // Step 2: Group vehicles by their nearest station
-    const stationVehicleMap = new Map<string, LiveVehicle[]>();
-    
+    // Step 2: Deduplicate vehicles by ID to prevent duplicates in groups
+    const uniqueVehicles = new Map<string, CoreVehicle>();
     for (const vehicle of validVehicles) {
+      uniqueVehicles.set(vehicle.id, vehicle);
+    }
+    const deduplicatedVehicles = Array.from(uniqueVehicles.values());
+
+    // Step 3: Group vehicles by their nearest station
+    // Note: This is purely organizational grouping, not proximity-based filtering
+    const stationVehicleMap = new Map<string, CoreVehicle[]>();
+    
+    for (const vehicle of deduplicatedVehicles) {
       let nearestStation: StationWithDistance | null = null;
       let minDistance = Infinity;
 
-      // Find the nearest station to this vehicle
+      // Find the nearest station to this vehicle for organizational purposes
       for (const stationWithDistance of stationsWithDistances) {
         try {
           const distance = calculateDistance(vehicle.position, stationWithDistance.station.coordinates);
@@ -243,8 +231,9 @@ export const useVehicleGrouping = (
         }
       }
 
-      // Only group vehicles that are reasonably close to a station
-      if (nearestStation && minDistance <= proximityThreshold) {
+      // Group vehicle with its nearest station (no proximity filtering)
+      // The vehicle-to-station relationship analysis should be done separately
+      if (nearestStation) {
         const stationId = nearestStation.station.id;
         if (!stationVehicleMap.has(stationId)) {
           stationVehicleMap.set(stationId, []);
@@ -253,7 +242,7 @@ export const useVehicleGrouping = (
       }
     }
 
-    // Step 3: Create station groups with route aggregation
+    // Step 4: Create station groups with route aggregation
     const stationGroups: StationVehicleGroup[] = [];
     let maxDistanceIncluded = 0;
 
@@ -305,7 +294,7 @@ export const useVehicleGrouping = (
       }
     }
 
-    // Step 4: Calculate grouping statistics
+    // Step 5: Calculate grouping statistics
     const totalVehiclesInGroups = stationGroups.reduce((sum, group) => sum + group.vehicles.length, 0);
     const averageVehiclesPerStation = stationGroups.length > 0 
       ? totalVehiclesInGroups / stationGroups.length 
@@ -319,13 +308,13 @@ export const useVehicleGrouping = (
 
     logger.debug('Vehicle grouping completed', {
       totalVehicles: validVehicles.length,
+      deduplicatedVehicles: deduplicatedVehicles.length,
       totalStations: validStations.length,
       stationGroups: stationGroups.length,
       groupingStats,
       options: {
         maxStations,
-        maxVehiclesPerStation,
-        proximityThreshold
+        maxVehiclesPerStation
       }
     }, 'useVehicleGrouping');
 
@@ -340,7 +329,6 @@ export const useVehicleGrouping = (
     stations,
     userLocation,
     maxStations,
-    maxVehiclesPerStation,
-    proximityThreshold
+    maxVehiclesPerStation
   ]);
 };

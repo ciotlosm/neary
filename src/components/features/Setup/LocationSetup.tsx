@@ -1,4 +1,14 @@
 import React, { useState } from 'react';
+import {
+  Box,
+  Container,
+  Paper,
+  Typography,
+  Avatar,
+  Button,
+  Stack,
+} from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
 import LocationPicker from '../LocationPicker/LocationPicker';
 import { logger } from '../../../utils/logger';
 import type { Coordinates } from '../../../types';
@@ -37,52 +47,93 @@ export const LocationSetup: React.FC<LocationSetupProps> = ({ onLocationsSet, on
     }
   };
 
+  const theme = useTheme();
+
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">{currentStep === 'home' ? '🏠' : '🏢'}</span>
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Set Your {currentStep === 'home' ? 'Home' : 'Work'} Location
-        </h2>
-        <p className="text-gray-600">
-          {currentStep === 'home' 
-            ? 'Choose your home location for personalized route suggestions'
-            : 'Choose your work location to complete the setup'
-          }
-        </p>
-      </div>
-
-      <div className="mb-6">
-        <LocationPicker
-          open={true}
-          onClose={() => {}}
-          title="Select Location"
-          type="home"
-          onLocationSelected={handleLocationSelected}
-        />
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 font-medium"
-        >
-          Back
-        </button>
-        {homeLocation && workLocation && (
-          <button
-            type="button"
-            onClick={() => onLocationsSet(homeLocation, workLocation)}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+    <Container maxWidth="md">
+      <Paper
+        elevation={4}
+        sx={{
+          p: 4,
+          borderRadius: theme.custom.borderRadius.xl,
+          background: theme.palette.background.paper,
+        }}
+      >
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Avatar
+            sx={{
+              width: 64,
+              height: 64,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              mx: 'auto',
+              mb: 2,
+              fontSize: '2rem',
+            }}
           >
-            Complete Setup
-          </button>
-        )}
-      </div>
-    </div>
+            {currentStep === 'home' ? '🏠' : '🏢'}
+          </Avatar>
+          <Typography
+            variant="h4"
+            component="h2"
+            sx={{
+              fontWeight: 700,
+              color: 'text.primary',
+              mb: 1,
+            }}
+          >
+            Set Your {currentStep === 'home' ? 'Home' : 'Work'} Location
+          </Typography>
+          <Typography
+            variant="body1"
+            color="text.secondary"
+          >
+            {currentStep === 'home' 
+              ? 'Choose your home location for personalized route suggestions'
+              : 'Choose your work location to complete the setup'
+            }
+          </Typography>
+        </Box>
+
+        <Box sx={{ mb: 4 }}>
+          <LocationPicker
+            open={true}
+            onClose={() => {}}
+            title="Select Location"
+            type="home"
+            onLocationSelected={handleLocationSelected}
+          />
+        </Box>
+
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={handleBack}
+            fullWidth
+            sx={{
+              borderRadius: theme.custom.borderRadius.md,
+              fontWeight: 600,
+            }}
+          >
+            Back
+          </Button>
+          {homeLocation && workLocation && (
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => onLocationsSet(homeLocation, workLocation)}
+              fullWidth
+              sx={{
+                borderRadius: theme.custom.borderRadius.md,
+                fontWeight: 600,
+              }}
+            >
+              Complete Setup
+            </Button>
+          )}
+        </Stack>
+      </Paper>
+    </Container>
   );
 };
 

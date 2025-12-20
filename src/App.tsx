@@ -41,7 +41,7 @@ import OfflineIndicator from './components/layout/Indicators/OfflineIndicator';
 import StatusIndicators from './components/layout/Indicators/StatusIndicators';
 import { useConfigStore, useVehicleStore } from './stores';
 import { useStoreEvents, StoreEvents } from './stores/shared/storeEvents';
-import { useModernRefreshSystem } from './hooks/shared/useModernRefreshSystem';
+import { useRefreshSystem } from './hooks/shared/useRefreshSystem';
 import { useErrorHandler } from './hooks/shared/useErrorHandler';
 import { useAppInitialization } from './hooks/shared/useAppInitialization';
 import { useThemeUtils, useMuiUtils } from './hooks';
@@ -52,7 +52,6 @@ import { logger } from './utils/logger';
 
 
 import { StationDisplay } from './components/features/StationDisplay';
-import { FavoriteRoutesView } from './components/features/FavoriteRoutesView';
 import UpdateNotification from './components/layout/UpdateNotification';
 
 import { initializeServiceWorker } from './utils/serviceWorkerManager';
@@ -126,18 +125,18 @@ const MaterialHeader: React.FC<{
 
 // Material Design Bottom Navigation
 const MaterialBottomNav: React.FC<{ 
-  currentView: 'station' | 'routes' | 'settings'; 
-  onViewChange: (view: 'station' | 'routes' | 'settings') => void;
+  currentView: 'station' | 'settings'; 
+  onViewChange: (view: 'station' | 'settings') => void;
   isConfigured: boolean;
   isFromSetupFlowRef: React.MutableRefObject<boolean>;
 }> = React.memo(({ currentView, onViewChange, isConfigured: isFullyConfigured, isFromSetupFlowRef }) => {
   const { theme, alpha } = useThemeUtils();
   
-  const handleNavigation = React.useCallback((view: 'station' | 'routes' | 'settings') => {
+  const handleNavigation = React.useCallback((view: 'station' | 'settings') => {
     logger.debug('Navigation attempt', { from: currentView, to: view, isFullyConfigured }, 'NAVIGATION');
     
     // Only prevent if disabled due to configuration
-    if ((view === 'station' || view === 'routes') && !isFullyConfigured) {
+    if (view === 'station' && !isFullyConfigured) {
       logger.warn('Navigation blocked - not fully configured', { view, isFullyConfigured }, 'NAVIGATION');
       return;
     }
@@ -173,7 +172,7 @@ const MaterialBottomNav: React.FC<{
             logger.debug('BottomNavigation onChange', { currentValue: currentView, newValue, event: event.type }, 'NAVIGATION');
             // Handle navigation through MUI's built-in onChange
             if (newValue) {
-              handleNavigation(newValue as 'station' | 'routes' | 'settings');
+              handleNavigation(newValue as 'station' | 'settings');
             }
           }}
           sx={{
@@ -203,20 +202,6 @@ const MaterialBottomNav: React.FC<{
           }}
         />
 
-        <BottomNavigationAction
-          label="Routes"
-          value="routes"
-          icon={<FavoriteIcon />}
-          disabled={!isFullyConfigured}
-          sx={{
-            '&.Mui-selected': {
-              color: theme.palette.primary.main,
-            },
-            '&.Mui-disabled': {
-              opacity: 0.5,
-            },
-          }}
-        />
         <BottomNavigationAction
           label="Settings"
           value="settings"
@@ -253,7 +238,7 @@ const MaterialContentArea: React.FC<{ children: React.ReactNode }> = React.memo(
 ));
 
 function AppMaterial() {
-  const [currentView, setCurrentView] = useState<'station' | 'routes' | 'settings'>('station');
+  const [currentView, setCurrentView] = useState<'station' | 'settings'>('station');
   const { isConfigured: initialConfigured, isFullyConfigured: initialFullyConfigured } = useConfigStore();
   
   // Use local state to track configuration changes via events
@@ -269,7 +254,7 @@ function AppMaterial() {
     handleLocationSelected
   } = useConfigurationManager();
 
-  const { startAutoRefresh } = useModernRefreshSystem();
+  const { startAutoRefresh } = useRefreshSystem();
   const { error: globalError, clearError } = useErrorHandler();
   const vehicleStore = useVehicleStore();
   const configStore = useConfigStore();
@@ -494,46 +479,7 @@ function AppMaterial() {
           </Box>
         );
 
-      case 'routes':
-        if (!configState.isFullyConfigured) {
-          return (
-            <Card sx={{ textAlign: 'center', p: 4, mt: 4 }}>
-              <Avatar
-                sx={{
-                  bgcolor: theme.palette.warning.main,
-                  width: 64,
-                  height: 64,
-                  mx: 'auto',
-                  mb: 3,
-                }}
-              >
-                <SettingsIcon sx={{ fontSize: 32 }} />
-              </Avatar>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Setup Required
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Please complete your setup to view favorite routes at nearby stations.
-              </Typography>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  isFromSetupFlow.current = true; // Mark that we're coming from setup
-                  setCurrentView('settings');
-                }}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                }}
-              >
-                Complete Setup
-              </Button>
-            </Card>
-          );
-        }
 
-        return <FavoriteRoutesView onNavigateToSettings={() => setCurrentView('settings')} />;
 
       case 'settings':
         return (
@@ -551,8 +497,6 @@ function AppMaterial() {
     switch (currentView) {
       case 'station':
         return 'Nearby';
-      case 'routes':
-        return 'Favorites';
       case 'settings':
         return 'Settings';
       default:
@@ -565,7 +509,7 @@ function AppMaterial() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <MaterialHeader 
           title={getHeaderTitle()}
-          showRefresh={currentView === 'station' || currentView === 'routes'}
+          showRefresh={currentView === 'station'}
           isLoading={isInitializing}
         />
         

@@ -8,13 +8,13 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
-import { useModernRefreshSystem } from '../../../hooks/shared/useModernRefreshSystem';
+import { useRefreshSystem } from '../../../hooks/shared/useRefreshSystem';
 import { logger } from '../../../utils/logger';
 import { useThemeUtils } from '../../../hooks';
 
 export const RefreshStatusFooter: React.FC = () => {
   const { theme, alpha } = useThemeUtils();
-  const { lastUpdate, lastApiUpdate, isAutoRefreshEnabled } = useModernRefreshSystem();
+  const { lastUpdate, lastApiUpdate, isAutoRefreshEnabled } = useRefreshSystem();
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Debug: log available timestamps

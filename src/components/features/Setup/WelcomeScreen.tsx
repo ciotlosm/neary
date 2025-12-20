@@ -1,87 +1,179 @@
 import React from 'react';
-import { Button } from '../../ui/Button';
+import {
+  Box,
+  Container,
+  Typography,
+  Avatar,
+  Paper,
+  Stack,
+} from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
+import { Button } from '../../ui';
 
 interface WelcomeScreenProps {
   onGetStarted: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
+  const theme = useTheme();
+
+  const features = [
+    {
+      icon: '🏠',
+      title: 'Smart Directions',
+      description: 'Automatically detects work and home routes',
+      color: theme.palette.success.main,
+    },
+    {
+      icon: '🔴',
+      title: 'Live Updates',
+      description: 'Real-time bus arrivals and delays',
+      color: theme.palette.info.main,
+    },
+    {
+      icon: '⭐',
+      title: 'Favorites',
+      description: 'Save your most used routes and stops',
+      color: theme.palette.secondary.main,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
-      <div className="max-w-md w-full text-center">
-        {/* Logo/Icon */}
-        <div className="mb-8">
-          <div className="w-24 h-24 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm">
-            <span className="text-4xl">🚌</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Bus Tracker
-          </h1>
-          <p className="text-blue-100 text-lg">
-            Your smart commute companion
-          </p>
-        </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, ${theme.palette.secondary.dark} 100%)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Box sx={{ textAlign: 'center', color: 'white' }}>
+          {/* Logo/Icon */}
+          <Box sx={{ mb: 4 }}>
+            <Avatar
+              sx={{
+                width: 96,
+                height: 96,
+                bgcolor: alpha('#ffffff', 0.2),
+                backdropFilter: 'blur(10px)',
+                mx: 'auto',
+                mb: 3,
+                fontSize: '2.5rem',
+              }}
+            >
+              🚌
+            </Avatar>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                color: 'white',
+                mb: 1,
+              }}
+            >
+              Bus Tracker
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: alpha('#ffffff', 0.8),
+                fontWeight: 400,
+              }}
+            >
+              Your smart commute companion
+            </Typography>
+          </Box>
 
-        {/* Features */}
-        <div className="space-y-4 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-left">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-sm">🏠</span>
-              </div>
-              <div>
-                <h3 className="text-white font-medium">Smart Directions</h3>
-                <p className="text-blue-100 text-sm">Automatically detects work and home routes</p>
-              </div>
-            </div>
-          </div>
+          {/* Features */}
+          <Stack spacing={2} sx={{ mb: 4 }}>
+            {features.map((feature, index) => (
+              <Paper
+                key={index}
+                sx={{
+                  bgcolor: alpha('#ffffff', 0.1),
+                  backdropFilter: 'blur(10px)',
+                  border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                  borderRadius: theme.custom.borderRadius.xl,
+                  p: 2,
+                  textAlign: 'left',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      bgcolor: feature.color,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    {feature.icon}
+                  </Avatar>
+                  <Box>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {feature.title}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: alpha('#ffffff', 0.8),
+                      }}
+                    >
+                      {feature.description}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            ))}
+          </Stack>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-left">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-sm">🔴</span>
-              </div>
-              <div>
-                <h3 className="text-white font-medium">Live Updates</h3>
-                <p className="text-blue-100 text-sm">Real-time bus arrivals and delays</p>
-              </div>
-            </div>
-          </div>
+          {/* Get Started Button */}
+          <Button
+            onClick={onGetStarted}
+            variant="filled"
+            size="large"
+            fullWidth
+            sx={{
+              bgcolor: 'white',
+              color: theme.palette.primary.main,
+              fontWeight: 600,
+              py: 1.5,
+              borderRadius: theme.custom.borderRadius.lg,
+              boxShadow: `0 8px 24px ${alpha('#000000', 0.2)}`,
+              '&:hover': {
+                bgcolor: alpha('#ffffff', 0.9),
+                transform: 'translateY(-2px)',
+                boxShadow: `0 12px 32px ${alpha('#000000', 0.3)}`,
+              },
+              transition: 'all 0.2s ease-in-out',
+            }}
+          >
+            Get Started
+          </Button>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-left">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-sm">⭐</span>
-              </div>
-              <div>
-                <h3 className="text-white font-medium">Favorites</h3>
-                <p className="text-blue-100 text-sm">Save your most used routes and stops</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Get Started Button */}
-        <Button
-          onClick={onGetStarted}
-          variant="filled"
-          size="large"
-          fullWidth
-          sx={{ 
-            bgcolor: 'white', 
-            color: 'primary.main',
-            '&:hover': { bgcolor: 'grey.50' },
-            boxShadow: 3
-          }}
-        >
-          Get Started
-        </Button>
-
-        <p className="text-blue-200 text-xs mt-4">
-          Powered by Tranzy.ai • Made with ❤️
-        </p>
-      </div>
-    </div>
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              color: alpha('#ffffff', 0.7),
+              mt: 2,
+            }}
+          >
+            Powered by Tranzy.ai • Made with ❤️
+          </Typography>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

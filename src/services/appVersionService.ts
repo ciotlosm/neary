@@ -103,10 +103,8 @@ class AppVersionServiceImpl implements AppUpdateService {
       
       // Step 3: Preserve critical user data before clearing storage
       const preserveKeys = [
-        'config-store',           // User configuration
-        'favorite-bus-store',     // User's favorite buses
-        'theme-store',           // User's theme preference
-        'cluj-bus-theme'         // Alternative theme key
+        'unified-config-store',      // Current unified configuration (includes theme, favorites, API keys)
+        'vehicle-store'              // Current vehicle data store
       ];
       
       const backupData: Record<string, string | null> = {};

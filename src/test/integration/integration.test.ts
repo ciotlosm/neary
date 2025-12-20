@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act } from '@testing-library/react';
 import { useConfigStore, useVehicleStore } from '../../stores';
-import type { UserConfig, EnhancedVehicleInfo } from '../../types';
+import type { UserConfig } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
+import type { VehicleDisplayData } from '../../types/presentationLayer';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -33,56 +35,30 @@ describe('Integration Tests - Complete User Flows', () => {
     refreshRate: 30000,
   };
 
-  const mockVehicles: EnhancedVehicleInfo[] = [
+  const mockVehicles: CoreVehicle[] = [
     {
       id: 'bus-1',
       routeId: '24',
-      routeShortName: '24',
-      routeLongName: 'Zorilor',
       tripId: 'trip-1',
-      vehicleId: 'vehicle-1',
-      latitude: 46.7712,
-      longitude: 23.6236,
+      label: '24A',
+      position: { latitude: 46.7712, longitude: 23.6236 },
+      timestamp: new Date(),
       bearing: 90,
       speed: 30,
-      timestamp: Date.now(),
-      stopId: 'station-1',
-      stopName: 'Piața Unirii',
-      stopSequence: 1,
-      arrivalTime: new Date(Date.now() + 5 * 60 * 1000),
-      departureTime: new Date(Date.now() + 5 * 60 * 1000),
-      scheduleRelationship: 'SCHEDULED',
-      occupancyStatus: 'MANY_SEATS_AVAILABLE',
-      congestionLevel: 'UNKNOWN_CONGESTION_LEVEL',
-      isLive: true,
-      minutesAway: 5,
-      direction: 'work',
-      confidence: 'high',
+      isWheelchairAccessible: true,
+      isBikeAccessible: false,
     },
     {
       id: 'bus-2',
       routeId: '35',
-      routeShortName: '35',
-      routeLongName: 'Mănăștur',
       tripId: 'trip-2',
-      vehicleId: 'vehicle-2',
-      latitude: 46.7833,
-      longitude: 23.6167,
+      label: '35',
+      position: { latitude: 46.7833, longitude: 23.6167 },
+      timestamp: new Date(),
       bearing: 180,
       speed: 25,
-      timestamp: Date.now(),
-      stopId: 'station-2',
-      stopName: 'Piața Mărăști',
-      stopSequence: 1,
-      arrivalTime: new Date(Date.now() + 8 * 60 * 1000),
-      departureTime: new Date(Date.now() + 8 * 60 * 1000),
-      scheduleRelationship: 'SCHEDULED',
-      occupancyStatus: 'MANY_SEATS_AVAILABLE',
-      congestionLevel: 'UNKNOWN_CONGESTION_LEVEL',
-      isLive: false,
-      minutesAway: 8,
-      direction: 'home',
-      confidence: 'medium',
+      isWheelchairAccessible: true,
+      isBikeAccessible: false,
     },
   ];
 
@@ -183,12 +159,12 @@ describe('Integration Tests - Complete User Flows', () => {
 
       const vehicleStore = useVehicleStore.getState();
       expect(vehicleStore.vehicles).toHaveLength(2);
-      expect(vehicleStore.vehicles[0].routeShortName).toBe('24');
-      expect(vehicleStore.vehicles[0].direction).toBe('work');
-      expect(vehicleStore.vehicles[0].isLive).toBe(true);
-      expect(vehicleStore.vehicles[1].routeShortName).toBe('35');
-      expect(vehicleStore.vehicles[1].direction).toBe('home');
-      expect(vehicleStore.vehicles[1].isLive).toBe(false);
+      expect(vehicleStore.vehicles[0].routeId).toBe('24');
+      expect(vehicleStore.vehicles[0].label).toBe('24A');
+      expect(vehicleStore.vehicles[0].position.latitude).toBe(46.7712);
+      expect(vehicleStore.vehicles[1].routeId).toBe('35');
+      expect(vehicleStore.vehicles[1].label).toBe('35');
+      expect(vehicleStore.vehicles[1].position.latitude).toBe(46.7833);
     });
 
     it('should filter vehicles by direction', () => {
@@ -203,13 +179,15 @@ describe('Integration Tests - Complete User Flows', () => {
       });
 
       const vehicleStore = useVehicleStore.getState();
-      const workVehicles = vehicleStore.vehicles.filter(vehicle => vehicle.direction === 'work');
-      const homeVehicles = vehicleStore.vehicles.filter(vehicle => vehicle.direction === 'home');
+      // CoreVehicle doesn't have direction - that's a presentation layer property
+      // Test basic vehicle properties instead
+      const route24Vehicles = vehicleStore.vehicles.filter(vehicle => vehicle.routeId === '24');
+      const route35Vehicles = vehicleStore.vehicles.filter(vehicle => vehicle.routeId === '35');
 
-      expect(workVehicles).toHaveLength(1);
-      expect(workVehicles[0].routeShortName).toBe('24');
-      expect(homeVehicles).toHaveLength(1);
-      expect(homeVehicles[0].routeShortName).toBe('35');
+      expect(route24Vehicles).toHaveLength(1);
+      expect(route24Vehicles[0].label).toBe('24A');
+      expect(route35Vehicles).toHaveLength(1);
+      expect(route35Vehicles[0].label).toBe('35');
     });
 
     it('should handle empty vehicle data', () => {
@@ -451,18 +429,20 @@ describe('Integration Tests - Complete User Flows', () => {
     });
 
     it('should validate mobile-specific data structures', () => {
-      // Test that vehicle data includes mobile-friendly properties
+      // Test that vehicle data includes core properties
       act(() => {
         useVehicleStore.setState({ vehicles: mockVehicles });
       });
 
       const vehicles = useVehicleStore.getState().vehicles;
       vehicles.forEach(vehicle => {
-        expect(vehicle.minutesAway).toBeTypeOf('number');
-        expect(vehicle.isLive).toBeTypeOf('boolean');
-        expect(vehicle.direction).toMatch(/^(work|home|unknown)$/);
-        expect(vehicle.latitude).toBeTypeOf('number');
-        expect(vehicle.longitude).toBeTypeOf('number');
+        expect(vehicle.id).toBeTypeOf('string');
+        expect(vehicle.routeId).toBeTypeOf('string');
+        expect(vehicle.label).toBeTypeOf('string');
+        expect(vehicle.position.latitude).toBeTypeOf('number');
+        expect(vehicle.position.longitude).toBeTypeOf('number');
+        expect(vehicle.isWheelchairAccessible).toBeTypeOf('boolean');
+        expect(vehicle.isBikeAccessible).toBeTypeOf('boolean');
       });
     });
   });

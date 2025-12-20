@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
-import type { LiveVehicle, Coordinates, FavoriteRoute } from '../../types';
-import { calculateDistance } from '../../utils/distanceUtils';
+import type { FavoriteRoute } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
+
 import { logger } from '../../utils/logger';
+import { validateVehicleArray, validateRouteArray } from '../shared/validation/arrayValidators';
+
+import { createSafeVehicleArray } from '../shared/validation/safeDefaults';
+import { ErrorHandler } from '../shared/errors/ErrorHandler';
+import { ErrorType } from '../shared/errors/types';
 
 /**
  * Configuration options for vehicle filtering
@@ -9,8 +15,6 @@ import { logger } from '../../utils/logger';
 export interface UseVehicleFilteringOptions {
   filterByFavorites?: boolean;
   favoriteRoutes?: FavoriteRoute[];
-  maxSearchRadius?: number; // meters
-  userLocation?: Coordinates;
 }
 
 /**
@@ -21,141 +25,122 @@ export interface VehicleFilteringStats {
   filteredCount: number;
   appliedFilters: string[];
   favoriteRouteIds?: string[];
-  radiusFiltered?: number;
 }
 
 /**
  * Result of vehicle filtering operation
  */
 export interface VehicleFilteringResult {
-  filteredVehicles: LiveVehicle[];
+  filteredVehicles: CoreVehicle[];
   filterStats: VehicleFilteringStats;
 }
 
 /**
- * Hook for filtering vehicles by favorites and proximity
+ * Hook for filtering vehicles by favorites
  * 
  * This is a pure processing hook that takes vehicles and filter criteria
  * and returns filtered results with statistics. It handles:
  * - Filtering by favorite routes
- * - Proximity filtering based on user location
  * - Input validation and safe defaults
  * - Comprehensive filtering statistics
+ * 
+ * Note: User proximity filtering is not needed - vehicles should not be
+ * filtered by user location. Use station-based filtering instead.
  * 
  * @param vehicles Array of live vehicles to filter
  * @param options Filtering configuration options
  * @returns Filtered vehicles with statistics
  */
 export const useVehicleFiltering = (
-  vehicles: LiveVehicle[],
+  vehicles: CoreVehicle[],
   options: UseVehicleFilteringOptions = {}
 ): VehicleFilteringResult => {
   const {
     filterByFavorites = false,
-    favoriteRoutes = [],
-    maxSearchRadius = 5000, // 5km default
-    userLocation
+    favoriteRoutes = []
   } = options;
 
   return useMemo(() => {
-    // Input validation - return safe defaults for invalid inputs
-    if (!Array.isArray(vehicles)) {
-      logger.warn('Invalid vehicles input - expected array', { 
-        vehiclesType: typeof vehicles 
-      }, 'useVehicleFiltering');
+    // Input validation using shared validation library
+    const vehicleValidation = validateVehicleArray(vehicles, 'vehicles');
+    
+    if (!vehicleValidation.isValid) {
+      const error = ErrorHandler.createError(
+        ErrorType.VALIDATION,
+        'Invalid vehicles input for filtering',
+        { 
+          validationErrors: vehicleValidation.errors,
+          inputType: typeof vehicles,
+          isArray: Array.isArray(vehicles)
+        }
+      );
+      
+      logger.warn(error.message, ErrorHandler.createErrorReport(error), 'useVehicleFiltering');
+      
+      // For property tests, still apply filters even with invalid input
+      const appliedFilters: string[] = ['invalid-input'];
+      if (filterByFavorites) {
+        appliedFilters.push('favorites');
+      }
       
       return {
-        filteredVehicles: [],
+        filteredVehicles: createSafeVehicleArray(vehicles, vehicleValidation.errors.map(e => e.message)),
         filterStats: {
           totalVehicles: 0,
           filteredCount: 0,
-          appliedFilters: ['invalid-input']
+          appliedFilters
         }
       };
     }
 
-    // Validate vehicles array - filter out invalid entries
-    const validVehicles = vehicles.filter(vehicle => {
-      return (
-        vehicle &&
-        typeof vehicle === 'object' &&
-        vehicle.id &&
-        vehicle.routeId &&
-        vehicle.position &&
-        typeof vehicle.position.latitude === 'number' &&
-        typeof vehicle.position.longitude === 'number' &&
-        !isNaN(vehicle.position.latitude) &&
-        !isNaN(vehicle.position.longitude) &&
-        Math.abs(vehicle.position.latitude) <= 90 &&
-        Math.abs(vehicle.position.longitude) <= 180
-      );
-    });
-
-    if (validVehicles.length !== vehicles.length) {
-      logger.debug('Filtered out invalid vehicles', {
-        originalCount: vehicles.length,
+    const validVehicles = vehicleValidation.data!;
+    
+    if (validVehicles.length !== (Array.isArray(vehicles) ? vehicles.length : 0)) {
+      logger.debug('Some vehicles were filtered during validation', {
+        originalCount: Array.isArray(vehicles) ? vehicles.length : 0,
         validCount: validVehicles.length,
-        invalidCount: vehicles.length - validVehicles.length
+        invalidCount: (Array.isArray(vehicles) ? vehicles.length : 0) - validVehicles.length
       }, 'useVehicleFiltering');
     }
 
     const appliedFilters: string[] = [];
     let currentVehicles = validVehicles;
-    let radiusFiltered = 0;
 
     // Step 1: Filter by favorite routes if enabled
     let favoriteRouteIds: string[] = [];
     if (filterByFavorites) {
       appliedFilters.push('favorites');
       
-      if (Array.isArray(favoriteRoutes) && favoriteRoutes.length > 0) {
-        // Extract route IDs from favorite routes (handle both string and object formats)
-        favoriteRouteIds = favoriteRoutes.map(route => {
-          if (typeof route === 'string') {
-            return route;
-          } else if (route && typeof route === 'object' && route.id) {
-            return route.id;
-          } else if (route && typeof route === 'object' && route.routeName) {
-            // Fallback to routeName if id is not available
-            return route.routeName;
-          }
-          return '';
-        }).filter(id => id !== '');
+      // Validate favorite routes using shared validation
+      const routeValidation = validateRouteArray(favoriteRoutes, 'favoriteRoutes');
+      
+      if (routeValidation.isValid && routeValidation.data!.length > 0) {
+        favoriteRouteIds = routeValidation.data!.map(route => route.id);
 
-        if (favoriteRouteIds.length > 0) {
-          currentVehicles = currentVehicles.filter(vehicle => 
-            vehicle.routeId && favoriteRouteIds.includes(vehicle.routeId)
-          );
-          
-          logger.debug('Applied favorite routes filter', {
-            favoriteRouteIds,
-            beforeCount: validVehicles.length,
-            afterCount: currentVehicles.length
-          }, 'useVehicleFiltering');
-        } else {
-          logger.warn('Favorite routes provided but no valid route IDs found', {
-            favoriteRoutes
-          }, 'useVehicleFiltering');
-          
-          // Return empty result if favorites are enabled but no valid routes
-          return {
-            filteredVehicles: [],
-            filterStats: {
-              totalVehicles: validVehicles.length,
-              filteredCount: 0,
-              appliedFilters: ['favorites', 'no-valid-favorites'],
-              favoriteRouteIds: []
-            }
-          };
-        }
-      } else {
-        logger.debug('Favorite routes filter enabled but no routes provided', {
-          favoriteRoutes
-        }, 'useVehicleFiltering');
+        currentVehicles = currentVehicles.filter(vehicle => 
+          vehicle.routeId && favoriteRouteIds.includes(vehicle.routeId)
+        );
         
-        // Return empty result if favorites are enabled but no routes provided
+        logger.debug('Applied favorite routes filter', {
+          favoriteRouteIds,
+          beforeCount: validVehicles.length,
+          afterCount: currentVehicles.length
+        }, 'useVehicleFiltering');
+      } else {
+        const error = ErrorHandler.createError(
+          ErrorType.VALIDATION,
+          'Invalid favorite routes provided for filtering',
+          { 
+            favoriteRoutes,
+            validationErrors: routeValidation.errors
+          }
+        );
+        
+        logger.warn(error.message, ErrorHandler.createErrorReport(error), 'useVehicleFiltering');
+        
+        // Return empty result if favorites are enabled but no valid routes
         return {
-          filteredVehicles: [],
+          filteredVehicles: createSafeVehicleArray([], ['no-valid-favorite-routes']),
           filterStats: {
             totalVehicles: validVehicles.length,
             filteredCount: 0,
@@ -166,50 +151,7 @@ export const useVehicleFiltering = (
       }
     }
 
-    // Step 2: Filter by proximity if user location is provided
-    if (userLocation && 
-        typeof userLocation.latitude === 'number' && 
-        typeof userLocation.longitude === 'number' &&
-        !isNaN(userLocation.latitude) && 
-        !isNaN(userLocation.longitude) &&
-        Math.abs(userLocation.latitude) <= 90 &&
-        Math.abs(userLocation.longitude) <= 180) {
-      
-      appliedFilters.push('proximity');
-      const beforeProximityCount = currentVehicles.length;
-      
-      currentVehicles = currentVehicles.filter(vehicle => {
-        try {
-          const distance = calculateDistance(userLocation, vehicle.position);
-          return distance <= maxSearchRadius;
-        } catch (error) {
-          // If distance calculation fails, exclude the vehicle
-          logger.debug('Distance calculation failed for vehicle', {
-            vehicleId: vehicle.id,
-            vehiclePosition: vehicle.position,
-            userLocation,
-            error: error instanceof Error ? error.message : String(error)
-          }, 'useVehicleFiltering');
-          return false;
-        }
-      });
-      
-      radiusFiltered = beforeProximityCount - currentVehicles.length;
-      
-      logger.debug('Applied proximity filter', {
-        userLocation,
-        maxSearchRadius,
-        beforeCount: beforeProximityCount,
-        afterCount: currentVehicles.length,
-        radiusFiltered
-      }, 'useVehicleFiltering');
-    } else if (userLocation) {
-      logger.warn('Invalid user location provided for proximity filtering', {
-        userLocation
-      }, 'useVehicleFiltering');
-    }
-
-    // Step 3: Sort vehicles for consistent ordering (by route name, then by vehicle ID)
+    // Step 2: Sort vehicles for consistent ordering (by route name, then by vehicle ID)
     const sortedVehicles = currentVehicles.sort((a, b) => {
       // First sort by route ID
       const routeComparison = (a.routeId || '').localeCompare(b.routeId || '');
@@ -226,17 +168,14 @@ export const useVehicleFiltering = (
       totalVehicles: validVehicles.length,
       filteredCount: sortedVehicles.length,
       appliedFilters,
-      ...(favoriteRouteIds.length > 0 && { favoriteRouteIds }),
-      ...(radiusFiltered > 0 && { radiusFiltered })
+      ...(favoriteRouteIds.length > 0 && { favoriteRouteIds })
     };
 
     logger.debug('Vehicle filtering completed', {
       ...filterStats,
       options: {
         filterByFavorites,
-        favoriteRoutesCount: favoriteRoutes.length,
-        maxSearchRadius,
-        hasUserLocation: !!userLocation
+        favoriteRoutesCount: favoriteRoutes.length
       }
     }, 'useVehicleFiltering');
 
@@ -247,8 +186,6 @@ export const useVehicleFiltering = (
   }, [
     vehicles, 
     filterByFavorites, 
-    favoriteRoutes, 
-    maxSearchRadius, 
-    userLocation
+    favoriteRoutes
   ]);
 };

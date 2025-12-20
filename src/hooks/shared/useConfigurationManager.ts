@@ -82,7 +82,7 @@ export const useConfigurationManager = (
   const [locationPickerType, setLocationPickerType] = useState<'home' | 'work' | 'offline'>('home');
   
   // Auto-save functionality
-  const autoSaveTimeoutRef = useRef<number | null>(null);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Load agencies on mount if API is validated but agencies are empty

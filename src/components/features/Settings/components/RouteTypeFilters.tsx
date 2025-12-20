@@ -79,8 +79,12 @@ export const RouteTypeFilters: React.FC<RouteTypeFiltersProps> = ({
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <span style={{ fontSize: '1rem' }}>{typeInfo.icon}</span>
-                <span>{typeInfo.label}</span>
+                <Typography component="span" sx={{ fontSize: '1rem' }}>
+                  {typeInfo.icon}
+                </Typography>
+                <Typography component="span">
+                  {typeInfo.label}
+                </Typography>
               </Box>
             </ToggleButton>
           );

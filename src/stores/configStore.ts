@@ -366,7 +366,7 @@ export const useConfigStore = create<ConfigStore>()(
             return;
           }
 
-          const currentFavorites = config.favoriteBuses || [];
+          const currentFavorites = config.favoriteRoutes || [];
           
           // Check if route already exists (by id)
           const existingIndex = currentFavorites.findIndex(fav => fav.id === route.id);
@@ -379,7 +379,7 @@ export const useConfigStore = create<ConfigStore>()(
           const updatedFavorites = [...currentFavorites, route];
           
           get().updateConfig({
-            favoriteBuses: updatedFavorites
+            favoriteRoutes: updatedFavorites
           });
 
           logger.info('Added favorite route', { 
@@ -405,7 +405,7 @@ export const useConfigStore = create<ConfigStore>()(
             return;
           }
 
-          const currentFavorites = config.favoriteBuses || [];
+          const currentFavorites = config.favoriteRoutes || [];
           const updatedFavorites = currentFavorites.filter(fav => fav.id !== routeId);
           
           if (updatedFavorites.length === currentFavorites.length) {
@@ -414,7 +414,7 @@ export const useConfigStore = create<ConfigStore>()(
           }
 
           get().updateConfig({
-            favoriteBuses: updatedFavorites
+            favoriteRoutes: updatedFavorites
           });
 
           logger.info('Removed favorite route', { 
@@ -438,7 +438,7 @@ export const useConfigStore = create<ConfigStore>()(
           }
 
           // Note: UserConfig doesn't have favoriteStations field, but we can extend it
-          // For now, we'll use a simple array structure similar to favoriteBuses
+          // For now, we'll use a simple array structure similar to favoriteRoutes
           const currentConfig = config as any;
           const currentFavoriteStations = currentConfig.favoriteStations || [];
           
@@ -504,10 +504,10 @@ export const useConfigStore = create<ConfigStore>()(
 
       getFavoriteRoutes: () => {
         const { config } = get();
-        if (!config || !config.favoriteBuses) {
+        if (!config || !config.favoriteRoutes) {
           return [];
         }
-        return config.favoriteBuses;
+        return config.favoriteRoutes;
       },
 
       getFavoriteStations: () => {

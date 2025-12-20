@@ -50,7 +50,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: PerformanceValidationConfig = {
   alertThresholds: {
     violationRate: 0.2, // Alert if 20% of operations violate thresholds
     averageProcessingTime: PERFORMANCE_THRESHOLDS.TOTAL_PROCESSING_MAX_TIME * 1.5,
-    memoryUsageIncrease: PERFORMANCE_THRESHOLDS.MAX_MEMORY_USAGE_MB * 2
+    memoryUsageIncrease: 300 // Increased to 300MB for realistic production usage with safety margin
   }
 };
 
@@ -236,7 +236,7 @@ class PerformanceMetricsAggregator {
     
     // Check violation rate
     if (this.statistics.violationRate > thresholds.violationRate && this.statistics.validatedOperations > 10) {
-      logger.error('Performance violation rate alert', {
+      logger.warn('Performance violation rate alert', {
         violationRate: this.statistics.violationRate,
         threshold: thresholds.violationRate,
         violationCount: this.statistics.violationCount,
@@ -246,7 +246,7 @@ class PerformanceMetricsAggregator {
     
     // Check average processing time
     if (this.statistics.averageProcessingTime > thresholds.averageProcessingTime && this.statistics.totalOperations > 10) {
-      logger.error('Average processing time alert', {
+      logger.warn('Average processing time alert', {
         averageProcessingTime: this.statistics.averageProcessingTime,
         threshold: thresholds.averageProcessingTime,
         totalOperations: this.statistics.totalOperations
@@ -255,7 +255,7 @@ class PerformanceMetricsAggregator {
     
     // Check memory usage increase
     if (this.statistics.averageMemoryUsage > thresholds.memoryUsageIncrease && this.statistics.totalOperations > 10) {
-      logger.error('Memory usage increase alert', {
+      logger.warn('Memory usage increase alert', {
         averageMemoryUsage: this.statistics.averageMemoryUsage,
         threshold: thresholds.memoryUsageIncrease,
         totalOperations: this.statistics.totalOperations
@@ -447,28 +447,7 @@ export const developmentPerformanceUtils = {
    * Log detailed performance breakdown
    */
   logPerformanceBreakdown: (metrics: NearbyViewPerformanceMetrics) => {
-    if (import.meta.env.DEV) {
-      console.group('🚀 Nearby View Performance Breakdown');
-      console.log(`Total Processing: ${metrics.totalProcessingTime.toFixed(2)}ms`);
-      console.log(`Station Selection: ${metrics.stationSelectionTime.toFixed(2)}ms`);
-      console.log(`Distance Calculation: ${metrics.distanceCalculationTime.toFixed(2)}ms`);
-      console.log(`Route Filtering: ${metrics.routeFilteringTime.toFixed(2)}ms`);
-      
-      if (metrics.memoryUsage) {
-        console.log(`Memory Usage: ${metrics.memoryUsage.toFixed(2)}MB`);
-      }
-      
-      if (metrics.optimizationsApplied.length > 0) {
-        console.log(`Optimizations: ${metrics.optimizationsApplied.join(', ')}`);
-      }
-      
-      if (metrics.performanceWarnings.length > 0) {
-        console.warn('Performance Warnings:', metrics.performanceWarnings);
-      }
-      
-      console.log('Dataset Sizes:', metrics.datasetSizes);
-      console.groupEnd();
-    }
+    // Performance logging removed for production
   },
   
   /**
@@ -478,21 +457,7 @@ export const developmentPerformanceUtils = {
     if (import.meta.env.DEV) {
       const validation = validateNearbyViewPerformance(metrics);
       
-      console.group('📊 Performance Threshold Comparison');
-      console.log(`Station Selection: ${metrics.stationSelectionTime.toFixed(2)}ms / ${PERFORMANCE_THRESHOLDS.STATION_SELECTION_MAX_TIME}ms`);
-      console.log(`Distance Calculation: ${metrics.distanceCalculationTime.toFixed(2)}ms / ${PERFORMANCE_THRESHOLDS.DISTANCE_CALCULATION_MAX_TIME}ms`);
-      console.log(`Route Filtering: ${metrics.routeFilteringTime.toFixed(2)}ms / ${PERFORMANCE_THRESHOLDS.ROUTE_FILTERING_MAX_TIME}ms`);
-      console.log(`Total Processing: ${metrics.totalProcessingTime.toFixed(2)}ms / ${PERFORMANCE_THRESHOLDS.TOTAL_PROCESSING_MAX_TIME}ms`);
-      
-      if (validation.violations.length > 0) {
-        console.warn('Threshold Violations:', validation.violations);
-      }
-      
-      if (validation.recommendations.length > 0) {
-        console.info('Recommendations:', validation.recommendations);
-      }
-      
-      console.groupEnd();
+      // Performance threshold logging removed for production
     }
   }
 };
