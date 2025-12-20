@@ -22,10 +22,8 @@ import { useConfigStore } from '../../../stores/configStore';
 import ConfigurationManager from '../Configuration/ConfigurationManager';
 import { CacheManagerPanel } from './CacheManagerPanel';
 import ApiConfigurationPanel from './ApiConfigurationPanel';
-import { Button } from '../../ui/Button';
-import { InfoCard } from '../../ui/Card';
-import { VersionControl } from '../../ui/VersionControl';
-import FavoriteBusManager from '../FavoriteBuses/FavoriteBusManager';
+import { Button, InfoCard, VersionControl } from '../../ui';
+import SettingsRoute from './SettingsRoute';
 import { useThemeUtils, useMuiUtils } from '../../../hooks';
 import type { UserConfig } from '../../../types';
 
@@ -187,7 +185,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
       {/* Tab Panels */}
       <TabPanel value={activeTab} index={0}>
-        <FavoriteBusManager />
+        <SettingsRoute />
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
@@ -211,7 +209,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
           <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
             <Button
               variant="outlined"
-              icon={<DownloadIcon />}
+              startIcon={<DownloadIcon />}
               onClick={handleExportConfig}
               disabled={!config}
             >
@@ -220,7 +218,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
             
             <Button
               variant="outlined"
-              icon={<UploadIcon />}
+              startIcon={<UploadIcon />}
               component="label"
             >
               Import Config

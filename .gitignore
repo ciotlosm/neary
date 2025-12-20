@@ -51,6 +51,11 @@ dist-ssr
 *.temp
 .cache/
 
+# Temporary development directory
+temporary/
+!temporary/README.md
+!temporary/*/.gitkeep
+
 # Debug and test files with API keys
 src/debug-*.js
 tools/test/

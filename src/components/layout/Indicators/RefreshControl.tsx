@@ -8,15 +8,18 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
-import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
-import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
+import { useRefreshSystem } from '../../../hooks/shared/useRefreshSystem';
 import { useLocationStore } from '../../../stores/locationStore';
 import { logger } from '../../../utils/logger';
 import { useThemeUtils } from '../../../hooks';
 
 export const RefreshControl: React.FC = () => {
-  const { manualRefresh, refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
-  const { lastUpdate, lastApiUpdate, cacheStats } = useEnhancedBusStore();
+  const { 
+    refreshAll, 
+    isAutoRefreshEnabled, 
+    lastUpdate, 
+    lastApiUpdate 
+  } = useRefreshSystem();
   const { requestLocation } = useLocationStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(Date.now());
@@ -37,8 +40,8 @@ export const RefreshControl: React.FC = () => {
         // This is expected behavior if user denied location or GPS is unavailable
       }
       
-      // Refresh bus data
-      await manualRefresh();
+      // Refresh all data using modern system
+      await refreshAll();
     } finally {
       setIsRefreshing(false);
     }
@@ -54,7 +57,7 @@ export const RefreshControl: React.FC = () => {
 
   // Get the most recent timestamp available
   const getLastRefreshTime = (): Date | null => {
-    const timestamps = [lastApiUpdate, lastUpdate, cacheStats.lastRefresh];
+    const timestamps = [lastApiUpdate, lastUpdate];
     
     for (const timestamp of timestamps) {
       if (timestamp && timestamp instanceof Date && !isNaN(timestamp.getTime())) {
@@ -69,8 +72,9 @@ export const RefreshControl: React.FC = () => {
   const getRefreshStatus = () => {
     const lastRefreshTime = getLastRefreshTime();
     const colors = getStatusColors();
+    const refreshRate = 30000; // 30 seconds for modern system
     
-    if (!isAutoRefreshEnabled || !lastRefreshTime || refreshRate <= 0) {
+    if (!isAutoRefreshEnabled || !lastRefreshTime) {
       return {
         color: colors.warning.main,
         progress: 0,

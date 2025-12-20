@@ -29,10 +29,10 @@ import {
   Sync as SyncIcon,
 } from '@mui/icons-material';
 
-import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
+import { useUnifiedCacheManager } from '../../../hooks/shared/useUnifiedCacheManager';
+import { StoreErrorHandler, ErrorUtils } from '../../../stores/shared/errorHandler';
 import { logger } from '../../../utils/logger';
-import { Button } from '../../ui/Button';
-import { InfoCard } from '../../ui/Card';
+import { Button, InfoCard } from '../../ui';
 
 type CacheOperationState = 'idle' | 'refreshing' | 'clearing' | 'error';
 type CacheError = 'network' | 'inconsistent' | 'storage' | 'unknown';
@@ -45,26 +45,37 @@ interface CacheOperationStatus {
 
 export const CacheManagerPanel: React.FC = () => {
   const {
-    cacheStats,
     getCacheStats,
     clearCache,
+    refreshCache,
     forceRefreshAll,
-    refreshLiveData,
-  } = useEnhancedBusStore();
+    isRefreshing,
+    isClearing,
+    error: cacheError
+  } = useUnifiedCacheManager();
+
+  const cacheStats = getCacheStats();
 
   const [operationStatus, setOperationStatus] = useState<CacheOperationStatus>({
-    state: 'idle',
-    message: ''
+    state: isRefreshing ? 'refreshing' : isClearing ? 'clearing' : 'idle',
+    message: cacheError || ''
   });
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isResettingSettings, setIsResettingSettings] = useState(false);
 
+  // Update operation status based on modern cache manager state
   useEffect(() => {
-    getCacheStats();
-    const interval = setInterval(getCacheStats, 30000);
-    return () => clearInterval(interval);
-  }, [getCacheStats]);
+    if (isRefreshing) {
+      setOperationStatus({ state: 'refreshing', message: 'Refreshing cached data...' });
+    } else if (isClearing) {
+      setOperationStatus({ state: 'clearing', message: 'Clearing all cached data...' });
+    } else if (cacheError) {
+      setOperationStatus({ state: 'error', message: cacheError });
+    } else {
+      setOperationStatus({ state: 'idle', message: '' });
+    }
+  }, [isRefreshing, isClearing, cacheError]);
 
   const handleRefreshCache = async () => {
     if (!navigator.onLine) {
@@ -76,12 +87,8 @@ export const CacheManagerPanel: React.FC = () => {
       return;
     }
 
-    setOperationStatus({ state: 'refreshing', message: 'Refreshing cached data...' });
-    
     try {
-      await refreshLiveData();
-      // Force update cache stats after refresh
-      getCacheStats();
+      await refreshCache();
       // Force component re-render to update timestamps
       setRefreshTrigger(prev => prev + 1);
       setOperationStatus({ 
@@ -90,27 +97,38 @@ export const CacheManagerPanel: React.FC = () => {
       });
       logger.info('Cache refresh completed from settings', {}, 'CACHE_MGMT');
     } catch (error: any) {
-      let errorType: CacheError = 'unknown';
-      let errorMessage = 'Cache refresh failed';
+      // Use standardized error handler to classify and format error
+      const errorState = StoreErrorHandler.createError(error, {
+        storeName: 'CacheManagerPanel',
+        operation: 'refreshCache',
+        timestamp: new Date(),
+        metadata: { isOnline: navigator.onLine },
+      });
 
-      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
-        errorType = 'network';
-        errorMessage = 'Network error during refresh';
-      } else if (error?.message?.includes('inconsistent') || error?.message?.includes('validation')) {
-        errorType = 'inconsistent';
-        errorMessage = 'Data inconsistency detected';
-      } else if (error?.message?.includes('storage') || error?.message?.includes('quota')) {
-        errorType = 'storage';
-        errorMessage = 'Storage error during cache update';
+      // Map standardized error types to cache-specific error types
+      let cacheErrorType: CacheError = 'unknown';
+      switch (errorState.type) {
+        case 'network':
+          cacheErrorType = 'network';
+          break;
+        case 'parsing':
+          cacheErrorType = 'inconsistent';
+          break;
+        case 'noData':
+        case 'partial':
+          cacheErrorType = 'storage';
+          break;
+        default:
+          cacheErrorType = 'unknown';
       }
 
       setOperationStatus({
         state: 'error',
-        error: errorType,
-        message: errorMessage
+        error: cacheErrorType,
+        message: errorState.message
       });
       
-      logger.error('Cache refresh failed from settings', { error, errorType }, 'CACHE_MGMT');
+      logger.error('Cache refresh failed from settings', { error, errorType: errorState.type }, 'CACHE_MGMT');
     } finally {
       setTimeout(() => {
         if (operationStatus.state !== 'error') {
@@ -132,39 +150,42 @@ export const CacheManagerPanel: React.FC = () => {
 
     const confirmed = confirm(
       'Clear all cached data?\n\n' +
-      '• All offline data will be removed\n' +
-      '• Routes, stops, and schedules will be re-downloaded\n' +
+      '• All cached Tranzy API data will be removed\n' +
+      '• Routes, stops, and live vehicle data will be re-downloaded\n' +
       '• This requires a stable internet connection\n\n' +
       'Continue?'
     );
 
     if (!confirmed) return;
 
-    setOperationStatus({ state: 'clearing', message: 'Clearing all cached data...' });
-    
     try {
       await clearCache();
+      // Force component re-render to update cache stats
+      setRefreshTrigger(prev => prev + 1);
       setOperationStatus({ 
         state: 'idle', 
         message: 'Cache cleared successfully' 
       });
       logger.info('Cache cleared from settings', {}, 'CACHE_MGMT');
     } catch (error: any) {
-      let errorType: CacheError = 'storage';
-      let errorMessage = 'Failed to clear cache';
+      // Use standardized error handler to classify and format error
+      const errorState = StoreErrorHandler.createError(error, {
+        storeName: 'CacheManagerPanel',
+        operation: 'clearCache',
+        timestamp: new Date(),
+        metadata: { isOnline: navigator.onLine },
+      });
 
-      if (error?.message?.includes('storage') || error?.message?.includes('quota')) {
-        errorType = 'storage';
-        errorMessage = 'Storage error during cache clearing';
-      }
+      // Map to cache-specific error type
+      const cacheErrorType: CacheError = errorState.type === 'network' ? 'network' : 'storage';
 
       setOperationStatus({
         state: 'error',
-        error: errorType,
-        message: errorMessage
+        error: cacheErrorType,
+        message: errorState.message
       });
       
-      logger.error('Cache clear failed from settings', { error }, 'CACHE_MGMT');
+      logger.error('Cache clear failed from settings', { error, errorType: errorState.type }, 'CACHE_MGMT');
     } finally {
       setTimeout(() => {
         if (operationStatus.state !== 'error') {
@@ -517,7 +538,7 @@ export const CacheManagerPanel: React.FC = () => {
                 variant="outlined"
                 onClick={handleRefreshCache}
                 disabled={isOperationInProgress || !isOnline}
-                icon={<RefreshIcon />}
+                startIcon={<RefreshIcon />}
               >
                 {operationStatus.state === 'refreshing' ? 'Refreshing...' : 'Refresh'}
               </Button>
@@ -587,7 +608,7 @@ export const CacheManagerPanel: React.FC = () => {
                 color="error"
                 onClick={handleResetAllSettings}
                 disabled={isResettingSettings || getAppSettingsEntries().length === 0}
-                icon={<DeleteIcon />}
+                startIcon={<DeleteIcon />}
               >
                 {isResettingSettings ? 'Resetting...' : 'Reset All'}
               </Button>
@@ -649,7 +670,7 @@ export const CacheManagerPanel: React.FC = () => {
               Clear All Cached Data
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              This will remove all offline data including routes, stops, schedules, and live vehicle information. 
+              This will remove all cached data including routes, stops, and live vehicle information. 
               A stable internet connection is required to reload everything.
             </Typography>
             <Stack spacing={1}>
@@ -663,7 +684,7 @@ export const CacheManagerPanel: React.FC = () => {
                 color="error"
                 onClick={handleClearCache}
                 disabled={isOperationInProgress || !hasData || !isOnline}
-                icon={<DeleteIcon />}
+                startIcon={<DeleteIcon />}
                 size="small"
               >
                 {operationStatus.state === 'clearing' ? 'Clearing...' : 'Clear All Cache'}

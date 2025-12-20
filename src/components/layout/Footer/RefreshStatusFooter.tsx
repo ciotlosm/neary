@@ -8,28 +8,23 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
-import { useEnhancedBusStore } from '../../../stores/enhancedBusStore';
-import { useRefreshSystem } from '../../../hooks/useRefreshSystem';
+import { useRefreshSystem } from '../../../hooks/shared/useRefreshSystem';
 import { logger } from '../../../utils/logger';
 import { useThemeUtils } from '../../../hooks';
 
 export const RefreshStatusFooter: React.FC = () => {
   const { theme, alpha } = useThemeUtils();
-  const { cacheStats, lastUpdate, lastApiUpdate, lastCacheUpdate } = useEnhancedBusStore();
-  const { refreshRate, isAutoRefreshEnabled } = useRefreshSystem();
+  const { lastUpdate, lastApiUpdate, isAutoRefreshEnabled } = useRefreshSystem();
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Debug: log available timestamps
   useEffect(() => {
     logger.debug('RefreshStatusFooter - Available timestamps', {
-      'cacheStats.lastRefresh': cacheStats.lastRefresh,
       'lastUpdate': lastUpdate,
       'lastApiUpdate': lastApiUpdate,
-      'lastCacheUpdate': lastCacheUpdate,
-      'refreshRate': refreshRate,
       'isAutoRefreshEnabled': isAutoRefreshEnabled
     });
-  }, [cacheStats.lastRefresh, lastUpdate, lastApiUpdate, lastCacheUpdate, refreshRate, isAutoRefreshEnabled]);
+  }, [lastUpdate, lastApiUpdate, isAutoRefreshEnabled]);
 
   // Update current time every second for accurate timing
   useEffect(() => {
@@ -37,12 +32,6 @@ export const RefreshStatusFooter: React.FC = () => {
       setCurrentTime(Date.now());
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Ensure cache stats are loaded
-  useEffect(() => {
-    const { getCacheStats } = useEnhancedBusStore.getState();
-    getCacheStats();
   }, []);
 
   const formatTimeDifference = (timestamp?: Date): string => {
@@ -57,13 +46,14 @@ export const RefreshStatusFooter: React.FC = () => {
 
   // Use the most recent timestamp available
   const getLastRefreshTime = (): Date | null => {
-    return lastApiUpdate || lastUpdate || cacheStats.lastRefresh || null;
+    return lastApiUpdate || lastUpdate || null;
   };
 
   const getTimeToNextRefresh = (): string => {
     const lastRefreshTime = getLastRefreshTime();
+    const refreshRate = 30000; // 30 seconds for modern system
     
-    if (!isAutoRefreshEnabled || !lastRefreshTime || refreshRate <= 0) {
+    if (!isAutoRefreshEnabled || !lastRefreshTime) {
       return 'Disabled';
     }
 

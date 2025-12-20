@@ -5,7 +5,7 @@ import { CssBaseline } from '@mui/material'
 import './index.css'
 import App from './App.tsx'
 import { getTheme } from './theme/materialTheme'
-import { useThemeStore } from './stores/themeStore'
+import { useConfigStore } from './stores/configStore'
 import { logger } from './utils/logger'
 
 // Initialize logging
@@ -18,7 +18,7 @@ logger.info('Application starting', {
 
 // Theme wrapper component to use the theme store
 const ThemedApp = () => {
-  const { mode } = useThemeStore();
+  const { theme: mode } = useConfigStore();
   const theme = getTheme(mode);
   
   // Apply theme to document root for PWA consistency

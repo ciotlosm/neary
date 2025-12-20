@@ -96,7 +96,7 @@ The app header shows your current status with colored chips:
 
 **Internet Connection:**
 - 🟢 **"Connected"** - Online with real-time data
-- 🔴 **"No Internet"** - Offline, showing cached data only
+- 🔴 **"No Internet"** - Offline, showing cached Tranzy API data only
 
 **Current GPS Location (Device):**
 - 🟢 **"GPS Active"** - Device location services working, real-time coordinates available
@@ -227,7 +227,7 @@ The app uses locations in this priority order for route suggestions:
 - **Animated refresh button** - circular progress shows time until next refresh
 - **Visual cache status** - button color indicates update health
 - **Automatic GPS refresh** - location updated every refresh cycle for better accuracy
-- **Offline mode** - cached data when no internet
+- **Offline mode** - cached Tranzy API data when no internet
 
 #### Refresh Button Colors
 - 🟢 **Green Circle** - Cache updated successfully, counting down to next refresh
@@ -240,9 +240,10 @@ The app uses locations in this priority order for route suggestions:
 - **Persistent setting** - Your theme choice is saved and restored when you reopen the app
 
 ### API Configuration (Separate Tab)
-- **Tranzy API Key** - for live bus tracking data
-- **Google Maps API Key** - for enhanced location features
+- **Tranzy API Key** - for live bus tracking and schedule data (only API key required)
 - **City info** - visible in version menu for troubleshooting (set during initial setup)
+
+**Note**: Google Maps API key configuration has been removed. The app now uses Tranzy API exclusively for all transit functionality.
 
 ## ⚙️ Settings & Configuration
 
@@ -372,12 +373,12 @@ Configure your locations for smart route suggestions:
 
 ### Understanding Data
 - **Live data** is most accurate but not always available
-- **Official schedules** are reliable for planning
+- **Schedule data** from Tranzy API provides reliable timing
 - **Estimated times** should be used as rough guides
 - **Confidence indicators** help you judge reliability
 
 ### Planning Trips
-1. **Check departure times** from official schedules
+1. **Check departure times** from Tranzy API schedule data
 2. **Monitor live buses** for real-time updates
 3. **Allow extra time** during peak hours
 4. **Have backup routes** in case of delays

@@ -21,7 +21,7 @@ export function debounce<T extends (...args: any[]) => any>(
   func: T,
   delay: number
 ): DebouncedFunction<T> {
-  let timeoutId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastArgs: Parameters<T> | null = null;
 
   const debouncedFunction = (...args: Parameters<T>) => {

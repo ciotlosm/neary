@@ -18,13 +18,15 @@ Welcome to the Cluj Bus App documentation! This is a real-time bus tracking appl
 ### For Developers
 - **[Technical Architecture](developer-guide.md#architecture)** - How the app is built
 - **[API Integration](developer-guide.md#api-integration)** - Tranzy API and CTP Cluj integration
+- **[API Documentation](api/README.md)** - Vehicle Transformation Service API reference
+- **[Performance Benchmarks](developer-guide.md#performance-benchmarking)** - Performance testing and optimization
 - **[Development Workflow](developer-guide.md#development)** - Building and testing
 - **[Recent Changes](changelog.md)** - What's been updated recently
 
 ## 🎯 Key Features
 
 - **Real-time bus tracking** with live GPS positions
-- **Official CTP Cluj schedules** fetched directly from their website
+- **Comprehensive schedule data** from Tranzy API
 - **Smart favorites** that adapt to your location
 - **Mobile-first design** optimized for phones
 - **Offline support** for core functionality

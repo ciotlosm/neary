@@ -23,13 +23,13 @@ import {
   Palette as PaletteIcon,
 } from '@mui/icons-material';
 
-import { useConfigurationManager } from '../../../hooks/useConfigurationManager';
-import { Button } from '../../ui/Button';
+import { useConfigurationManager } from '../../../hooks/shared/useConfigurationManager';
+import { Button } from '../../ui';
 import LocationPicker from '../LocationPicker/LocationPicker';
 import { LocationSettingsSection } from './sections/LocationSettingsSection';
 import { AdvancedSettingsSection } from './sections/AdvancedSettingsSection';
-import { ThemeToggle } from '../../ui/ThemeToggle';
-import { useThemeStore } from '../../../stores/themeStore';
+import { ThemeToggle } from '../../ui';
+import { useConfigStore } from '../../../stores/configStore';
 import { logger, LogLevel } from '../../../utils/logger';
 
 interface ConfigurationManagerProps {
@@ -173,7 +173,7 @@ export const ConfigurationManager: React.FC<ConfigurationManagerProps> = ({
             
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                {useThemeStore.getState().mode === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                {useConfigStore.getState().theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
               </Typography>
               <ThemeToggle size="small" />
             </Box>

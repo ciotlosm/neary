@@ -14,7 +14,7 @@ import {
   LocationOn as LocationOnIcon,
   LocationDisabled as LocationDisabledIcon,
 } from '@mui/icons-material';
-import { Button } from '../../../ui/Button';
+import { Button } from '../../../ui';
 import { useLocationStore } from '../../../../stores/locationStore';
 type Coordinates = { latitude: number; longitude: number; };
 

@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Alert,
   Autocomplete,
+  Link,
 } from '@mui/material';
 import {
   Key as KeyIcon,
@@ -24,9 +25,9 @@ import {
   ArrowBack as BackIcon,
   ArrowForward as ForwardIcon,
 } from '@mui/icons-material';
-import { Button } from '../../ui/Button';
+import { Button } from '../../ui';
 import { useConfigStore } from '../../../stores/configStore';
-import { useAgencyStore } from '../../../stores/agencyStore';
+// Agency functionality is now in configStore
 import { useFormHandler, useThemeUtils } from '../../../hooks';
 
 interface CityOption {
@@ -42,7 +43,7 @@ interface SetupWizardProps {
 export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const { getBackgroundColors, alpha } = useThemeUtils();
   const { updateConfig } = useConfigStore();
-  const { agencies, validateAndFetchAgencies } = useAgencyStore();
+  const { agencies, validateApiKey: validateAndFetchAgencies } = useConfigStore();
   
   const [activeStep, setActiveStep] = useState(0);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -62,13 +63,19 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         throw new Error('Please select a city');
       }
 
+      // Cluj-Napoca center coordinates as default for required fields
+      const clujCenter = { latitude: 46.7712, longitude: 23.6236 };
+      
       await updateConfig({
         apiKey: values.apiKey.trim(),
         city: selectedCity.value,
         agencyId: selectedCity.agencyId,
         refreshRate: 30000, // Default 30 seconds
         staleDataThreshold: 2, // Default 2 minutes
-        defaultLocation: { latitude: 46.7712, longitude: 23.6236 }, // Cluj-Napoca center
+        defaultLocation: clujCenter, // Cluj-Napoca center
+        // Required fields - use Cluj center as default (user can change later in settings)
+        homeLocation: clujCenter,
+        workLocation: clujCenter,
       });
       
       return values;
@@ -191,9 +198,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Get your free API key from{' '}
-              <a href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" style={{ color: 'primary.main' }}>
+              <Link href="https://tranzy.ai" target="_blank" rel="noopener noreferrer" color="primary">
                 tranzy.ai
-              </a>{' '}
+              </Link>{' '}
               to access live bus tracking data.
             </Typography>
 
@@ -319,7 +326,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             variant="outlined"
             onClick={handleBack}
             disabled={activeStep === 0}
-            icon={<BackIcon />}
+            startIcon={<BackIcon />}
           >
             Back
           </Button>
@@ -329,7 +336,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             onClick={handleNext}
             disabled={!canProceed() || isValidatingApiKey}
             loading={form.isSubmitting}
-            icon={activeStep === steps.length - 1 ? <CheckIcon /> : <ForwardIcon />}
+            startIcon={activeStep === steps.length - 1 ? <CheckIcon /> : <ForwardIcon />}
           >
             {activeStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
           </Button>

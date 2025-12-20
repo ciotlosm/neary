@@ -1,6 +1,14 @@
 import React, { Component, type ReactNode } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Paper,
+} from '@mui/material';
 import { ErrorDisplay } from './ErrorDisplay';
 import type { ErrorState } from '../../../types';
+import { StoreErrorHandler } from '../../../stores/shared/errorHandler';
 import { logger } from '../../../utils/logger';
 
 interface ErrorBoundaryProps {
@@ -23,23 +31,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Classify the error type
-    let errorType: ErrorState['type'] = 'network';
-    
-    if (error.name === 'ChunkLoadError' || error.message.includes('Loading chunk')) {
-      errorType = 'network';
-    } else if (error.name === 'SyntaxError' || error.message.includes('JSON')) {
-      errorType = 'parsing';
-    } else if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
-      errorType = 'authentication';
-    }
-
-    const errorState: ErrorState = {
-      type: errorType,
-      message: error.message || 'An unexpected error occurred',
+    // Use standardized error handler to create consistent error state
+    const errorState = StoreErrorHandler.createError(error, {
+      storeName: 'ErrorBoundary',
+      operation: 'componentRender',
       timestamp: new Date(),
-      retryable: errorType === 'network' || errorType === 'authentication',
-    };
+      metadata: {
+        errorName: error.name,
+        componentStack: 'React component tree',
+      },
+    });
 
     return {
       hasError: true,
@@ -80,63 +81,69 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <div style={{ 
-          minHeight: '100vh', 
-          backgroundColor: 'var(--mui-palette-background-default, #141218)', 
-          color: 'var(--mui-palette-text-primary, #E6E1E5)',
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          padding: '16px' 
-        }}>
-          <div style={{ maxWidth: '400px', width: '100%' }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h1 style={{ 
-                fontSize: '1.5rem', 
-                fontWeight: 'bold', 
-                color: 'var(--mui-palette-text-primary, #E6E1E5)', 
-                marginBottom: '8px' 
-              }}>
+        <Box
+          sx={{
+            minHeight: '100vh',
+            bgcolor: 'background.default',
+            color: 'text.primary',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2,
+          }}
+        >
+          <Container maxWidth="sm">
+            <Paper
+              elevation={8}
+              sx={{
+                p: 4,
+                textAlign: 'center',
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  mb: 1,
+                }}
+              >
                 Something went wrong
-              </h1>
-              <p style={{ 
-                color: 'var(--mui-palette-text-secondary, #CAC4D0)' 
-              }}>
+              </Typography>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{ mb: 3 }}
+              >
                 The application encountered an unexpected error.
-              </p>
-            </div>
-            
-            <ErrorDisplay 
-              error={this.state.error} 
-              onRetry={this.state.error.retryable ? this.handleRetry : undefined}
-            />
-            
-            {!this.state.error.retryable && (
-              <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                <button
+              </Typography>
+              
+              <Box sx={{ mb: 3 }}>
+                <ErrorDisplay 
+                  error={this.state.error} 
+                  onRetry={this.state.error.retryable ? this.handleRetry : undefined}
+                />
+              </Box>
+              
+              {!this.state.error.retryable && (
+                <Button
+                  variant="text"
+                  color="primary"
                   onClick={() => window.location.reload()}
-                  style={{
-                    color: 'var(--mui-palette-primary-main, #D0BCFF)',
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.color = 'var(--mui-palette-primary-light, #EADDFF)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.color = 'var(--mui-palette-primary-main, #D0BCFF)';
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 500,
                   }}
                 >
                   Reload Page
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+                </Button>
+              )}
+            </Paper>
+          </Container>
+        </Box>
       );
     }
 

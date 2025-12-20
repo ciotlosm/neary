@@ -112,7 +112,7 @@ npm test
 npm run test:watch
 
 # Run specific test file
-npm test -- src/services/favoriteBusService.test.ts
+npm test -- src/stores/vehicleStore.test.ts
 ```
 
 ### Test Coverage

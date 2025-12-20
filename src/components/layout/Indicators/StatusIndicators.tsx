@@ -11,8 +11,9 @@ import {
   GpsOff as GpsDisabledIcon,
 } from '@mui/icons-material';
 
-import { useOfflineStore } from '../../../stores/offlineStore';
+import { useVehicleStore } from '../../../stores/vehicleStore';
 import { useLocationStore } from '../../../stores/locationStore';
+import { useStoreEvents, StoreEvents } from '../../../stores/shared/storeEvents';
 import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
 interface StatusIndicatorsProps {
@@ -20,8 +21,48 @@ interface StatusIndicatorsProps {
 }
 
 export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = false }) => {
-  const { isOnline, isApiOnline, lastApiError, lastApiSuccess } = useOfflineStore();
-  const { currentLocation, locationPermission } = useLocationStore();
+  // Get initial state from stores
+  const { error: initialError, lastUpdate: initialLastUpdate } = useVehicleStore();
+  const { currentLocation: initialLocation, locationPermission: initialPermission } = useLocationStore();
+  
+  // Use local state to track changes via events
+  const [vehicleState, setVehicleState] = React.useState({
+    error: initialError,
+    lastUpdate: initialLastUpdate
+  });
+  
+  const [locationState, setLocationState] = React.useState({
+    currentLocation: initialLocation,
+    locationPermission: initialPermission
+  });
+  
+  const isOnline = navigator.onLine;
+  const isApiOnline = !vehicleState.error || vehicleState.error.type !== 'network';
+  const lastApiError = vehicleState.error?.timestamp;
+  const lastApiSuccess = vehicleState.lastUpdate;
+  
+  // Subscribe to store events instead of direct store access
+  useStoreEvents([
+    {
+      event: StoreEvents.VEHICLES_UPDATED,
+      handler: React.useCallback((data: any) => {
+        setVehicleState(prev => ({
+          ...prev,
+          lastUpdate: data.timestamp,
+          error: null // Clear error on successful update
+        }));
+      }, [])
+    },
+    {
+      event: StoreEvents.LOCATION_CHANGED,
+      handler: React.useCallback((data: any) => {
+        setLocationState(prev => ({
+          ...prev,
+          currentLocation: data.location
+        }));
+      }, [])
+    }
+  ], []);
   const { getStatusColors, alpha } = useThemeUtils();
   const { getStatusIndicatorStyles } = useMuiUtils();
   
@@ -29,7 +70,7 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
 
   const getLocationStatus = () => {
     // GPS denied - red GPS disabled icon
-    if (locationPermission === 'denied') {
+    if (locationState.locationPermission === 'denied') {
       return {
         icon: <GpsDisabledIcon sx={{ fontSize: 16 }} />,
         label: 'OFF',
@@ -40,8 +81,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
     }
     
     // GPS active with location data
-    if (currentLocation) {
-      const accuracy = currentLocation.accuracy;
+    if (locationState.currentLocation) {
+      const accuracy = locationState.currentLocation.accuracy;
       let color: string, bgColor: string, tooltip: string, label: string;
       
       if (accuracy && accuracy <= 20) {
@@ -160,8 +201,8 @@ export const StatusIndicators: React.FC<StatusIndicatorsProps> = ({ compact = fa
         <Box
           sx={{
             ...getStatusIndicatorStyles(
-              locationPermission === 'denied' ? 'error' : 
-              currentLocation ? 'success' : 'error',
+              locationState.locationPermission === 'denied' ? 'error' : 
+              locationState.currentLocation ? 'success' : 'error',
               compact
             ),
             bgcolor: locationStatus.bgColor,

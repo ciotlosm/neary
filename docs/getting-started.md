@@ -29,9 +29,11 @@
 The app will guide you through a 2-step setup process:
 
 ### Step 1: API Key
-1. **Get an API key** from [Tranzy.ai](https://tranzy.ai)
+1. **Get a Tranzy API key** from [Tranzy.ai](https://tranzy.ai)
 2. **Enter it in the setup wizard** when the app first loads
 3. **Test the connection** - the wizard will validate your key
+
+**Note**: Only a Tranzy API key is required. Google Maps API key configuration has been removed as the app now uses Tranzy API exclusively for all transit data.
 
 ### Step 2: City Selection
 1. **Choose your city** from the available options
@@ -49,13 +51,13 @@ After setup, you should see:
 ## 🧪 Run Tests
 
 ```bash
-# Run all tests
+# Run all tests once
 npm test
 
-# Run tests in watch mode
+# Run tests in watch mode (development)
 npm run test:watch
 
-# Run tests with UI
+# Run tests with visual UI
 npm run test:ui
 ```
 
@@ -84,7 +86,7 @@ The app is mobile-first, so test on your phone:
 npm run dev          # Start development server
 npm run build        # Production build
 npm run preview      # Preview production build
-npm test             # Run tests once
+npm test             # Run all tests once
 npm run test:watch   # Run tests in watch mode
 npm run lint         # Check code quality
 ```
@@ -98,9 +100,11 @@ npm run dev -- --port 3000
 ```
 
 ### API Key Not Working
-1. Check the key is entered correctly
+1. Check the Tranzy API key is entered correctly
 2. Verify network connection
 3. Check browser console for error messages
+
+**Note**: Only Tranzy API keys are supported. Google Maps API key configuration has been removed.
 
 ### Tests Failing
 ```bash
