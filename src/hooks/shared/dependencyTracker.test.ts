@@ -144,9 +144,16 @@ describe('Dependency Tracker Property Tests', () => {
           fc.array(fc.string({ minLength: 1, maxLength: 10 }), { minLength: 2, maxLength: 5 }), // keys
           fc.array(fc.array(fc.integer(), { minLength: 1, maxLength: 5 }), { minLength: 2, maxLength: 5 }), // dependencies per key
           (keys, depArrays) => {
+            // Remove duplicates to ensure independent tracking
+            const uniqueKeys = [...new Set(keys)];
+            if (uniqueKeys.length < 2) {
+              // Skip test if we don't have at least 2 unique keys
+              return true;
+            }
+
             // Ensure we have matching arrays
-            const minLength = Math.min(keys.length, depArrays.length);
-            const testKeys = keys.slice(0, minLength);
+            const minLength = Math.min(uniqueKeys.length, depArrays.length);
+            const testKeys = uniqueKeys.slice(0, minLength);
             const testDeps = depArrays.slice(0, minLength);
 
             const tracker = createDependencyTracker();

@@ -5,15 +5,15 @@ import {
   Stack,
   Box,
   Typography,
-  TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  InputAdornment,
 } from '@mui/material';
 import { useThemeUtils } from '../../../../hooks';
 import { Timer as TimerIcon, BugReport as BugReportIcon, DirectionsBus as BusIcon, Settings as SettingsIcon } from '@mui/icons-material';
+import { Input } from '../../../ui';
 
 interface AdvancedSettingsSectionProps {
   refreshRate: number;
@@ -69,7 +69,7 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           borderColor: 'divider'
         }}
       >
-        <TextField
+        <Input
           label="Refresh Rate (seconds)"
           type="number"
           size="small"
@@ -84,19 +84,11 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           }}
           error={!!refreshRateError}
           helperText={refreshRateError || 'How often to refresh bus data (5-300 seconds)'}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <TimerIcon color="action" />
-                </InputAdornment>
-              ),
-              inputProps: { min: 5, max: 300 }
-            }
-          }}
+          leftIcon={<TimerIcon color="action" />}
+          inputProps={{ min: 5, max: 300 }}
         />
 
-        <TextField
+        <Input
           label="Stale Data Threshold (minutes)"
           type="number"
           size="small"
@@ -111,19 +103,11 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           }}
           error={!!staleDataError}
           helperText={staleDataError || 'When to consider vehicle data as outdated (1-30 minutes)'}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <TimerIcon color="action" />
-                </InputAdornment>
-              ),
-              inputProps: { min: 1, max: 30 }
-            }
-          }}
+          leftIcon={<TimerIcon color="action" />}
+          inputProps={{ min: 1, max: 30 }}
         />
 
-        <TextField
+        <Input
           label="Max Vehicles Per Station"
           type="number"
           size="small"
@@ -138,16 +122,8 @@ export const AdvancedSettingsSection: React.FC<AdvancedSettingsSectionProps> = (
           }}
           error={!!maxVehiclesError}
           helperText={maxVehiclesError || 'Maximum number of vehicles to show per station (1-20)'}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <BusIcon color="action" />
-                </InputAdornment>
-              ),
-              inputProps: { min: 1, max: 20 }
-            }
-          }}
+          leftIcon={<BusIcon color="action" />}
+          inputProps={{ min: 1, max: 20 }}
         />
 
         <FormControl size="small">

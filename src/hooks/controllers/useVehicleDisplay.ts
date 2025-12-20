@@ -1,48 +1,38 @@
-import React, { useMemo } from 'react';
-import type { 
-  LiveVehicle, 
-  Station, 
-  Route, 
-  StopTime, 
-  Coordinates, 
-  FavoriteRoute,
-  EnhancedVehicleInfo 
-} from '../../types';
+import { useMemo, useCallback, useState, useEffect } from 'react';
+import type { Station, Coordinates, FavoriteRoute } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 import { useLocationStore } from '../../stores/locationStore';
 import { useConfigStore } from '../../stores/configStore';
 import { getEffectiveLocation } from '../../utils/locationUtils';
 import { logger } from '../../utils/logger';
 
-// Import store-based data hooks (replacing data layer hooks)
-import { useStationStoreData } from '../shared/useStationStoreData';
-import { useVehicleStoreData } from '../shared/useVehicleStoreData';
-import { useRouteStoreData } from '../shared/useRouteStoreData';
-import { useStopTimesStoreData } from '../shared/useStopTimesStoreData';
+import { useVehicleData, useStationData, useRouteData, useStopTimesData } from '../shared/useStoreData';
+import { ErrorHandler } from '../shared/errors/ErrorHandler';
+import type { StandardError } from '../shared/errors/types';
 
-// Import processing layer hooks
-import { useVehicleFiltering } from '../processing/useVehicleFiltering';
-import { useVehicleGrouping } from '../processing/useVehicleGrouping';
+import { stationSelector } from '../../services/stationSelector';
+import type { 
+  StationSelectionCriteria, 
+  StationSelectionResult, 
+  StationWithRoutes 
+} from '../../services/stationSelector';
+import { NEARBY_STATION_DISTANCE_THRESHOLD } from '../../utils/nearbyViewConstants';
+import { enhancedTranzyApi } from '../../services/tranzyApiService';
+import { analyzeVehicleDirection } from '../shared/processing/vehicleDirectionAnalysis';
 
-/**
- * Enhanced vehicle with direction analysis (matches orchestration hook)
- */
-interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
-  _internalDirection?: 'arriving' | 'departing' | 'unknown';
-  stopSequence?: Array<{
-    stopId: string;
-    stopName: string;
-    sequence: number;
-    isCurrent: boolean;
-    isDestination: boolean;
-  }>;
-}
+import { vehicleTransformationService } from '../../services/VehicleTransformationService';
+import type { 
+  TransformedVehicleData, 
+  VehicleDisplayData,
+  TransformationContext,
+  TransformationStation
+} from '../../types/presentationLayer';
+import { createDefaultTransformationContext } from '../../types/presentationLayer';
+import type { TranzyVehicleResponse } from '../../types/tranzyApi';
 
-/**
- * Station vehicle group (matches orchestration hook format)
- */
 interface StationVehicleGroup {
   station: { station: Station; distance: number };
-  vehicles: EnhancedVehicleInfoWithDirection[];
+  vehicles: VehicleDisplayData[];
   allRoutes: Array<{
     routeId: string;
     routeName: string;
@@ -50,23 +40,31 @@ interface StationVehicleGroup {
   }>;
 }
 
-/**
- * Configuration options for vehicle display (simplified from orchestration hook)
- */
 export interface UseVehicleDisplayOptions {
   filterByFavorites?: boolean;
-  maxStations?: number;
+  maxStations?: number; // Will be enforced to maximum of 2 stations
   maxVehiclesPerStation?: number;
   showAllVehiclesPerRoute?: boolean;
-  maxSearchRadius?: number;
-  proximityThreshold?: number;
 }
 
-/**
- * Result interface (matches orchestration hook exactly)
- */
+// Station selection metadata for debugging and empty states
+interface StationSelectionMetadata {
+  totalStationsEvaluated: number;
+  stationsWithRoutes: number;
+  stationsInRadius: number;
+  rejectedByDistance: number;
+  rejectedByThreshold: number;
+  rejectedByRoutes: number;
+  selectionTime: number;
+  thresholdUsed: number;
+  stabilityApplied: boolean;
+}
+
 export interface UseVehicleDisplayResult {
   stationVehicleGroups: StationVehicleGroup[];
+  transformedData: TransformedVehicleData | null;
+  stationSelectionResult: StationSelectionResult | null;
+  stationSelectionMetadata: StationSelectionMetadata | null;
   isLoading: boolean;
   isLoadingStations: boolean;
   isLoadingVehicles: boolean;
@@ -74,352 +72,30 @@ export interface UseVehicleDisplayResult {
   effectiveLocationForDisplay: Coordinates | null;
   favoriteRoutes: FavoriteRoute[];
   allStations: Station[];
-  vehicles: LiveVehicle[];
-  error?: Error;
+  vehicles: CoreVehicle[];
+  error?: StandardError;
 }
 
-/**
- * Error types for composition hook
- */
-export enum CompositionErrorType {
-  DATA_FETCH_ERROR = 'data_fetch_error',
-  PROCESSING_ERROR = 'processing_error',
-  VALIDATION_ERROR = 'validation_error',
-  CONFIGURATION_ERROR = 'configuration_error',
-  NETWORK_ERROR = 'network_error',
-  AUTHENTICATION_ERROR = 'authentication_error',
-  CACHE_ERROR = 'cache_error'
-}
+
 
 /**
- * Enhanced composition error for structured error reporting
- */
-export class CompositionError extends Error {
-  public readonly timestamp: Date;
-  public readonly severity: 'low' | 'medium' | 'high' | 'critical';
-  public readonly retryable: boolean;
-  public readonly errorId: string;
-
-  constructor(
-    message: string,
-    public readonly type: CompositionErrorType,
-    public readonly hookName: string,
-    public readonly context: Record<string, any> = {},
-    public readonly originalError?: Error,
-    severity: 'low' | 'medium' | 'high' | 'critical' = 'medium',
-    retryable: boolean = true
-  ) {
-    super(message);
-    this.name = 'CompositionError';
-    this.timestamp = new Date();
-    this.severity = severity;
-    this.retryable = retryable;
-    this.errorId = `${hookName}-${type}-${Date.now()}`;
-
-    // Capture stack trace if available (Node.js specific)
-    if (typeof (Error as any).captureStackTrace === 'function') {
-      (Error as any).captureStackTrace(this, CompositionError);
-    }
-  }
-
-  /**
-   * Create a structured error report for logging and debugging
-   */
-  toErrorReport(): Record<string, any> {
-    return {
-      errorId: this.errorId,
-      message: this.message,
-      type: this.type,
-      hookName: this.hookName,
-      severity: this.severity,
-      retryable: this.retryable,
-      timestamp: this.timestamp.toISOString(),
-      context: this.context,
-      originalError: this.originalError ? {
-        name: this.originalError.name,
-        message: this.originalError.message,
-        stack: this.originalError.stack
-      } : null,
-      stack: this.stack
-    };
-  }
-
-  /**
-   * Check if this error should trigger a retry
-   */
-  shouldRetry(maxRetries: number = 3, currentRetryCount: number = 0): boolean {
-    return this.retryable && currentRetryCount < maxRetries;
-  }
-
-  /**
-   * Create a user-friendly error message
-   */
-  getUserMessage(): string {
-    switch (this.type) {
-      case CompositionErrorType.NETWORK_ERROR:
-        return 'Unable to connect to the transit service. Please check your internet connection.';
-      case CompositionErrorType.AUTHENTICATION_ERROR:
-        return 'Authentication failed. Please check your API key in settings.';
-      case CompositionErrorType.CONFIGURATION_ERROR:
-        return 'Configuration error. Please check your settings and try again.';
-      case CompositionErrorType.DATA_FETCH_ERROR:
-        return 'Unable to load transit data. Please try again in a moment.';
-      case CompositionErrorType.PROCESSING_ERROR:
-        return 'Error processing transit data. Some information may be unavailable.';
-      default:
-        return 'An unexpected error occurred. Please try again.';
-    }
-  }
-}
-
-/**
- * Error context builder for consistent error reporting
- */
-class ErrorContextBuilder {
-  private context: Record<string, any> = {};
-
-  addDataHookStatus(hookName: string, isLoading: boolean, error: Error | null, dataLength?: number) {
-    this.context[`${hookName}Status`] = {
-      isLoading,
-      hasError: !!error,
-      errorMessage: error?.message,
-      dataLength: dataLength ?? 0
-    };
-    return this;
-  }
-
-  addProcessingInfo(step: string, inputSize: number, outputSize: number, processingTime?: number) {
-    this.context.processing = this.context.processing || {};
-    this.context.processing[step] = {
-      inputSize,
-      outputSize,
-      processingTime: processingTime ?? 0
-    };
-    return this;
-  }
-
-  addConfiguration(config: Record<string, any>) {
-    this.context.configuration = config;
-    return this;
-  }
-
-  addUserContext(location: Coordinates | null, favoriteCount: number) {
-    this.context.userContext = {
-      hasLocation: !!location,
-      location: location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : null,
-      favoriteCount
-    };
-    return this;
-  }
-
-  build(): Record<string, any> {
-    return { ...this.context };
-  }
-}
-
-/**
- * Determine error type from original error
- */
-const determineErrorType = (error: Error): CompositionErrorType => {
-  const message = error.message.toLowerCase();
-  
-  if (message.includes('401') || message.includes('403') || message.includes('unauthorized')) {
-    return CompositionErrorType.AUTHENTICATION_ERROR;
-  }
-  
-  if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
-    return CompositionErrorType.NETWORK_ERROR;
-  }
-  
-  if (message.includes('validation') || message.includes('invalid')) {
-    return CompositionErrorType.VALIDATION_ERROR;
-  }
-  
-  if (message.includes('config') || message.includes('setup')) {
-    return CompositionErrorType.CONFIGURATION_ERROR;
-  }
-  
-  if (message.includes('cache')) {
-    return CompositionErrorType.CACHE_ERROR;
-  }
-  
-  return CompositionErrorType.DATA_FETCH_ERROR;
-};
-
-/**
- * Determine error severity based on type and context
- */
-const determineErrorSeverity = (
-  errorType: CompositionErrorType,
-  context: Record<string, any>
-): 'low' | 'medium' | 'high' | 'critical' => {
-  switch (errorType) {
-    case CompositionErrorType.AUTHENTICATION_ERROR:
-      return 'critical';
-    case CompositionErrorType.NETWORK_ERROR:
-      return context.isInitialLoad ? 'high' : 'medium';
-    case CompositionErrorType.CONFIGURATION_ERROR:
-      return 'high';
-    case CompositionErrorType.DATA_FETCH_ERROR:
-      return context.partialDataAvailable ? 'medium' : 'high';
-    case CompositionErrorType.PROCESSING_ERROR:
-      return 'low';
-    case CompositionErrorType.CACHE_ERROR:
-      return 'low';
-    default:
-      return 'medium';
-  }
-};
-
-/**
- * Utility function to analyze vehicle direction (simplified from orchestration hook)
- */
-const analyzeVehicleDirection = (
-  vehicle: LiveVehicle,
-  targetStation: Station,
-  stopTimes: StopTime[]
-): { direction: 'arriving' | 'departing' | 'unknown'; estimatedMinutes: number; confidence: 'high' | 'medium' | 'low' } => {
-  // Input validation
-  if (!vehicle?.tripId || !targetStation?.id || !Array.isArray(stopTimes)) {
-    return { direction: 'unknown', estimatedMinutes: 0, confidence: 'low' };
-  }
-
-  // Filter stop times for this vehicle's trip
-  const tripStopTimes = stopTimes.filter(stopTime => 
-    stopTime && 
-    stopTime.tripId === vehicle.tripId &&
-    stopTime.stopId &&
-    typeof stopTime.sequence === 'number' &&
-    !isNaN(stopTime.sequence)
-  );
-
-  if (tripStopTimes.length === 0) {
-    return { direction: 'unknown', estimatedMinutes: 0, confidence: 'low' };
-  }
-
-  // Sort stop times by sequence
-  const sortedStopTimes = tripStopTimes.sort((a, b) => a.sequence - b.sequence);
-
-  // Find the target station in the trip's stop sequence
-  const targetStopTime = sortedStopTimes.find(stopTime => stopTime.stopId === targetStation.id);
-  
-  if (!targetStopTime) {
-    return { direction: 'unknown', estimatedMinutes: 0, confidence: 'low' };
-  }
-
-  const targetSequence = targetStopTime.sequence;
-
-  // Simplified approach: estimate position based on time if available
-  const now = new Date();
-  const vehicleTimestamp = vehicle.timestamp instanceof Date ? vehicle.timestamp : new Date(vehicle.timestamp);
-  
-  // Calculate time since last vehicle update (in minutes)
-  const minutesSinceUpdate = Math.max(0, (now.getTime() - vehicleTimestamp.getTime()) / (1000 * 60));
-
-  let estimatedCurrentSequence = 0;
-  let confidence: 'high' | 'medium' | 'low' = 'low';
-
-  if (targetStopTime.arrivalTime && typeof targetStopTime.arrivalTime === 'string') {
-    try {
-      // Parse arrival time (HH:MM:SS format)
-      const [hours, minutes, seconds] = targetStopTime.arrivalTime.split(':').map(Number);
-      const scheduledArrival = new Date();
-      scheduledArrival.setHours(hours, minutes, seconds || 0, 0);
-
-      // Calculate time difference
-      const timeDiffMinutes = (scheduledArrival.getTime() - now.getTime()) / (1000 * 60);
-
-      if (timeDiffMinutes > 0) {
-        // Vehicle should arrive in the future
-        estimatedCurrentSequence = Math.max(0, targetSequence - Math.ceil(timeDiffMinutes / 2)); // Assume 2 minutes per stop
-        confidence = 'medium';
-      } else if (timeDiffMinutes > -10) {
-        // Vehicle should have arrived recently (within 10 minutes)
-        estimatedCurrentSequence = targetSequence;
-        confidence = 'medium';
-      } else {
-        // Vehicle is likely past this stop
-        estimatedCurrentSequence = targetSequence + Math.ceil(Math.abs(timeDiffMinutes) / 2);
-        confidence = 'low';
-      }
-    } catch (error) {
-      // Fallback to sequence-based estimation
-      estimatedCurrentSequence = Math.floor(sortedStopTimes.length / 2);
-      confidence = 'low';
-    }
-  } else {
-    // No time data available, use middle of sequence as estimate
-    estimatedCurrentSequence = Math.floor(sortedStopTimes.length / 2);
-    confidence = 'low';
-  }
-
-  // Determine direction based on sequence comparison
-  let direction: 'arriving' | 'departing' | 'unknown' = 'unknown';
-  let estimatedMinutes = 0;
-
-  if (estimatedCurrentSequence < targetSequence) {
-    // Vehicle is before the target station → arriving
-    direction = 'arriving';
-    const remainingStops = targetSequence - estimatedCurrentSequence;
-    estimatedMinutes = Math.max(1, remainingStops * 2); // 2 minutes per stop estimate
-    
-    // Adjust for vehicle age
-    estimatedMinutes = Math.max(1, estimatedMinutes - minutesSinceUpdate);
-    
-    if (confidence === 'medium' && remainingStops <= 3) {
-      confidence = 'high'; // High confidence for nearby arrivals with time data
-    }
-  } else if (estimatedCurrentSequence > targetSequence) {
-    // Vehicle is after the target station → departing
-    direction = 'departing';
-    const stopsSinceDeparture = estimatedCurrentSequence - targetSequence;
-    estimatedMinutes = stopsSinceDeparture * 2; // Time since departure
-    
-    // Departing vehicles have lower confidence unless very recent
-    if (stopsSinceDeparture <= 2 && confidence === 'medium') {
-      confidence = 'medium';
-    } else {
-      confidence = 'low';
-    }
-  } else {
-    // Vehicle is at or very near the target station
-    direction = 'arriving';
-    estimatedMinutes = 0; // At station
-    
-    if (confidence === 'medium') {
-      confidence = 'high'; // High confidence when at station with time data
-    }
-  }
-
-  return {
-    direction,
-    estimatedMinutes: Math.round(estimatedMinutes),
-    confidence
-  };
-};
-
-/**
- * Simple composition hook for vehicle display
- * Replaces useVehicleProcessingOrchestration for basic use cases
- * 
- * This hook composes existing data and processing hooks to provide
- * the same API as the orchestration hook but with much simpler logic.
+ * Vehicle display hook using new transformation service architecture
+ * Uses VehicleTransformationService for all data processing
+ * Requirements: 2.4, 8.1, 8.2
  */
 export const useVehicleDisplay = (options: UseVehicleDisplayOptions = {}): UseVehicleDisplayResult => {
   const {
     filterByFavorites = false,
     maxStations = 2,
-    maxVehiclesPerStation = 5,
-    showAllVehiclesPerRoute = false,
-    maxSearchRadius = 5000,
-    proximityThreshold = 200,
+    maxVehiclesPerStation = 5
   } = options;
 
-  // Get location and config from stores
-  const { currentLocation } = useLocationStore();
-  const { config } = useConfigStore();
+  // Enforce 2-station maximum display limit (Requirements 2.5, 6.4)
+  const enforcedMaxStations = Math.min(maxStations, 2);
 
-  // Get effective location with fallback priority (same as orchestration hook)
+  const { currentLocation } = useLocationStore();
+  const { config, getFavoriteRoutes } = useConfigStore();
+
   const effectiveLocationForDisplay = getEffectiveLocation(
     currentLocation,
     config?.homeLocation,
@@ -427,59 +103,36 @@ export const useVehicleDisplay = (options: UseVehicleDisplayOptions = {}): UseVe
     config?.defaultLocation
   );
 
-  // Get favorite routes from Config Store
-  const { getFavoriteRoutes } = useConfigStore();
   const favoriteRoutes = useMemo(() => {
     return filterByFavorites ? getFavoriteRoutes() : [];
   }, [filterByFavorites, getFavoriteRoutes]);
 
-  // Get agency ID for data hooks
   const agencyId = config?.agencyId;
-  const isConfigured = !!agencyId;
+  const apiKey = config?.apiKey;
 
-  // Store-based data hooks - compose all required data using store methods
-  const stationDataResult = useStationStoreData({
-    agencyId,
-    forceRefresh: false,
-    cacheMaxAge: 5 * 60 * 1000 // 5 minutes
+  // Use generic store data hooks
+  const stationDataResult = useStationData({ agencyId, cacheMaxAge: 5 * 60 * 1000 });
+  const vehicleDataResult = useVehicleData({ 
+    agencyId, 
+    cacheMaxAge: 30 * 1000, 
+    autoRefresh: true, 
+    refreshInterval: 30 * 1000 
   });
+  const routeDataResult = useRouteData({ agencyId, cacheMaxAge: 10 * 60 * 1000 });
+  // Use longer cache to avoid duplicate calls during refresh
+  const stopTimesDataResult = useStopTimesData({ agencyId, cacheMaxAge: 5 * 60 * 1000 });
 
-  const vehicleDataResult = useVehicleStoreData({
-    agencyId,
-    forceRefresh: false,
-    cacheMaxAge: 30 * 1000, // 30 seconds for live data
-    autoRefresh: true,
-    refreshInterval: 30 * 1000
-  });
-
-  const routeDataResult = useRouteStoreData({
-    agencyId,
-    forceRefresh: false,
-    cacheMaxAge: 10 * 60 * 1000 // 10 minutes
-  });
-
-  const stopTimesDataResult = useStopTimesStoreData({
-    agencyId,
-    forceRefresh: false,
-    cacheMaxAge: 2 * 60 * 1000 // 2 minutes
-  });
-
-  // Extract data with fallbacks
   const allStations = stationDataResult.data || [];
   const vehicles = vehicleDataResult.data || [];
   const routes = routeDataResult.data || [];
   const stopTimes = stopTimesDataResult.data || [];
 
-  // Aggregate loading states (same as orchestration hook)
   const isLoadingStations = stationDataResult.isLoading;
   const isLoadingVehicles = vehicleDataResult.isLoading;
-  const isLoadingRoutes = routeDataResult.isLoading;
-  const isLoadingStopTimes = stopTimesDataResult.isLoading;
-  
-  const isLoading = isLoadingStations || isLoadingVehicles || isLoadingRoutes || isLoadingStopTimes;
+  const isLoading = isLoadingStations || routeDataResult.isLoading || stopTimesDataResult.isLoading;
 
-  // Simplified error aggregation (memory-optimized)
-  const aggregatedError = useMemo(() => {
+  // Standardized error handling
+  const error = useMemo(() => {
     const errors = [
       stationDataResult.error,
       vehicleDataResult.error,
@@ -489,338 +142,559 @@ export const useVehicleDisplay = (options: UseVehicleDisplayOptions = {}): UseVe
 
     if (errors.length === 0) return undefined;
 
-    // Return the first error with minimal context
     const primaryError = errors[0]!;
-    const errorType = determineErrorType(primaryError);
+    return ErrorHandler.createError(
+      primaryError.type,
+      `Data fetch failed: ${primaryError.message}`,
+      { errorCount: errors.length, hasData: allStations.length > 0 || vehicles.length > 0 },
+      primaryError.originalError
+    );
+  }, [stationDataResult.error, vehicleDataResult.error, routeDataResult.error, stopTimesDataResult.error, allStations.length, vehicles.length]);
+
+  // Fetch trips data for proper StationSelector integration
+  const [tripsData, setTripsData] = useState<any[] | null>(null);
+  
+  useEffect(() => {
+    const fetchTripsData = async () => {
+      if (!agencyId || !apiKey) return;
+      
+      try {
+        const trips = await enhancedTranzyApi.getTrips(parseInt(agencyId));
+        setTripsData(trips);
+      } catch (error) {
+        logger.warn('Failed to fetch trips data for StationSelector', { error }, 'useVehicleDisplay');
+        setTripsData(null);
+      }
+    };
     
-    // Minimal context to avoid memory bloat
-    const context = {
-      errorCount: errors.length,
-      hasData: allStations.length > 0 || vehicles.length > 0,
-      isConfigured
+    fetchTripsData();
+  }, [agencyId, apiKey]);
+
+  // Station selection using StationSelector service
+  // Requirements 3.1, 3.2, 3.3, 3.5: Route association filtering integration
+  // Requirements 2.1, 2.2, 2.3: Ensure NEARBY_STATION_DISTANCE_THRESHOLD is used consistently
+  const { stationSelectionResult, stationSelectionMetadata } = useMemo((): {
+    stationSelectionResult: StationSelectionResult | null;
+    stationSelectionMetadata: StationSelectionMetadata | null;
+  } => {
+    if (!effectiveLocationForDisplay || allStations.length === 0) {
+      return {
+        stationSelectionResult: null,
+        stationSelectionMetadata: null
+      };
+    }
+
+    const selectionStartTime = performance.now();
+
+    // Requirements 3.1, 3.2: Only consider stations with route associations
+    // First, enhance stations with existing route data if available
+    const stationsWithRouteInfo = allStations.map(station => {
+      // Use existing station.routes property if available (Requirements 3.2)
+      if (station.routes && Array.isArray(station.routes) && station.routes.length > 0) {
+        return {
+          ...station,
+          hasRouteAssociations: true,
+          routeIds: station.routes
+        };
+      }
+      
+      // If no station.routes property, we'll rely on GTFS data in StationSelector
+      return {
+        ...station,
+        hasRouteAssociations: false,
+        routeIds: []
+      };
+    });
+
+    // Requirements 3.4: Handle edge case where all stations lack route associations
+    const stationsWithExistingRoutes = stationsWithRouteInfo.filter(s => s.hasRouteAssociations);
+    
+    // If we have stations with existing route data, prefer those
+    // Otherwise, let StationSelector handle route association filtering via GTFS data
+    const stationsToEvaluate = stationsWithExistingRoutes.length > 0 
+      ? stationsWithExistingRoutes.map(s => ({ ...s, routes: s.routeIds }))
+      : allStations;
+
+    // Requirements 3.4: If no routes are available at all, return appropriate result
+    if (routes.length === 0 && stationsWithExistingRoutes.length === 0) {
+      logger.warn('No route data available for station selection', {
+        totalStations: allStations.length,
+        stationsWithRoutes: stationsWithExistingRoutes.length,
+        routeDataCount: routes.length
+      }, 'useVehicleDisplay');
+      
+      const selectionEndTime = performance.now();
+      const selectionTime = selectionEndTime - selectionStartTime;
+      
+      return {
+        stationSelectionResult: {
+          closestStation: null,
+          secondStation: null,
+          rejectedStations: allStations.map(station => ({
+            station,
+            rejectionReason: 'no_routes' as const
+          }))
+        },
+        stationSelectionMetadata: {
+          totalStationsEvaluated: allStations.length,
+          stationsWithRoutes: 0,
+          stationsInRadius: 0,
+          rejectedByDistance: 0,
+          rejectedByThreshold: 0,
+          rejectedByRoutes: allStations.length,
+          selectionTime,
+          thresholdUsed: NEARBY_STATION_DISTANCE_THRESHOLD,
+          stabilityApplied: false
+        }
+      };
+    }
+
+    const criteria: StationSelectionCriteria = {
+      userLocation: effectiveLocationForDisplay,
+      availableStations: stationsToEvaluate,
+      routeData: routes,
+      stopTimesData: stopTimes.length > 0 ? stopTimes : undefined,
+      tripsData: tripsData || undefined,
+      maxSearchRadius: 5000 // 5km search radius
     };
 
-    const severity = errorType === CompositionErrorType.AUTHENTICATION_ERROR ? 'critical' : 'medium';
-    const retryable = errorType !== CompositionErrorType.AUTHENTICATION_ERROR;
+    try {
+      const result = stationSelector.selectStations(criteria);
+      
+      // Calculate metadata from the selection result
+      const selectionEndTime = performance.now();
+      const selectionTime = selectionEndTime - selectionStartTime;
+      
+      // Count stations in different categories
+      const rejectedByRoutes = result.rejectedStations.filter(r => r.rejectionReason === 'no_routes').length;
+      const rejectedByDistance = result.rejectedStations.filter(r => r.rejectionReason === 'too_far').length;
+      const rejectedByThreshold = result.rejectedStations.filter(r => r.rejectionReason === 'threshold_exceeded').length;
+      
+      // Calculate stations that had routes (total - rejected by no routes)
+      const stationsWithRoutes = stationsToEvaluate.length - rejectedByRoutes;
+      
+      // Calculate stations in radius (stations with routes - rejected by distance)
+      const stationsInRadius = stationsWithRoutes - rejectedByDistance;
+      
+      const metadata: StationSelectionMetadata = {
+        totalStationsEvaluated: stationsToEvaluate.length,
+        stationsWithRoutes,
+        stationsInRadius,
+        rejectedByDistance,
+        rejectedByThreshold,
+        rejectedByRoutes,
+        selectionTime,
+        thresholdUsed: NEARBY_STATION_DISTANCE_THRESHOLD,
+        stabilityApplied: false // TODO: Will be updated when GPS stability is implemented
+      };
+      
+      // Requirements 3.4: Handle edge case where StationSelector finds no stations with routes
+      if (!result.closestStation && !result.secondStation) {
+        const allRejectedForNoRoutes = result.rejectedStations.every(
+          rejected => rejected.rejectionReason === 'no_routes'
+        );
+        
+        if (allRejectedForNoRoutes) {
+          logger.warn('All nearby stations lack route associations', {
+            totalStationsEvaluated: stationsToEvaluate.length,
+            rejectedCount: result.rejectedStations.length,
+            userLocation: effectiveLocationForDisplay
+          }, 'useVehicleDisplay');
+        }
+      }
+      
+      // Validate that the result respects the 2-station maximum limit (Requirements 2.5, 6.4)
+      if (result.closestStation && result.secondStation) {
+        logger.debug('Station selection with distance threshold validation', {
+          hasClosestStation: !!result.closestStation,
+          hasSecondStation: !!result.secondStation,
+          distanceThreshold: NEARBY_STATION_DISTANCE_THRESHOLD,
+          rejectedCount: result.rejectedStations.length,
+          userLocation: effectiveLocationForDisplay,
+          metadata
+        }, 'useVehicleDisplay');
+      }
+      
+      logger.debug('Station selection completed with route association filtering', {
+        hasClosestStation: !!result.closestStation,
+        hasSecondStation: !!result.secondStation,
+        rejectedCount: result.rejectedStations.length,
+        stationsWithExistingRoutes: stationsWithExistingRoutes.length,
+        totalStationsEvaluated: stationsToEvaluate.length,
+        userLocation: effectiveLocationForDisplay,
+        metadata
+      }, 'useVehicleDisplay');
 
-    const compositionError = new CompositionError(
-      `Data errors (${errors.length}): ${primaryError.message}`,
-      errorType,
-      'useVehicleDisplay',
-      context,
-      primaryError,
-      severity,
-      retryable
-    );
-
-    // Simple error logging
-    logger.error('Vehicle display error', { 
-      message: compositionError.message,
-      type: errorType,
-      errorCount: errors.length 
-    }, 'useVehicleDisplay');
-
-    return compositionError;
-  }, [
-    stationDataResult.error,
-    vehicleDataResult.error,
-    routeDataResult.error,
-    stopTimesDataResult.error,
-    allStations.length,
-    vehicles.length,
-    isConfigured
-  ]);
-
-  // Simplified error state (memory-optimized)
-  const [processingError, setProcessingError] = React.useState<Error | null>(null);
-
-  // Processing layer hooks - compose vehicle filtering and grouping
-  const vehicleFilteringResult = useVehicleFiltering(vehicles, {
-    filterByFavorites,
-    favoriteRoutes,
-    maxSearchRadius,
-    userLocation: effectiveLocationForDisplay
-  });
-
-  const vehicleGroupingResult = useVehicleGrouping(
-    vehicleFilteringResult.filteredVehicles,
-    allStations,
-    effectiveLocationForDisplay || { latitude: 0, longitude: 0 },
-    {
-      maxStations,
-      maxVehiclesPerStation,
-      proximityThreshold
+      return {
+        stationSelectionResult: result,
+        stationSelectionMetadata: metadata
+      };
+    } catch (selectionError) {
+      logger.error('StationSelector failed during route association filtering', {
+        error: selectionError instanceof Error ? selectionError.message : String(selectionError),
+        criteriaValid: {
+          hasUserLocation: !!effectiveLocationForDisplay,
+          stationCount: stationsToEvaluate.length,
+          routeCount: routes.length,
+          hasStopTimes: stopTimes.length > 0,
+          hasTrips: !!tripsData
+        },
+        stationsWithExistingRoutes: stationsWithExistingRoutes.length
+      }, 'useVehicleDisplay');
+      
+      const selectionEndTime = performance.now();
+      const selectionTime = selectionEndTime - selectionStartTime;
+      
+      return {
+        stationSelectionResult: null,
+        stationSelectionMetadata: {
+          totalStationsEvaluated: stationsToEvaluate.length,
+          stationsWithRoutes: stationsWithExistingRoutes.length,
+          stationsInRadius: 0,
+          rejectedByDistance: 0,
+          rejectedByThreshold: 0,
+          rejectedByRoutes: 0,
+          selectionTime,
+          thresholdUsed: NEARBY_STATION_DISTANCE_THRESHOLD,
+          stabilityApplied: false
+        }
+      };
     }
-  );
+  }, [effectiveLocationForDisplay, allStations, routes, stopTimes, tripsData]);
 
-  // Processing state
-  const isProcessingVehicles = useMemo(() => {
-    return isLoading && (allStations.length > 0 || vehicles.length > 0);
-  }, [isLoading, allStations.length, vehicles.length]);
+  // Create transformation context
+  const transformationContext = useMemo((): TransformationContext | null => {
+    // Validate required configuration
+    if (!apiKey || !agencyId || apiKey.trim() === '' || agencyId.trim() === '') {
+      logger.debug('Missing or invalid API configuration', {
+        hasApiKey: !!apiKey,
+        hasAgencyId: !!agencyId,
+        apiKeyLength: apiKey?.length || 0,
+        agencyIdLength: agencyId?.length || 0
+      }, 'useVehicleDisplay');
+      return null;
+    }
 
-  // Create route mapping for efficient lookups (memoized separately)
-  const routeIdMap = useMemo(() => {
-    const map = new Map<string, Route>();
-    routes.forEach(route => {
-      map.set(route.id, route);
-    });
-    return map;
-  }, [routes]);
+    const context = createDefaultTransformationContext(apiKey.trim(), agencyId.trim());
+    
+    // Update context with current data
+    context.userLocation = effectiveLocationForDisplay || undefined;
+    context.homeLocation = config?.homeLocation;
+    context.workLocation = config?.workLocation;
+    context.favoriteRoutes = favoriteRoutes.map(fr => fr.routeId);
+    context.maxVehiclesPerRoute = maxVehiclesPerStation;
+    context.maxRoutes = enforcedMaxStations; // Enforce maximum 2 stations limit
+    context.routeData = routes; // Add route data for name lookups
+    
+    // Use selected stations from StationSelectionResult instead of raw slicing
+    // Requirements 2.5, 6.4: Enforce maximum 2 stations (closest + optional second)
+    const selectedStations: TransformationStation[] = [];
+    
+    if (stationSelectionResult?.closestStation) {
+      selectedStations.push(convertToTransformationStation(stationSelectionResult.closestStation, stopTimes, tripsData));
+    }
+    
+    if (stationSelectionResult?.secondStation) {
+      selectedStations.push(convertToTransformationStation(stationSelectionResult.secondStation, stopTimes, tripsData));
+    }
+    
+    // Validate that we never exceed 2 stations (Requirements 2.5, 6.4)
+    if (selectedStations.length > 2) {
+      logger.warn('Station selection exceeded 2-station limit, truncating', {
+        selectedCount: selectedStations.length,
+        maxAllowed: 2
+      }, 'useVehicleDisplay');
+      selectedStations.splice(2); // Keep only first 2 stations
+    }
+    
+    // Requirements 3.3, 3.4: Handle case where no stations have route associations
+    if (selectedStations.length === 0) {
+      // Check if this is due to lack of route associations vs other reasons
+      if (stationSelectionResult && stationSelectionResult.rejectedStations.length > 0) {
+        const allRejectedForNoRoutes = stationSelectionResult.rejectedStations.every(
+          rejected => rejected.rejectionReason === 'no_routes'
+        );
+        
+        if (allRejectedForNoRoutes) {
+          logger.warn('No transformation context: all stations lack route associations', {
+            totalStationsEvaluated: allStations.length,
+            rejectedForNoRoutes: stationSelectionResult.rejectedStations.length,
+            hasRouteData: routes.length > 0
+          }, 'useVehicleDisplay');
+        } else {
+          logger.debug('No transformation context: stations rejected for other reasons', {
+            rejectedStations: stationSelectionResult.rejectedStations.map(r => ({
+              stationId: r.station.id,
+              reason: r.rejectionReason
+            }))
+          }, 'useVehicleDisplay');
+        }
+      } else if (allStations.length > 0) {
+        logger.error('StationSelector failed and no fallback available - this should not happen in production', {
+          availableStations: allStations.length,
+          hasStationSelectionResult: !!stationSelectionResult
+        }, 'useVehicleDisplay');
+      }
+      
+      // Return null context to prevent transformation with invalid data
+      return null;
+    } else {
+      context.targetStations = selectedStations;
+      
+      // Validate distance threshold enforcement (Requirements 2.1, 2.2, 2.3, 7.2)
+      if (selectedStations.length === 2 && stationSelectionResult?.closestStation && stationSelectionResult?.secondStation) {
+        const distanceBetweenStations = calculateDistance(
+          stationSelectionResult.closestStation.coordinates,
+          stationSelectionResult.secondStation.coordinates
+        );
+        
+        if (distanceBetweenStations > NEARBY_STATION_DISTANCE_THRESHOLD) {
+          logger.warn('Second station exceeds distance threshold but was selected', {
+            distanceBetweenStations,
+            threshold: NEARBY_STATION_DISTANCE_THRESHOLD,
+            closestStationId: stationSelectionResult.closestStation.id,
+            secondStationId: stationSelectionResult.secondStation.id
+          }, 'useVehicleDisplay');
+        } else {
+          logger.debug('Distance threshold validation passed with route association filtering', {
+            distanceBetweenStations,
+            threshold: NEARBY_STATION_DISTANCE_THRESHOLD,
+            stationCount: selectedStations.length,
+            stationsHaveRoutes: selectedStations.every(s => s.routeIds.length > 0)
+          }, 'useVehicleDisplay');
+        }
+      }
+    }
 
-  // Transform grouped results to match orchestration hook API format
+    // Determine user context
+    if (effectiveLocationForDisplay && config?.workLocation) {
+      const distanceToWork = calculateDistance(effectiveLocationForDisplay, config.workLocation);
+      if (distanceToWork < 500) { // Within 500m of work
+        context.userContext = 'work';
+        context.isAtWork = true;
+      }
+    }
+    
+    if (effectiveLocationForDisplay && config?.homeLocation) {
+      const distanceToHome = calculateDistance(effectiveLocationForDisplay, config.homeLocation);
+      if (distanceToHome < 500) { // Within 500m of home
+        context.userContext = 'home';
+        context.isAtHome = true;
+      }
+    }
+
+    return context;
+  }, [apiKey, agencyId, effectiveLocationForDisplay, config, favoriteRoutes, stationSelectionResult, allStations, maxStations, maxVehiclesPerStation, tripsData]);
+
+  // Transform vehicle data using the transformation service
+  const [transformedData, setTransformedData] = useState<TransformedVehicleData | null>(null);
+
+  const transformVehicleData = useCallback(async () => {
+    if (!transformationContext) {
+      logger.debug('No transformation context available', {
+        hasApiKey: !!apiKey,
+        hasAgencyId: !!agencyId,
+        configExists: !!config
+      }, 'useVehicleDisplay');
+      setTransformedData(null);
+      return;
+    }
+
+    if (vehicles.length === 0) {
+      logger.debug('No vehicles to transform', {
+        vehicleCount: vehicles.length,
+        isLoadingVehicles
+      }, 'useVehicleDisplay');
+      setTransformedData(null);
+      return;
+    }
+
+    try {
+      // Convert CoreVehicle to TranzyVehicleResponse format
+      const rawVehicleData: TranzyVehicleResponse[] = vehicles.map(vehicle => ({
+        id: vehicle.id,
+        route_id: parseInt(vehicle.routeId) || 0,
+        trip_id: vehicle.tripId,
+        label: vehicle.label || `Vehicle ${vehicle.id}`,
+        // CoreVehicle uses position object
+        latitude: vehicle.position.latitude,
+        longitude: vehicle.position.longitude,
+        bearing: vehicle.bearing,
+        speed: vehicle.speed || 0,
+        timestamp: vehicle.timestamp instanceof Date ? vehicle.timestamp.toISOString() : String(vehicle.timestamp),
+        vehicle_type: 3, // Bus type (GTFS standard)
+        wheelchair_accessible: vehicle.isWheelchairAccessible ? 'WHEELCHAIR_ACCESSIBLE' : 'WHEELCHAIR_INACCESSIBLE',
+        bike_accessible: vehicle.isBikeAccessible ? 'BIKE_ACCESSIBLE' : 'BIKE_INACCESSIBLE'
+      }));
+
+      // Apply filtering if needed
+      const filteredData = filterByFavorites 
+        ? rawVehicleData.filter(v => favoriteRoutes.some(fr => fr.routeId === String(v.route_id)))
+        : rawVehicleData;
+
+      // Transform using the service
+      const result = await vehicleTransformationService.transform(filteredData, transformationContext);
+      
+      // Enhance direction data with stop sequences using actual GTFS data
+      if (stopTimes.length > 0) {
+        for (const [vehicleId, direction] of result.directions.entries()) {
+          const vehicle = result.vehicles.get(vehicleId);
+          if (vehicle?.tripId) {
+            // Find stop times for this trip
+            const tripStopTimes = stopTimes
+              .filter(st => st.tripId === vehicle.tripId)
+              .sort((a, b) => a.sequence - b.sequence);
+            
+            if (tripStopTimes.length > 0) {
+              // Generate stop sequence from actual GTFS data
+              const stopSequence = tripStopTimes.map((stopTime, index) => {
+                const station = allStations.find(s => s.id === stopTime.stopId);
+                return {
+                  stopId: stopTime.stopId,
+                  stopName: station?.name || `Stop ${stopTime.stopId}`,
+                  sequence: stopTime.sequence,
+                  isCurrent: direction.isAtStation && direction.stationId === stopTime.stopId,
+                  isDestination: index === tripStopTimes.length - 1,
+                  estimatedArrival: undefined // Could be calculated from schedule data
+                };
+              });
+              
+              // Update the direction with stop sequence
+              const enhancedDirection = {
+                ...direction,
+                stopSequence
+              };
+              
+              result.directions.set(vehicleId, enhancedDirection);
+            }
+          }
+        }
+      }
+      
+      logger.info('Vehicle transformation completed', {
+        vehiclesProcessed: filteredData.length,
+        vehiclesTransformed: result.vehicles.size,
+        stationsAnalyzed: result.vehiclesByStation.size,
+        vehiclesWithStopSequences: Array.from(result.directions.values()).filter(d => d.stopSequence && d.stopSequence.length > 0).length
+      }, 'useVehicleDisplay');
+
+      setTransformedData(result);
+    } catch (transformationError) {
+      // Pass the error directly as the second parameter, with additional data in a separate object
+      const errorToLog = transformationError instanceof Error 
+        ? transformationError 
+        : new Error(String(transformationError));
+      
+      logger.error('Vehicle transformation failed', errorToLog, 'useVehicleDisplay');
+      
+      // Log detailed context for debugging
+      logger.info('Transformation failure context', {
+        vehicleCount: vehicles.length,
+        hasContext: !!transformationContext,
+        contextDetails: transformationContext ? {
+          hasApiConfig: !!transformationContext.apiConfig,
+          apiKeyLength: transformationContext.apiConfig?.apiKey?.length || 0,
+          agencyId: transformationContext.apiConfig?.agencyId,
+          targetStationsCount: transformationContext.targetStations?.length || 0,
+          favoriteRoutesCount: transformationContext.favoriteRoutes?.length || 0,
+          hasPreferences: !!transformationContext.preferences,
+          timestamp: transformationContext.timestamp
+        } : null,
+        errorType: errorToLog.name,
+        errorMessage: errorToLog.message
+      }, 'useVehicleDisplay');
+      
+      setTransformedData(null);
+    }
+  }, [transformationContext, vehicles, filterByFavorites, favoriteRoutes, stopTimes, allStations]);
+
+  // Effect to trigger transformation when dependencies change
+  useEffect(() => {
+    transformVehicleData();
+  }, [transformVehicleData]);
+
+  // Convert transformed data to station vehicle groups
   const stationVehicleGroups = useMemo(() => {
-    // Early return if not configured or missing critical data
-    if (!isConfigured || !effectiveLocationForDisplay) {
-      return [];
-    }
-
-    // For favorites mode, check if we have favorite routes configured
-    if (filterByFavorites && favoriteRoutes.length === 0) {
-      return [];
-    }
-
-    // Need minimum data to proceed
-    if (allStations.length === 0 || vehicles.length === 0) {
-      return [];
-    }
-
-    // Get current station groups (avoid circular dependency)
-    const currentStationGroups = vehicleGroupingResult.stationGroups;
-    if (!currentStationGroups || currentStationGroups.length === 0) {
+    // If transformation failed or no data, return empty array
+    if (!transformedData) {
+      logger.debug('No transformed data available for station grouping', {
+        hasTransformedData: !!transformedData,
+        effectiveLocationExists: !!effectiveLocationForDisplay,
+        stationCount: allStations.length,
+        vehicleCount: vehicles.length
+      }, 'useVehicleDisplay');
       return [];
     }
 
     try {
-      logger.debug('Starting vehicle display composition', {
-        stationsCount: allStations.length,
-        vehiclesCount: vehicles.length,
-        routesCount: routes.length,
-        stopTimesCount: stopTimes.length,
-        filterByFavorites,
-        favoriteRoutesCount: favoriteRoutes.length,
-        effectiveLocation: effectiveLocationForDisplay
-      }, 'useVehicleDisplay');
+      const groups: StationVehicleGroup[] = [];
 
-      // Transform grouped results to match original API format
-      const transformedGroups: StationVehicleGroup[] = currentStationGroups.map(group => {
-        // Enhance vehicles with direction analysis and route information
-        const enhancedVehicles: EnhancedVehicleInfoWithDirection[] = group.vehicles.map(vehicle => {
-          // Get route information
-          const route = routeIdMap.get(vehicle.routeId || '');
-          
-          // Perform direction analysis
-          const directionResult = analyzeVehicleDirection(
-            vehicle,
-            group.station.station,
-            stopTimes
-          );
+      // Group vehicles by station using the transformed data
+      for (const [stationId, vehicleIds] of transformedData.vehiclesByStation.entries()) {
+        const stationInfo = transformedData.stationInfo.get(stationId);
+        const station = allStations.find(s => s.id === stationId);
 
-          // Get destination from route data
-          const destination = route?.routeDesc || 'Unknown destination';
+        // Get display data for vehicles at this station
+        const vehicleDisplayData: VehicleDisplayData[] = vehicleIds
+          .map(vehicleId => transformedData.displayData.get(vehicleId))
+          .filter((data): data is VehicleDisplayData => data !== undefined)
+          .slice(0, maxVehiclesPerStation)
+          .sort((a, b) => b.displayPriority - a.displayPriority);
 
-          return {
-            id: vehicle.id,
-            routeId: vehicle.routeId || '',
-            route: route?.routeName || `Route ${vehicle.routeId}`,
-            destination,
-            vehicle: {
-              id: vehicle.id,
-              routeId: vehicle.routeId || '',
-              tripId: vehicle.tripId,
-              label: vehicle.label,
-              position: vehicle.position,
-              timestamp: vehicle.timestamp,
-              speed: vehicle.speed,
-              isWheelchairAccessible: vehicle.isWheelchairAccessible,
-              isBikeAccessible: vehicle.isBikeAccessible,
-            },
-            isLive: true,
-            isScheduled: false,
-            confidence: directionResult.confidence === 'high' ? 'high' : 'medium',
-            direction: 'unknown' as 'work' | 'home' | 'unknown',
-            station: group.station.station,
-            minutesAway: directionResult.estimatedMinutes,
-            estimatedArrival: new Date(Date.now() + directionResult.estimatedMinutes * 60000),
-            _internalDirection: directionResult.direction,
-            stopSequence: undefined
-          };
-        });
+        if (vehicleDisplayData.length === 0) {
+          continue;
+        }
 
-        // Apply vehicle selection logic based on mode (same as orchestration hook)
-        let finalVehicles: EnhancedVehicleInfoWithDirection[];
+        // Calculate distance to station
+        const distance = effectiveLocationForDisplay 
+          ? calculateDistance(effectiveLocationForDisplay, stationInfo.coordinates)
+          : 0;
+
+        // Get route information
+        const routeMap = new Map<string, { routeId: string; routeName: string; vehicleCount: number }>();
         
-        if (showAllVehiclesPerRoute) {
-          // Show all vehicles (favorites mode)
-          finalVehicles = enhancedVehicles
-            .sort((a, b) => {
-              // Priority sorting (same as orchestration hook)
-              const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-              const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-              
-              if (aAtStation && !bAtStation) return -1;
-              if (!aAtStation && bAtStation) return 1;
-              
-              const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-              const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-              
-              if (aArriving && !bArriving) return -1;
-              if (!aArriving && bArriving) return 1;
-              
-              if (aArriving && bArriving) {
-                return a.minutesAway - b.minutesAway;
-              }
-              
-              return a.minutesAway - b.minutesAway;
+        for (const displayData of vehicleDisplayData) {
+          const routeId = displayData.routeName;
+          if (!routeMap.has(routeId)) {
+            routeMap.set(routeId, {
+              routeId,
+              routeName: displayData.routeName,
+              vehicleCount: 0
             });
-        } else {
-          // Deduplicate by route and apply limits (station display mode)
-          const routeGroups = new Map<string, EnhancedVehicleInfoWithDirection[]>();
-          
-          enhancedVehicles.forEach(vehicle => {
-            const routeId = vehicle.routeId;
-            if (!routeGroups.has(routeId)) {
-              routeGroups.set(routeId, []);
-            }
-            routeGroups.get(routeId)!.push(vehicle);
-          });
-
-          // Select the best vehicle per route based on priority
-          const bestVehiclePerRoute = Array.from(routeGroups.entries()).map(([routeId, vehicles]) => {
-            const sortedVehicles = vehicles.sort((a, b) => {
-              const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-              const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-              
-              if (aAtStation && !bAtStation) return -1;
-              if (!aAtStation && bAtStation) return 1;
-              
-              const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-              const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-              
-              if (aArriving && !bArriving) return -1;
-              if (!aArriving && bArriving) return 1;
-              
-              if (aArriving && bArriving) {
-                return a.minutesAway - b.minutesAway;
-              }
-              
-              return a.minutesAway - b.minutesAway;
-            });
-            
-            return sortedVehicles[0];
-          });
-
-          // Check if there's only one route at this station
-          const uniqueRoutes = Array.from(new Set(enhancedVehicles.map(v => v.routeId)));
-          
-          if (uniqueRoutes.length === 1) {
-            // Single route: show all vehicles from that route (up to maxVehicles limit)
-            finalVehicles = enhancedVehicles
-              .sort((a, b) => {
-                const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-                const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-                
-                if (aAtStation && !bAtStation) return -1;
-                if (!aAtStation && bAtStation) return 1;
-                
-                const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-                const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-                
-                if (aArriving && !bArriving) return -1;
-                if (!aArriving && bArriving) return 1;
-                
-                if (aArriving && bArriving) {
-                  return a.minutesAway - b.minutesAway;
-                }
-                
-                return a.minutesAway - b.minutesAway;
-              })
-              .slice(0, maxVehiclesPerStation);
-          } else {
-            // Multiple routes: deduplicate by route and limit to maxVehicles
-            finalVehicles = bestVehiclePerRoute
-              .sort((a, b) => {
-                const aAtStation = a.minutesAway === 0 && a._internalDirection === 'arriving';
-                const bAtStation = b.minutesAway === 0 && b._internalDirection === 'arriving';
-                
-                if (aAtStation && !bAtStation) return -1;
-                if (!aAtStation && bAtStation) return 1;
-                
-                const aArriving = a._internalDirection === 'arriving' && a.minutesAway > 0;
-                const bArriving = b._internalDirection === 'arriving' && b.minutesAway > 0;
-                
-                if (aArriving && !bArriving) return -1;
-                if (!aArriving && bArriving) return 1;
-                
-                if (aArriving && bArriving) {
-                  return a.minutesAway - b.minutesAway;
-                }
-                
-                return a.minutesAway - b.minutesAway;
-              })
-              .slice(0, maxVehiclesPerStation);
           }
+          routeMap.get(routeId)!.vehicleCount++;
         }
 
-        return {
-          station: group.station,
-          vehicles: finalVehicles,
-          allRoutes: group.allRoutes
-        };
-      });
+        groups.push({
+          station: {
+            station,
+            distance
+          },
+          vehicles: vehicleDisplayData,
+          allRoutes: Array.from(routeMap.values())
+        });
+      }
 
-      logger.debug('Vehicle display composition completed', {
-        finalStationGroups: transformedGroups.length,
-        totalVehicles: transformedGroups.reduce((sum, group) => sum + group.vehicles.length, 0),
-        processingOptions: {
-          filterByFavorites,
-          maxStations,
-          maxVehiclesPerStation,
-          showAllVehiclesPerRoute
-        }
+      // Sort by distance and limit to enforcedMaxStations
+      return groups
+        .sort((a, b) => a.station.distance - b.station.distance)
+        .slice(0, enforcedMaxStations);
+
+    } catch (processingError) {
+      logger.error('Station grouping failed', {
+        error: processingError instanceof Error ? processingError.message : String(processingError)
       }, 'useVehicleDisplay');
-
-      return transformedGroups;
-
-    } catch (error) {
-      const originalError = error instanceof Error ? error : new Error(String(error));
-      // Simple error logging
-      logger.error('Vehicle processing failed', { 
-        message: originalError.message,
-        vehicleCount: vehicles.length,
-        stationCount: allStations.length
-      }, 'useVehicleDisplay');
-
-      // Store error and return empty array
-      setProcessingError(originalError);
       return [];
     }
-  }, [
-    isConfigured,
-    effectiveLocationForDisplay,
-    filterByFavorites,
-    favoriteRoutes.length, // Use length instead of full array
-    allStations.length, // Use length instead of full array
-    vehicles.length, // Use length instead of full array
-    routeIdMap,
-    stopTimes.length, // Use length instead of full array
-    maxStations,
-    maxVehiclesPerStation,
-    showAllVehiclesPerRoute,
-    vehicleGroupingResult // Use the whole result object, not nested property
-  ]);
+  }, [transformedData, allStations, maxVehiclesPerStation, maxStations, effectiveLocationForDisplay]);
 
-  // Clear processing error when data is successful
-  React.useEffect(() => {
-    if (stationVehicleGroups.length > 0 && processingError) {
-      setProcessingError(null);
-    }
-  }, [stationVehicleGroups.length, processingError]);
-
-  // Determine final error state
-  const finalError = processingError || aggregatedError;
+  const isProcessingVehicles = isLoading && (allStations.length > 0 || vehicles.length > 0);
 
   return {
     stationVehicleGroups,
+    transformedData: transformedData || null,
+    stationSelectionResult,
+    stationSelectionMetadata,
     isLoading,
     isLoadingStations,
     isLoadingVehicles,
@@ -829,6 +703,103 @@ export const useVehicleDisplay = (options: UseVehicleDisplayOptions = {}): UseVe
     favoriteRoutes,
     allStations,
     vehicles,
-    error: finalError
+    error
   };
 };
+
+// Helper function to convert Station or StationWithRoutes to TransformationStation
+// Requirements 3.2: Use existing station.routes data when available
+function convertToTransformationStation(
+  station: Station | StationWithRoutes, 
+  stopTimes?: any[], 
+  trips?: any[]
+): TransformationStation {
+  // Extract route IDs from different possible sources
+  let routeIds: string[] = [];
+  
+  if ('associatedRoutes' in station && station.associatedRoutes) {
+    // StationWithRoutes has associatedRoutes array
+    routeIds = station.associatedRoutes.map(route => route.id);
+  } else if (station.routes && Array.isArray(station.routes)) {
+    // Station has routes property (Requirements 3.2: Pass existing station.routes data)
+    routeIds = station.routes;
+  } else if (stopTimes && trips) {
+    // Fallback: Extract route IDs from GTFS data
+    try {
+      // Find stop times for this station
+      const stationStopTimes = stopTimes.filter(st => 
+        st.stop_id === station.id || st.stop_id === station.id.toString()
+      );
+      
+      // Get trip IDs from stop times
+      const tripIds = [...new Set(stationStopTimes.map(st => st.trip_id))].filter(Boolean);
+      
+      // Find routes from trips
+      const stationTrips = trips.filter(trip => tripIds.includes(trip.trip_id));
+      const stationRouteIds = [...new Set(stationTrips.map(trip => trip.route_id))].filter(Boolean);
+      
+      routeIds = stationRouteIds.map(id => id.toString());
+      
+      if (routeIds.length > 0) {
+        logger.debug('Populated station route IDs from GTFS data', {
+          stationId: station.id,
+          stationName: station.name,
+          routeIds,
+          stopTimesCount: stationStopTimes.length,
+          tripsCount: stationTrips.length
+        }, 'useVehicleDisplay');
+      }
+    } catch (error) {
+      logger.warn('Failed to extract route IDs from GTFS data', {
+        stationId: station.id,
+        stationName: station.name,
+        error: error instanceof Error ? error.message : String(error)
+      }, 'useVehicleDisplay');
+    }
+  }
+  
+  // Requirements 3.1: Log when stations lack route associations
+  if (routeIds.length === 0) {
+    logger.warn('Converting station without route associations to TransformationStation', {
+      stationId: station.id,
+      stationName: station.name,
+      hasAssociatedRoutes: 'associatedRoutes' in station && !!station.associatedRoutes,
+      hasRoutesProperty: !!station.routes,
+      hasGtfsData: !!(stopTimes && trips),
+      stopTimesAvailable: stopTimes?.length || 0,
+      tripsAvailable: trips?.length || 0
+    }, 'useVehicleDisplay');
+  }
+  
+  return {
+    id: station.id,
+    name: station.name,
+    coordinates: {
+      latitude: station.coordinates.latitude,
+      longitude: station.coordinates.longitude
+    },
+    routeIds,
+    isFavorite: station.isFavorite || false,
+    accessibility: {
+      wheelchairAccessible: false, // Station accessibility not available in current Station type
+      bikeRacks: false,
+      audioAnnouncements: false
+    }
+  };
+}
+
+// Helper function to calculate distance between two coordinates
+function calculateDistance(pos1: Coordinates, pos2: Coordinates): number {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = pos1.latitude * Math.PI / 180;
+  const φ2 = pos2.latitude * Math.PI / 180;
+  const Δφ = (pos2.latitude - pos1.latitude) * Math.PI / 180;
+  const Δλ = (pos2.longitude - pos1.longitude) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c;
+}

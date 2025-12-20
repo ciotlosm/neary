@@ -1,16 +1,17 @@
 /**
- * Main useVehicleProcessing hook - now exports the new composition implementation
+ * Main useVehicleProcessing hook - now uses the new VehicleTransformationService architecture
  * 
- * This file has been updated to export the new composition hook that provides:
- * - Simple composition of data and processing hooks
- * - Exact backward compatibility with the original API
- * - Performance improvements through elimination of complex orchestration
- * - Clean error handling and loading state management
+ * This file has been updated to use the new transformation service that provides:
+ * - Centralized vehicle data transformations through VehicleTransformationService
+ * - Unified type system with CoreVehicle, VehicleSchedule, VehicleDirection interfaces
+ * - Separation of concerns between data, business logic, and presentation layers
+ * - Performance optimizations with caching and efficient data structures
+ * - Comprehensive error handling and validation
  * 
- * The original 1,113-line orchestration implementation has been removed.
+ * Requirements: 2.4, 8.1, 8.2
  */
 
-// Re-export the new composition hook as the main useVehicleProcessing
+// Re-export the updated hook that uses VehicleTransformationService
 export {
   useVehicleDisplay as useVehicleProcessing,
   type UseVehicleDisplayOptions as VehicleProcessingOptions,

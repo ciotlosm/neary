@@ -15,7 +15,7 @@
 **Solution**: Use GTFS trip_id filtering instead of proximity-based filtering
 
 ### Empty Station View
-**Problem**: Shows "No buses currently serve these stations" despite API data available
+**Problem**: Shows "No vehicles currently serve these stations" despite API data available
 **Solution**: Use direct API calls instead of complex store dependencies
 
 ### Performance Issues
@@ -38,6 +38,6 @@
 **Problem**: Refresh button doesn't update vehicle data
 **Solution**: Use store subscriptions instead of direct API calls
 
-### No Active Buses
-**Problem**: App shows "No buses are currently serving nearby stations"
+### No Active Vehicles
+**Problem**: App shows "No vehicles are currently active for nearby stations"
 **Solution**: Check vehicle filtering pipeline and location settings

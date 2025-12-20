@@ -92,7 +92,7 @@
 - [x] Add favorites management methods to `src/stores/configStore.ts`
 - [x] Implement addFavoriteRoute, removeFavoriteRoute, addFavoriteStation, removeFavoriteStation
 - [x] Add getFavoriteRoutes and getFavoriteStations helper methods
-- [x] Integrate with existing UserConfig.favoriteBuses structure
+- [x] Integrate with existing UserConfig.favoriteRoutes structure
 - [x] Use unified error handling for favorites operations
 - [x] Write unit tests for favorites functionality
 

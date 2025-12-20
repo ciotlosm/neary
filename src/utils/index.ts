@@ -10,6 +10,9 @@ export * from './locationUtils';
 // Nearby view constants and utilities
 export * from './nearbyViewConstants';
 
+// Developer experience utilities
+export * from './developerExperience';
+
 // Other utilities
 export * from './logger';
 export * from './retryUtils';

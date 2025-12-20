@@ -1,11 +1,14 @@
-// Core UI Components
-export * from './Button';
-export * from './Card';
-export * from './Input';
-export * from './Loading';
-export * from './Icons';
-export * from './VersionControl';
+// Base UI Components
+export * from './base';
 
-// Theme and Map
-export { ThemeToggle } from './ThemeToggle';
-export { MapPicker } from './MapPicker';
+// Composite UI Components
+export * from './composite';
+
+// Feedback UI Components
+export * from './feedback';
+
+// Layout UI Components
+export * from './layout';
+
+// Shared Visual Patterns
+export * from './shared';

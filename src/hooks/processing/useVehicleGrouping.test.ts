@@ -4,12 +4,13 @@ import * as fc from 'fast-check';
 import { useVehicleGrouping } from './useVehicleGrouping';
 import { propertyTestConfig } from '../../test/utils/propertyTestConfig';
 import { 
-  liveVehicleArb, 
+  coreVehicleArb, 
   stationArb,
   clujCoordinatesArb,
   createMockData 
 } from '../../test/utils/mockDataGenerators';
-import type { LiveVehicle, Station, Coordinates } from '../../types';
+import type { Station, Coordinates } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 
 describe('useVehicleGrouping', () => {
   describe('Property 5: Vehicle Grouping Consistency', () => {
@@ -23,7 +24,7 @@ describe('useVehicleGrouping', () => {
     it('should produce consistent groupings that respect constraints', () => {
       fc.assert(
         fc.property(
-          fc.array(liveVehicleArb, { minLength: 0, maxLength: 15 }),
+          fc.array(coreVehicleArb, { minLength: 0, maxLength: 15 }),
           fc.array(stationArb, { minLength: 1, maxLength: 10 }),
           clujCoordinatesArb, // userLocation
           fc.integer({ min: 1, max: 5 }), // maxStations
@@ -202,7 +203,7 @@ describe('useVehicleGrouping', () => {
     it('should maintain deterministic ordering', () => {
       fc.assert(
         fc.property(
-          fc.array(liveVehicleArb, { minLength: 2, maxLength: 8 }),
+          fc.array(coreVehicleArb, { minLength: 2, maxLength: 8 }),
           fc.array(stationArb, { minLength: 2, maxLength: 5 }),
           clujCoordinatesArb,
           (vehicles, stations, userLocation) => {
@@ -275,13 +276,13 @@ describe('useVehicleGrouping', () => {
         })
       ];
 
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ 
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ 
           id: 'v1', 
           routeId: 'route-42',
           position: { latitude: 46.75, longitude: 23.6 } // Near station1
         }),
-        createMockData.liveVehicle({ 
+        createMockData.coreVehicle({ 
           id: 'v2', 
           routeId: 'route-43',
           position: { latitude: 46.76, longitude: 23.61 } // Near station2
@@ -307,10 +308,10 @@ describe('useVehicleGrouping', () => {
         createMockData.station({ id: 'station3', coordinates: { latitude: 46.752, longitude: 23.602 } })
       ];
 
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ id: 'v1', position: { latitude: 46.75, longitude: 23.6 } }),
-        createMockData.liveVehicle({ id: 'v2', position: { latitude: 46.751, longitude: 23.601 } }),
-        createMockData.liveVehicle({ id: 'v3', position: { latitude: 46.752, longitude: 23.602 } })
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ id: 'v1', position: { latitude: 46.75, longitude: 23.6 } }),
+        createMockData.coreVehicle({ id: 'v2', position: { latitude: 46.751, longitude: 23.601 } }),
+        createMockData.coreVehicle({ id: 'v3', position: { latitude: 46.752, longitude: 23.602 } })
       ];
 
       const { result } = renderHook(() => 
@@ -330,10 +331,10 @@ describe('useVehicleGrouping', () => {
         })
       ];
 
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ id: 'v1', position: { latitude: 46.75, longitude: 23.6 } }),
-        createMockData.liveVehicle({ id: 'v2', position: { latitude: 46.75, longitude: 23.6 } }),
-        createMockData.liveVehicle({ id: 'v3', position: { latitude: 46.75, longitude: 23.6 } })
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ id: 'v1', position: { latitude: 46.75, longitude: 23.6 } }),
+        createMockData.coreVehicle({ id: 'v2', position: { latitude: 46.75, longitude: 23.6 } }),
+        createMockData.coreVehicle({ id: 'v3', position: { latitude: 46.75, longitude: 23.6 } })
       ];
 
       const { result } = renderHook(() => 
@@ -363,20 +364,20 @@ describe('useVehicleGrouping', () => {
         })
       ];
 
-      const vehicles: LiveVehicle[] = [
-        createMockData.liveVehicle({ 
+      const vehicles: CoreVehicle[] = [
+        createMockData.coreVehicle({ 
           id: 'v1', 
           routeId: 'route-42',
           label: '42',
           position: { latitude: 46.75, longitude: 23.6 }
         }),
-        createMockData.liveVehicle({ 
+        createMockData.coreVehicle({ 
           id: 'v2', 
           routeId: 'route-42',
           label: '42',
           position: { latitude: 46.75, longitude: 23.6 }
         }),
-        createMockData.liveVehicle({ 
+        createMockData.coreVehicle({ 
           id: 'v3', 
           routeId: 'route-43',
           label: '43',

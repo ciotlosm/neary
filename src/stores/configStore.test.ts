@@ -551,7 +551,7 @@ describe('ConfigStore Unit Tests', () => {
       store.addFavoriteRoute(favoriteRoute);
 
       const state = useConfigStore.getState();
-      expect(state.config?.favoriteBuses).toContain(favoriteRoute);
+      expect(state.config?.favoriteRoutes).toContain(favoriteRoute);
       expect(state.getFavoriteRoutes()).toContain(favoriteRoute);
     });
 
@@ -593,7 +593,7 @@ describe('ConfigStore Unit Tests', () => {
         apiKey: 'test-api-key',
         refreshRate: 30000,
         staleDataThreshold: 5,
-        favoriteBuses: [
+        favoriteRoutes: [
           {
             id: 'route-42',
             routeName: '42',
@@ -609,7 +609,7 @@ describe('ConfigStore Unit Tests', () => {
       store.removeFavoriteRoute('route-42');
 
       const state = useConfigStore.getState();
-      expect(state.config?.favoriteBuses).not.toContain(
+      expect(state.config?.favoriteRoutes).not.toContain(
         expect.objectContaining({ id: 'route-42' })
       );
       expect(state.getFavoriteRoutes()).toHaveLength(0);
@@ -713,7 +713,7 @@ describe('ConfigStore Unit Tests', () => {
         apiKey: 'test-api-key',
         refreshRate: 30000,
         staleDataThreshold: 5,
-        favoriteBuses: [
+        favoriteRoutes: [
           {
             id: 'route-42',
             routeName: '42',

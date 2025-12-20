@@ -16,7 +16,7 @@ import React from 'react';
 import { useConfigStore, useVehicleStore, useLocationStore } from '../../stores';
 
 // Import components to test
-import { ThemeToggle } from '../../components/ui/ThemeToggle';
+import { ThemeToggle } from '../../components/ui';
 
 // Mock external dependencies
 vi.mock('../services/tranzyApiService', () => ({

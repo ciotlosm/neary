@@ -19,7 +19,7 @@ import {
   LocationOn as LocationOnIcon,
 } from '@mui/icons-material';
 
-import { Button } from '../../ui/Button';
+import { Button } from '../../ui';
 import { useLocationPicker } from '../../../hooks/shared/useLocationPicker';
 import { CurrentLocationSection } from './components/CurrentLocationSection';
 import { PopularLocations } from './components/PopularLocations';
@@ -62,7 +62,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     handleConfirm,
     calculateDistance,
   } = useLocationPicker({
-    open,
+    open: open,
     currentLocation,
     onLocationSelected: (location) => {
       onLocationSelected(location);

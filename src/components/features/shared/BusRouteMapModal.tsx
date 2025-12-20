@@ -18,7 +18,7 @@ import { logger } from '../../../utils/logger';
 import { calculateDistance } from '../../../utils/distanceUtils';
 import { arePointsOverlapping, calculateOverlapBounds, logOverlapDetection } from '../../../utils/mapUtils';
 import { useAsyncOperation } from '../../../hooks/shared/useAsyncOperation';
-import type { FavoriteBusInfo } from '../../../services/favoriteBusService';
+import type { MapModalBusInfo } from '../../../types/mapModal';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
@@ -87,7 +87,7 @@ const createBusStopIcon = (type: 'bus' | 'user' | 'destination', size: number = 
 interface BusRouteMapModalProps {
   open: boolean;
   onClose: () => void;
-  bus: FavoriteBusInfo;
+  bus: MapModalBusInfo;
   userLocation?: { latitude: number; longitude: number } | null;
   cityName: string;
 }

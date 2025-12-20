@@ -24,11 +24,11 @@ import {
 } from '@mui/icons-material';
 
 import { useConfigurationManager } from '../../../hooks/shared/useConfigurationManager';
-import { Button } from '../../ui/Button';
+import { Button } from '../../ui';
 import LocationPicker from '../LocationPicker/LocationPicker';
 import { LocationSettingsSection } from './sections/LocationSettingsSection';
 import { AdvancedSettingsSection } from './sections/AdvancedSettingsSection';
-import { ThemeToggle } from '../../ui/ThemeToggle';
+import { ThemeToggle } from '../../ui';
 import { useConfigStore } from '../../../stores/configStore';
 import { logger, LogLevel } from '../../../utils/logger';
 

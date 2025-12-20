@@ -217,6 +217,78 @@ test.skip('memory intensive integration test', () => {
 });
 ```
 
+## Hook Architecture Testing Issues
+
+### Problem: Generic Hook Type Errors
+**Symptoms**: TypeScript errors when using `useStoreData<T>` with different data types
+
+**Solutions**:
+
+#### 1. Correct Type Usage
+```typescript
+// Correct - specify the data type
+const { data: vehicles } = useStoreData<LiveVehicle>({
+  dataType: 'vehicles'
+});
+
+// Incorrect - missing type parameter
+const { data } = useStoreData({ dataType: 'vehicles' });
+```
+
+#### 2. Import Proper Types
+```typescript
+import type { LiveVehicle, Station, Route, StopTime } from '@/types';
+```
+
+### Problem: Cache-Related Test Failures
+**Symptoms**: Tests failing due to cached data from previous tests
+
+**Solutions**:
+
+#### 1. Clear Unified Cache
+```typescript
+import { unifiedCache } from '@/hooks/shared/cache/instance';
+
+beforeEach(() => {
+  unifiedCache.clear();
+});
+```
+
+#### 2. Mock Cache in Tests
+```typescript
+vi.mock('@/hooks/shared/cache/instance', () => ({
+  unifiedCache: {
+    get: vi.fn(),
+    set: vi.fn(),
+    invalidate: vi.fn(),
+    clear: vi.fn()
+  }
+}));
+```
+
+### Problem: Property-Based Test Failures
+**Symptoms**: Property tests failing with generated data that doesn't match real API responses
+
+**Solutions**:
+
+#### 1. Constrain Generators
+```typescript
+// Ensure generated data matches API constraints
+const validVehicleArb = fc.record({
+  vehicle_id: fc.string({ minLength: 1 }),
+  trip_id: fc.string({ minLength: 1 }),
+  latitude: fc.float({ min: 46.7, max: 46.8 }), // Cluj bounds
+  longitude: fc.float({ min: 23.5, max: 23.7 })
+});
+```
+
+#### 2. Use Real Data Samples
+```typescript
+// Use actual API response samples for property tests
+const realVehicleData = [/* actual API responses */];
+const vehicleArb = fc.constantFrom(...realVehicleData);
+```
+
 ### Prevention Strategies
 
 #### 1. Test Size Limits

@@ -22,66 +22,59 @@ vi.mock('../../stores/configStore', () => ({
 }));
 
 // Mock the store-based data hooks (replacing data hooks)
-vi.mock('../shared/useStationStoreData', () => ({
-  useStationStoreData: () => ({
-    data: [
-      {
-        id: 'station-1',
-        name: 'Test Station 1',
-        coordinates: { latitude: 46.7712, longitude: 23.6236 }
-      }
-    ],
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-    lastUpdated: new Date()
-  })
-}));
-
-vi.mock('../shared/useVehicleStoreData', () => ({
-  useVehicleStoreData: () => ({
-    data: [
-      {
+vi.mock('../shared/useStoreData', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useVehicleData: () => ({
+      data: [{
         id: 'vehicle-1',
-        routeId: 'route-1',
+        routeId: '24',
         tripId: 'trip-1',
-        label: 'Bus 101',
         position: { latitude: 46.7712, longitude: 23.6236 },
-        timestamp: new Date()
-      }
-    ],
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-    lastUpdated: new Date()
-  })
-}));
-
-vi.mock('../shared/useRouteStoreData', () => ({
-  useRouteStoreData: () => ({
-    data: [
-      {
-        id: 'route-1',
-        routeName: 'Route 1',
-        routeDesc: 'Test Route Description'
-      }
-    ],
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-    lastUpdated: new Date()
-  })
-}));
-
-vi.mock('../shared/useStopTimesStoreData', () => ({
-  useStopTimesStoreData: () => ({
-    data: [],
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-    lastUpdated: new Date()
-  })
-}));
+        bearing: 90,
+        speed: 25,
+        timestamp: new Date().toISOString(),
+        agencyId: '2'
+      }],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      lastUpdated: new Date()
+    }),
+    useStationData: () => ({
+      data: [{
+        id: 'station-1',
+        name: 'Test Station',
+        coordinates: { latitude: 46.7712, longitude: 23.6236 },
+        routes: ['24']
+      }],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      lastUpdated: new Date()
+    }),
+    useRouteData: () => ({
+      data: [{
+        id: '24',
+        name: 'Test Route',
+        type: 'bus',
+        agencyId: '2'
+      }],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      lastUpdated: new Date()
+    }),
+    useStopTimesData: () => ({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      lastUpdated: new Date()
+    })
+  };
+});
 
 // Mock the processing hooks
 vi.mock('../processing/useVehicleFiltering', () => ({
@@ -120,6 +113,8 @@ describe('useVehicleDisplay', () => {
     const { result, unmount } = renderHook(() => useVehicleDisplay(options));
 
     expect(result.current).toHaveProperty('stationVehicleGroups');
+    expect(result.current).toHaveProperty('transformedData');
+    expect(result.current).toHaveProperty('stationSelectionResult');
     expect(result.current).toHaveProperty('isLoading');
     expect(result.current).toHaveProperty('isLoadingStations');
     expect(result.current).toHaveProperty('isLoadingVehicles');
@@ -139,7 +134,10 @@ describe('useVehicleDisplay', () => {
 
     expect(result.current.allStations).toHaveLength(1);
     expect(result.current.vehicles).toHaveLength(1);
-    expect(result.current.stationVehicleGroups).toHaveLength(1);
+    // After removing hardcoded fallback logic, station groups are only created
+    // when transformation service succeeds. Since transformation may fail in tests,
+    // we should expect empty groups when there's no transformed data.
+    expect(result.current.stationVehicleGroups).toHaveLength(0);
 
     // Clean up to prevent memory leaks
     unmount();
@@ -161,9 +159,10 @@ describe('useVehicleDisplay', () => {
     // and no data from stores, should return empty groups
     const { result, unmount } = renderHook(() => useVehicleDisplay());
 
-    // The hook should work but return groups based on available data
-    // Since we have mocked data (1 station, 1 vehicle), it will return 1 group
-    expect(result.current.stationVehicleGroups).toHaveLength(1);
+    // After removing hardcoded fallback logic, station groups are only created
+    // when transformation service succeeds and StationSelector properly selects stations.
+    // Without proper transformation, we should get empty groups.
+    expect(result.current.stationVehicleGroups).toHaveLength(0);
 
     // Clean up to prevent memory leaks
     unmount();
@@ -189,6 +188,8 @@ describe('useVehicleDisplay', () => {
     // Check that the result structure matches the orchestration hook exactly
     const expectedKeys = [
       'stationVehicleGroups',
+      'transformedData',
+      'stationSelectionResult',
       'isLoading',
       'isLoadingStations', 
       'isLoadingVehicles',

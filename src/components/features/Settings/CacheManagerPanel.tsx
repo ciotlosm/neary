@@ -29,11 +29,10 @@ import {
   Sync as SyncIcon,
 } from '@mui/icons-material';
 
-import { useModernCacheManager } from '../../../hooks/shared/useModernCacheManager';
+import { useUnifiedCacheManager } from '../../../hooks/shared/useUnifiedCacheManager';
 import { StoreErrorHandler, ErrorUtils } from '../../../stores/shared/errorHandler';
 import { logger } from '../../../utils/logger';
-import { Button } from '../../ui/Button';
-import { InfoCard } from '../../ui/Card';
+import { Button, InfoCard } from '../../ui';
 
 type CacheOperationState = 'idle' | 'refreshing' | 'clearing' | 'error';
 type CacheError = 'network' | 'inconsistent' | 'storage' | 'unknown';
@@ -53,7 +52,7 @@ export const CacheManagerPanel: React.FC = () => {
     isRefreshing,
     isClearing,
     error: cacheError
-  } = useModernCacheManager();
+  } = useUnifiedCacheManager();
 
   const cacheStats = getCacheStats();
 
@@ -539,7 +538,7 @@ export const CacheManagerPanel: React.FC = () => {
                 variant="outlined"
                 onClick={handleRefreshCache}
                 disabled={isOperationInProgress || !isOnline}
-                icon={<RefreshIcon />}
+                startIcon={<RefreshIcon />}
               >
                 {operationStatus.state === 'refreshing' ? 'Refreshing...' : 'Refresh'}
               </Button>
@@ -609,7 +608,7 @@ export const CacheManagerPanel: React.FC = () => {
                 color="error"
                 onClick={handleResetAllSettings}
                 disabled={isResettingSettings || getAppSettingsEntries().length === 0}
-                icon={<DeleteIcon />}
+                startIcon={<DeleteIcon />}
               >
                 {isResettingSettings ? 'Resetting...' : 'Reset All'}
               </Button>
@@ -685,7 +684,7 @@ export const CacheManagerPanel: React.FC = () => {
                 color="error"
                 onClick={handleClearCache}
                 disabled={isOperationInProgress || !hasData || !isOnline}
-                icon={<DeleteIcon />}
+                startIcon={<DeleteIcon />}
                 size="small"
               >
                 {operationStatus.state === 'clearing' ? 'Clearing...' : 'Clear All Cache'}

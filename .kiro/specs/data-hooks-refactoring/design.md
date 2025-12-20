@@ -285,7 +285,6 @@ try {
 
 ### Phase 2: Component Migration (Week 2-3)
 - Migrate StationDisplay component
-- Migrate FavoriteRoutesView component
 - Update any other components using orchestration hook
 - Add deprecation warnings to old hook
 

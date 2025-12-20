@@ -54,7 +54,7 @@ export { useLocationStore } from './locationStore';
 export { StoreEventManager, StoreEvents } from './shared/storeEvents';
 export { autoRefreshManager } from './shared/autoRefresh';
 export { StoreErrorHandler } from './shared/errorHandler';
-export { cacheManager } from './shared/cacheManager';
+// Legacy cache manager removed - use unifiedCache from hooks/shared/cache/instance
 
 // Export types for TypeScript consumers
 export type {
@@ -67,7 +67,7 @@ export type {
   ThemeMode,
   UserConfig,
   FavoriteRoute,
-  EnhancedVehicleInfo,
+
   Station,
   Coordinates,
 } from '../types';

@@ -1,6 +1,15 @@
 import { createTheme } from '@mui/material/styles';
+import { 
+  spacing, 
+  borderRadius, 
+  elevation, 
+  typography as typographyTokens, 
+  componentVariants,
+  animation,
+  alpha as alphaTokens 
+} from './tokens';
 
-// Material Design 3 inspired theme
+// Material Design 3 inspired theme with custom design tokens
 export const materialTheme = createTheme({
   palette: {
     mode: 'light',
@@ -53,6 +62,9 @@ export const materialTheme = createTheme({
     surface: {
       main: '#FFFBFE',
       variant: '#E7E0EC',
+      container: '#FFFBFE',
+      containerHigh: '#F7F2FA',
+      containerHighest: '#F1ECF4',
     },
     outline: {
       main: '#79747E',
@@ -63,81 +75,90 @@ export const materialTheme = createTheme({
       secondary: '#49454F',
     },
   },
+  // Custom design tokens
+  custom: {
+    spacing,
+    borderRadius,
+    elevation,
+    alpha: alphaTokens,
+    animation,
+    componentVariants,
+  },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: typographyTokens.fontFamily.primary,
     h1: {
-      fontSize: '2.25rem',
-      fontWeight: 400,
-      lineHeight: 1.2,
+      fontSize: typographyTokens.fontSize.xxxl,
+      fontWeight: typographyTokens.fontWeight.regular,
+      lineHeight: typographyTokens.lineHeight.tight,
     },
     h2: {
-      fontSize: '2rem',
-      fontWeight: 400,
-      lineHeight: 1.3,
+      fontSize: typographyTokens.fontSize.xxl,
+      fontWeight: typographyTokens.fontWeight.regular,
+      lineHeight: typographyTokens.lineHeight.tight,
     },
     h3: {
-      fontSize: '1.75rem',
-      fontWeight: 400,
-      lineHeight: 1.4,
+      fontSize: typographyTokens.fontSize.xl,
+      fontWeight: typographyTokens.fontWeight.regular,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     h4: {
-      fontSize: '1.5rem',
-      fontWeight: 500,
-      lineHeight: 1.4,
+      fontSize: typographyTokens.fontSize.lg,
+      fontWeight: typographyTokens.fontWeight.medium,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     h5: {
-      fontSize: '1.25rem',
-      fontWeight: 500,
-      lineHeight: 1.5,
+      fontSize: typographyTokens.fontSize.md,
+      fontWeight: typographyTokens.fontWeight.medium,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     h6: {
-      fontSize: '1.125rem',
-      fontWeight: 500,
-      lineHeight: 1.5,
+      fontSize: typographyTokens.fontSize.sm,
+      fontWeight: typographyTokens.fontWeight.medium,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     body1: {
-      fontSize: '1rem',
-      fontWeight: 400,
-      lineHeight: 1.5,
+      fontSize: typographyTokens.fontSize.md,
+      fontWeight: typographyTokens.fontWeight.regular,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     body2: {
-      fontSize: '0.875rem',
-      fontWeight: 400,
-      lineHeight: 1.43,
+      fontSize: typographyTokens.fontSize.sm,
+      fontWeight: typographyTokens.fontWeight.regular,
+      lineHeight: typographyTokens.lineHeight.normal,
     },
     button: {
-      fontSize: '0.875rem',
-      fontWeight: 500,
+      fontSize: typographyTokens.fontSize.sm,
+      fontWeight: typographyTokens.fontWeight.medium,
       textTransform: 'none' as const,
     },
   },
   shape: {
-    borderRadius: 12, // Material Design 3 uses more rounded corners
+    borderRadius: borderRadius.md, // Use design token
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         '*': {
-          transition: 'background-color 0.3s ease-in-out, color 0.3s ease-in-out',
+          transition: `background-color ${animation.duration.normal} ${animation.easing.standard}, color ${animation.duration.normal} ${animation.easing.standard}`,
         },
         body: {
-          transition: 'background-color 0.3s ease-in-out, color 0.3s ease-in-out',
+          transition: `background-color ${animation.duration.normal} ${animation.easing.standard}, color ${animation.duration.normal} ${animation.easing.standard}`,
         },
       },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 20,
+          borderRadius: componentVariants.button.filled.borderRadius,
           textTransform: 'none',
-          fontWeight: 500,
-          padding: '10px 24px',
-          transition: 'all 0.3s ease-in-out',
+          fontWeight: typographyTokens.fontWeight.medium,
+          padding: `${spacing.sm}px ${spacing.lg}px`,
+          transition: `all ${animation.duration.normal} ${animation.easing.standard}`,
         },
         contained: {
-          boxShadow: 'none',
+          boxShadow: componentVariants.button.filled.elevation,
           '&:hover': {
-            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)',
+            boxShadow: elevation.medium,
           },
         },
       },
@@ -145,15 +166,15 @@ export const materialTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
-          boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
+          borderRadius: componentVariants.card.elevated.borderRadius,
+          boxShadow: componentVariants.card.elevated.elevation,
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: borderRadius.lg,
         },
       },
     },
@@ -161,7 +182,7 @@ export const materialTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 12,
+            borderRadius: componentVariants.input.outlined.borderRadius,
           },
         },
       },
@@ -169,16 +190,16 @@ export const materialTheme = createTheme({
     MuiBottomNavigation: {
       styleOverrides: {
         root: {
-          borderRadius: '24px 24px 0 0',
-          boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
+          borderRadius: `${borderRadius.xxl}px ${borderRadius.xxl}px 0 0`,
+          boxShadow: elevation.medium,
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: 'none',
-          borderRadius: '0 0 16px 16px',
+          boxShadow: elevation.none,
+          borderRadius: `0 0 ${borderRadius.lg}px ${borderRadius.lg}px`,
         },
       },
     },
@@ -193,10 +214,10 @@ export const darkMaterialTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         '*': {
-          transition: 'background-color 0.3s ease-in-out, color 0.3s ease-in-out',
+          transition: `background-color ${animation.duration.normal} ${animation.easing.standard}, color ${animation.duration.normal} ${animation.easing.standard}`,
         },
         body: {
-          transition: 'background-color 0.3s ease-in-out, color 0.3s ease-in-out',
+          transition: `background-color ${animation.duration.normal} ${animation.easing.standard}, color ${animation.duration.normal} ${animation.easing.standard}`,
         },
       },
     },
@@ -264,6 +285,9 @@ export const darkMaterialTheme = createTheme({
     surface: {
       main: '#1D1B20',
       variant: '#49454F',
+      container: '#1D1B20',
+      containerHigh: '#2B2930',
+      containerHighest: '#36343B',
     },
     outline: {
       main: '#938F99',
@@ -281,29 +305,4 @@ export const getTheme = (mode: 'light' | 'dark') => {
   return mode === 'dark' ? darkMaterialTheme : materialTheme;
 };
 
-// Extend the theme interface to include custom colors
-declare module '@mui/material/styles' {
-  interface Palette {
-    tertiary: Palette['primary'];
-    surface: {
-      main: string;
-      variant: string;
-    };
-    outline: {
-      main: string;
-      variant: string;
-    };
-  }
-
-  interface PaletteOptions {
-    tertiary?: PaletteOptions['primary'];
-    surface?: {
-      main: string;
-      variant: string;
-    };
-    outline?: {
-      main: string;
-      variant: string;
-    };
-  }
-}
+// Theme type extensions are defined in typeExtensions.ts

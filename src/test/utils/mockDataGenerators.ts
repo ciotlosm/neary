@@ -2,7 +2,6 @@ import * as fc from 'fast-check';
 import { 
   Coordinates, 
   Station, 
-  LiveVehicle, 
   Route, 
   StopTime,
   TranzyVehicleResponse,
@@ -10,6 +9,7 @@ import {
   TranzyRouteResponse,
   TranzyStopTimeResponse
 } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 
 /**
  * Generator for valid coordinates
@@ -57,9 +57,9 @@ export const routeArb = fc.record({
 });
 
 /**
- * Generator for live vehicle data
+ * Generator for core vehicle data (updated to use CoreVehicle interface)
  */
-export const liveVehicleArb = fc.record({
+export const coreVehicleArb = fc.record({
   id: fc.string({ minLength: 1, maxLength: 20 }),
   routeId: fc.string({ minLength: 1, maxLength: 20 }),
   tripId: fc.option(fc.string({ minLength: 1, maxLength: 30 })),
@@ -67,17 +67,16 @@ export const liveVehicleArb = fc.record({
   position: fc.record({
     latitude: fc.double({ min: 46.7, max: 46.8 }),
     longitude: fc.double({ min: 23.5, max: 23.7 }),
-    bearing: fc.option(fc.double({ min: 0, max: 360 }))
+    accuracy: fc.option(fc.double({ min: 0, max: 100 }))
   }),
   timestamp: fc.date({ min: new Date(Date.now() - 3600000), max: new Date() }),
-  speed: fc.double({ min: 0, max: 80 }),
-  occupancy: fc.option(fc.constantFrom(
-    'EMPTY', 'MANY_SEATS_AVAILABLE', 'FEW_SEATS_AVAILABLE', 
-    'STANDING_ROOM_ONLY', 'CRUSHED_STANDING_ROOM_ONLY', 'FULL', 'NOT_ACCEPTING_PASSENGERS'
-  )),
+  speed: fc.option(fc.double({ min: 0, max: 80 })),
+  bearing: fc.option(fc.double({ min: 0, max: 360 })),
   isWheelchairAccessible: fc.boolean(),
   isBikeAccessible: fc.boolean()
 });
+
+// Legacy alias removed - use coreVehicleArb directly
 
 /**
  * Generator for stop time data
@@ -193,7 +192,7 @@ export const tranzyStopTimeResponseArb = fc.record({
  * Generator for arrays of data with realistic sizes
  */
 export const stationArrayArb = fc.array(stationArb, { minLength: 1, maxLength: 50 });
-export const vehicleArrayArb = fc.array(liveVehicleArb, { minLength: 0, maxLength: 20 });
+export const vehicleArrayArb = fc.array(coreVehicleArb, { minLength: 0, maxLength: 20 });
 export const routeArrayArb = fc.array(routeArb, { minLength: 1, maxLength: 30 });
 export const stopTimeArrayArb = fc.array(stopTimeArb, { minLength: 0, maxLength: 100 });
 
@@ -216,7 +215,7 @@ export const createMockData = {
     ...overrides
   }),
 
-  liveVehicle: (overrides?: Partial<LiveVehicle>): LiveVehicle => ({
+  coreVehicle: (overrides?: Partial<CoreVehicle>): CoreVehicle => ({
     id: 'vehicle-1',
     routeId: 'route-42',
     tripId: 'trip-123',
@@ -224,11 +223,11 @@ export const createMockData = {
     position: {
       latitude: 46.75,
       longitude: 23.6,
-      bearing: 90
+      accuracy: 10
     },
     timestamp: new Date(),
     speed: 25,
-    occupancy: 'MANY_SEATS_AVAILABLE',
+    bearing: 90,
     isWheelchairAccessible: true,
     isBikeAccessible: false,
     ...overrides

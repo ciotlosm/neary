@@ -19,7 +19,7 @@ export interface StoreEventData {
     changes: Record<string, any>;
   };
   [StoreEvents.VEHICLES_UPDATED]: { 
-    vehicles: any[]; // EnhancedVehicleInfo[] - using any to avoid circular imports
+    vehicles: any[]; // CoreVehicle[] - using any to avoid circular imports
     timestamp: Date;
     source: 'api' | 'cache';
   };

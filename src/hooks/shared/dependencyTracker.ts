@@ -196,14 +196,3 @@ export const createDependencyTracker = (): DependencyTracker => {
     }
   };
 };
-
-// Removed unused selective memoization hooks:
-// - useDependencyTracker
-// - useSelectiveMemo  
-// - useSelectiveCallback
-// These were only used by the removed orchestration hook.
-
-// Removed unused performance monitoring:
-// - PerformanceMetrics interface
-// - usePerformanceMonitor hook
-// These were only used by the removed orchestration hook.

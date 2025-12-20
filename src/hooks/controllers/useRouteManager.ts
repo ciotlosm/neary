@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useConfigStore } from '../../stores/configStore';
-import { useVehicleStore } from '../../stores/vehicleStore';
 import { useStoreEvent, StoreEvents } from '../../stores/shared/storeEvents';
 import { getUniqueRouteTypes } from '../../utils/routeUtils';
 import { logger } from '../../utils/logger';
+
+import { useRouteData } from '../shared/useStoreData';
+// Error handling managed by store data hooks
+import type { StandardError } from '../shared/errors/types';
 
 import type { FavoriteRoute } from '../../types';
 import type { Route } from '../../types/tranzyApi';
@@ -22,6 +25,7 @@ export interface UseRouteManagerReturn {
   availableRoutes: StoreRoute[];
   isLoading: boolean;
   config: any;
+  error: StandardError | null;
   
   // Computed
   availableTypes: string[];
@@ -38,66 +42,22 @@ export interface UseRouteManagerReturn {
 }
 
 export const useRouteManager = (): UseRouteManagerReturn => {
-  const { config, updateConfig, getFavoriteRoutes, addFavoriteRoute, removeFavoriteRoute } = useConfigStore();
-  const vehicleStore = useVehicleStore();
+  const { config, getFavoriteRoutes, addFavoriteRoute, removeFavoriteRoute } = useConfigStore();
   
   const [selectedRoutes, setSelectedRoutes] = useState<FavoriteRoute[]>(getFavoriteRoutes());
   const [searchTerm, setSearchTerm] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
-  // Store-based route data state
-  const [availableRoutes, setAvailableRoutes] = useState<StoreRoute[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [routeError, setRouteError] = useState<Error | null>(null);
+  // Use generic store data hook for route data
+  const routeDataResult = useRouteData({ 
+    agencyId: config?.agencyId,
+    cacheMaxAge: 10 * 60 * 1000 // 10 minutes cache
+  });
 
-  // Fetch route data using store method
-  const fetchRouteData = useCallback(async () => {
-    if (!config?.agencyId) {
-      logger.debug('No agency ID configured, skipping route fetch', {}, 'ROUTE_MANAGER');
-      return;
-    }
-
-    setIsLoading(true);
-    setRouteError(null);
-
-    try {
-      logger.debug('Fetching route data via store method', { 
-        agencyId: config.agencyId 
-      }, 'ROUTE_MANAGER');
-
-      const result = await vehicleStore.getRouteData({
-        agencyId: config.agencyId,
-        forceRefresh: false,
-        cacheMaxAge: 10 * 60 * 1000 // 10 minutes cache
-      });
-
-      if (result.error) {
-        // Convert ErrorState to Error for compatibility
-        const error = new Error(result.error.message);
-        setRouteError(error);
-        setAvailableRoutes([]);
-        logger.error('Route data fetch failed via store', { 
-          error: result.error.message 
-        }, 'ROUTE_MANAGER');
-      } else {
-        setAvailableRoutes(result.data || []);
-        setRouteError(null);
-        logger.info('Route data fetched successfully via store', { 
-          count: result.data?.length || 0 
-        }, 'ROUTE_MANAGER');
-      }
-    } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error('Failed to fetch route data');
-      setRouteError(errorObj);
-      setAvailableRoutes([]);
-      logger.error('Route data fetch error via store', { 
-        error: errorObj.message 
-      }, 'ROUTE_MANAGER');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [config?.agencyId, vehicleStore]);
+  const availableRoutes = routeDataResult.data || [];
+  const isLoading = routeDataResult.isLoading;
+  const error = routeDataResult.error;
 
   // Refetch function for manual refresh
   const refetchRoutes = useCallback(async () => {
@@ -105,32 +65,8 @@ export const useRouteManager = (): UseRouteManagerReturn => {
       logger.debug('Refetch ignored - already loading', {}, 'ROUTE_MANAGER');
       return;
     }
-    await fetchRouteData();
-  }, [isLoading, fetchRouteData]);
-
-  // Subscribe to store state changes for reactive updates
-  useEffect(() => {
-    const storeError = vehicleStore.error;
-    const storeIsLoading = vehicleStore.isLoading;
-
-    // Sync store error state
-    if (storeError && !routeError) {
-      const errorObj = new Error(storeError.message);
-      setRouteError(errorObj);
-    }
-
-    // Sync store loading state for global operations
-    if (storeIsLoading && !isLoading) {
-      setIsLoading(storeIsLoading);
-    }
-  }, [vehicleStore.error, vehicleStore.isLoading, routeError, isLoading]);
-
-  // Initial route data fetch when config changes
-  useEffect(() => {
-    if (config?.agencyId) {
-      fetchRouteData();
-    }
-  }, [config?.agencyId, fetchRouteData]);
+    await routeDataResult.refetch();
+  }, [isLoading, routeDataResult]);
 
   // Update selected routes when config changes
   useEffect(() => {
@@ -141,12 +77,12 @@ export const useRouteManager = (): UseRouteManagerReturn => {
       routeCount: configRoutes.length,
       routes: configRoutes.map(r => r.routeName)
     }, 'ROUTE_MANAGER');
-  }, [config?.favoriteBuses, getFavoriteRoutes]); // Listen to the actual config changes
+  }, [config?.favoriteRoutes, getFavoriteRoutes]); // Listen to the actual config changes
 
   // Listen to store events for real-time updates
   useStoreEvent(StoreEvents.CONFIG_CHANGED, (eventData) => {
     // Check if favorites changed
-    if (eventData.changes.favoriteBuses !== undefined) {
+    if (eventData.changes.favoriteRoutes !== undefined) {
       const configRoutes = getFavoriteRoutes();
       setSelectedRoutes(configRoutes);
       logger.debug('Updated selectedRoutes from store event', { 
@@ -222,9 +158,12 @@ export const useRouteManager = (): UseRouteManagerReturn => {
           
           const favoriteRoute: FavoriteRoute = {
             id: routeMapping.routeId, // Always use proper route ID from mapping service
+            routeId: routeMapping.routeId,
             routeName: routeName,
-            longName: routeToAdd.routeDesc || routeMapping.routeDesc || `Route ${routeName}`,
-            type: routeToAdd.type
+            direction: 'to_work', // Default direction
+            stationId: '', // Will be set when station is selected
+            stationName: '', // Will be set when station is selected
+            isActive: true
           };
           
           // Optimistically add to local state
@@ -268,9 +207,10 @@ export const useRouteManager = (): UseRouteManagerReturn => {
     selectedTypes,
     
     // Data
-    availableRoutes: availableRoutes || [],
+    availableRoutes,
     isLoading,
     config,
+    error,
     
     // Computed
     availableTypes,

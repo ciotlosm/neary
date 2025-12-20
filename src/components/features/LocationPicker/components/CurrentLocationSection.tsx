@@ -1,7 +1,7 @@
 import React from 'react';
 import { Typography, Alert } from '@mui/material';
 import { MyLocation as MyLocationIcon } from '@mui/icons-material';
-import { Button } from '../../../ui/Button';
+import { Button } from '../../../ui';
 
 interface CurrentLocationSectionProps {
   onUseCurrentLocation: () => Promise<void>;

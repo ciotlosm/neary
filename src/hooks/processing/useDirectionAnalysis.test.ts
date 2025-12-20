@@ -4,12 +4,13 @@ import * as fc from 'fast-check';
 import { useDirectionAnalysis } from './useDirectionAnalysis';
 import { propertyTestConfig } from '../../test/utils/propertyTestConfig';
 import { 
-  liveVehicleArb, 
+  coreVehicleArb, 
   stationArb,
   stopTimeArb,
   createMockData 
 } from '../../test/utils/mockDataGenerators';
-import type { LiveVehicle, Station, StopTime } from '../../types';
+import type { Station, StopTime } from '../../types';
+import type { CoreVehicle } from '../../types/coreVehicle';
 
 describe('useDirectionAnalysis', () => {
   describe('Property 6: Direction Analysis Accuracy', () => {
@@ -24,13 +25,13 @@ describe('useDirectionAnalysis', () => {
     it('should correctly determine direction based on sequence positions', () => {
       fc.assert(
         fc.property(
-          liveVehicleArb,
+          coreVehicleArb,
           stationArb,
           fc.array(stopTimeArb, { minLength: 3, maxLength: 10 }),
           fc.integer({ min: 1, max: 8 }), // targetStopSequence
           (vehicle, station, stopTimes, targetStopSequence) => {
             // Ensure valid vehicle data
-            const validVehicle: LiveVehicle = {
+            const validVehicle: CoreVehicle = {
               ...vehicle,
               id: vehicle.id || 'test-vehicle',
               tripId: 'test-trip',
@@ -196,12 +197,12 @@ describe('useDirectionAnalysis', () => {
     it('should maintain consistency across multiple calls', () => {
       fc.assert(
         fc.property(
-          liveVehicleArb,
+          coreVehicleArb,
           stationArb,
           fc.array(stopTimeArb, { minLength: 2, maxLength: 5 }),
           (vehicle, station, stopTimes) => {
             // Create consistent test data
-            const validVehicle: LiveVehicle = {
+            const validVehicle: CoreVehicle = {
               ...vehicle,
               id: 'test-vehicle',
               tripId: 'test-trip',
@@ -251,7 +252,7 @@ describe('useDirectionAnalysis', () => {
 
   describe('Unit Tests', () => {
     it('should determine arriving direction when vehicle is before target station', () => {
-      const vehicle: LiveVehicle = createMockData.liveVehicle({
+      const vehicle: CoreVehicle = createMockData.coreVehicle({
         id: 'vehicle-1',
         tripId: 'trip-123',
         position: { latitude: 46.74, longitude: 23.59 } // Slightly before the target station
@@ -309,7 +310,7 @@ describe('useDirectionAnalysis', () => {
       const pastTime = new Date();
       pastTime.setHours(pastTime.getHours() - 1); // 1 hour ago
 
-      const vehicle: LiveVehicle = createMockData.liveVehicle({
+      const vehicle: CoreVehicle = createMockData.coreVehicle({
         id: 'vehicle-1',
         tripId: 'trip-123',
         position: { latitude: 46.75, longitude: 23.6 },
@@ -356,7 +357,7 @@ describe('useDirectionAnalysis', () => {
     });
 
     it('should return unknown direction when target station not in trip', () => {
-      const vehicle: LiveVehicle = createMockData.liveVehicle({
+      const vehicle: CoreVehicle = createMockData.coreVehicle({
         id: 'vehicle-1',
         tripId: 'trip-123'
       });
@@ -379,7 +380,7 @@ describe('useDirectionAnalysis', () => {
     });
 
     it('should handle missing trip data gracefully', () => {
-      const vehicle: LiveVehicle = createMockData.liveVehicle({
+      const vehicle: CoreVehicle = createMockData.coreVehicle({
         id: 'vehicle-1',
         tripId: 'trip-not-found'
       });
@@ -412,7 +413,7 @@ describe('useDirectionAnalysis', () => {
     });
 
     it('should build stop sequence when data is available', () => {
-      const vehicle: LiveVehicle = createMockData.liveVehicle({
+      const vehicle: CoreVehicle = createMockData.coreVehicle({
         id: 'vehicle-1',
         tripId: 'trip-123'
       });

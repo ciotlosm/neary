@@ -86,13 +86,15 @@ export interface TranzyShapeResponse {
   shape_dist_traveled?: number;
 }
 
+import type { RouteType, Coordinates } from './coreVehicle';
+
 // Enhanced data structures for internal use
 export interface Route {
   id: string;
   agencyId: string;
   routeName: string;
   routeDesc: string;
-  type: 'tram' | 'metro' | 'rail' | 'bus' | 'ferry' | 'trolleybus' | 'other';
+  type: RouteType;
   color?: string;
   textColor?: string;
   url?: string;
@@ -137,22 +139,7 @@ export interface Schedule {
   }[];
 }
 
-export interface LiveVehicle {
-  id: string;
-  routeId: string;
-  tripId?: string;
-  label: string;
-  position: {
-    latitude: number;
-    longitude: number;
-    bearing?: number;
-  };
-  timestamp: Date;
-  speed: number;
-  occupancy?: string;
-  isWheelchairAccessible: boolean;
-  isBikeAccessible: boolean;
-}
+// Legacy LiveVehicle type removed - use CoreVehicle from './coreVehicle' instead
 
 // Vehicle route path data (from stop_times)
 export interface VehicleRoute {
@@ -166,48 +153,9 @@ export interface VehicleRoute {
   isDropOffAvailable: boolean;
 }
 
-// Combined data for enhanced vehicle information (live vehicle + route + schedule data)
-export interface EnhancedVehicleInfo {
-  // Live vehicle data
-  vehicle?: LiveVehicle;
-  
-  // Schedule data
-  schedule?: Schedule;
-  
-  // Computed information
-  id: string;
-  route: string; // Display name (route_short_name like "42", "43B")
-  routeId: string; // Internal route ID for API calls
-  destination: string; // From trip_headsign or route_long_name
-  direction: 'work' | 'home' | 'unknown';
-  routeType?: 'bus' | 'trolleybus' | 'tram' | 'metro' | 'rail' | 'ferry' | 'other';
-  
-  // Timing information
-  scheduledArrival?: Date;
-  liveArrival?: Date;
-  estimatedArrival: Date;
-  minutesAway: number;
-  delay?: number; // Minutes late/early (positive = late)
-  
-  // Status
-  isLive: boolean;
-  isScheduled: boolean;
-  confidence: 'high' | 'medium' | 'low';
-  
-  // Location
-  station: {
-    id: string;
-    name: string;
-    coordinates: {
-      latitude: number;
-      longitude: number;
-    };
-    isFavorite: boolean;
-  };
-}
+// Legacy EnhancedVehicleInfo type removed - use VehicleDisplayData from './presentationLayer' instead
 
-// Legacy alias for backward compatibility (will be removed)
-export type EnhancedBusInfo = EnhancedVehicleInfo;
+// Legacy alias removed - use VehicleDisplayData from presentationLayer.ts instead
 
 // API endpoint types
 export type TranzyEndpoint = 

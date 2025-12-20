@@ -3,13 +3,13 @@ import {
   Box,
   Typography,
   Chip,
-  Card,
-  CardContent,
   List,
   ListItem,
-  ListItemIcon,
   ListItemText,
+  ListItemIcon,
   Collapse,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { 
   ExpandMore, 
@@ -18,16 +18,32 @@ import {
   FlagOutlined,
   Map as MapIcon,
   LocationOn,
-  PersonPin
+  PersonPin,
 } from '@mui/icons-material';
 import { formatRefreshTime } from '../../../utils/timeFormat';
-import type { EnhancedVehicleInfo } from '../../../types';
+import type { CoreVehicle } from '../../../types/coreVehicle';
 import { useConfigStore } from '../../../stores/configStore';
 import { useVehicleStore } from '../../../stores/vehicleStore';
 import { useThemeUtils, useMuiUtils } from '../../../hooks';
 
-interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
-  _internalDirection?: 'arriving' | 'departing' | 'unknown';
+interface VehicleCardProps {
+  /** Core vehicle data */
+  vehicle: CoreVehicle;
+  /** Station ID for highlighting current station */
+  stationId?: string;
+  /** Whether the stops list is expanded */
+  isExpanded: boolean;
+  /** Callback when stops list is toggled */
+  onToggleExpanded: () => void;
+  /** Callback when map button is clicked */
+  onShowMap: () => void;
+  /** Callback when route is clicked */
+  onRouteClick?: () => void;
+  /** Show short stop list always visible in card */
+  showShortStopList?: boolean;
+  /** Show "Show stops" button for full expandable list */
+  showFullStopsButton?: boolean;
+  /** Stop sequence data for displaying route stops */
   stopSequence?: Array<{
     stopId: string;
     stopName: string;
@@ -35,17 +51,10 @@ interface EnhancedVehicleInfoWithDirection extends EnhancedVehicleInfo {
     isCurrent: boolean;
     isDestination: boolean;
   }>;
-}
-
-interface VehicleCardProps {
-  vehicle: EnhancedVehicleInfoWithDirection;
-  stationId?: string;
-  isExpanded: boolean;
-  onToggleExpanded: () => void;
-  onShowMap: () => void;
-  onRouteClick?: () => void;
-  showShortStopList?: boolean; // Show short stop list always visible in card
-  showFullStopsButton?: boolean; // Show "Show stops" button for full expandable list
+  /** Optional arrival time override (e.g., "5 min", "Now") */
+  arrivalText?: string;
+  /** Optional destination override */
+  destination?: string;
 }
 
 const VehicleCardComponent: React.FC<VehicleCardProps> = ({
@@ -56,7 +65,10 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
   onShowMap,
   onRouteClick,
   showShortStopList = false,
-  showFullStopsButton = true
+  showFullStopsButton = true,
+  stopSequence = [],
+  arrivalText,
+  destination
 }) => {
   const { config } = useConfigStore();
   // Offline functionality is now integrated into vehicleStore
@@ -66,8 +78,8 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
   const { getDataFreshnessColor, getBackgroundColors, getBorderColors, alpha, theme } = useThemeUtils();
   const { getCardStyles } = useMuiUtils();
   
-  // Determine if vehicle has departed (must be declared early for use in memoized calculations)
-  const isDeparted = vehicle._internalDirection === 'departing';
+  // Determine if vehicle has departed based on simple logic
+  const isDeparted = false; // TODO: Implement simple departure logic if needed
   
   // State for updating relative time display every 10 seconds
   const [currentTime, setCurrentTime] = React.useState(Date.now());
@@ -81,9 +93,9 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Memoize expensive color calculations
+  // Memoize expensive color calculations using vehicle timestamp
   const statusDotColor = React.useMemo(() => {
-    const vehicleTimestamp = vehicle.vehicle?.timestamp;
+    const vehicleTimestamp = vehicle.timestamp;
     if (!vehicleTimestamp) {
       return getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
     }
@@ -95,10 +107,10 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
     const minutesSinceUpdate = (currentTime - lastUpdate.getTime()) / (1000 * 60);
     
     return getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
-  }, [vehicle.vehicle?.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor]);
+  }, [vehicle.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor]);
 
   const timestampColor = React.useMemo(() => {
-    const vehicleTimestamp = vehicle.vehicle?.timestamp;
+    const vehicleTimestamp = vehicle.timestamp;
     if (!vehicleTimestamp) {
       const baseColor = getDataFreshnessColor(Infinity, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
       return alpha(baseColor, isDeparted ? 0.3 : 0.4);
@@ -112,28 +124,19 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
     
     const baseColor = getDataFreshnessColor(minutesSinceUpdate, config?.staleDataThreshold || 5, !isOnline || !isApiOnline);
     return alpha(baseColor, isDeparted ? 0.3 : 0.5);
-  }, [vehicle.vehicle?.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor, alpha, isDeparted]);
+  }, [vehicle.timestamp, config?.staleDataThreshold, isOnline, isApiOnline, currentTime, getDataFreshnessColor, alpha, isDeparted]);
 
-  // Determine which stops to show based on showShortStopList
+  // Get stops to show in short list (next few stops)
   const stopsToShow = React.useMemo(() => {
-    if (!vehicle.stopSequence || !showShortStopList) {
-      return vehicle.stopSequence || [];
-    }
-
-    // For short list in Routes view, show: current vehicle station and closest station (target)
-    // Destination is now shown in the title, so we don't need it in the stop list
-    const allStops = vehicle.stopSequence;
-    const currentStop = allStops.find(stop => stop.isCurrent);
-    const targetStop = allStops.find(stop => stop.stopId === stationId); // The station from the group header
-
-    // Get the stops we want to show (excluding destination since it's in the title)
-    const stopsToInclude = [];
-    if (currentStop) stopsToInclude.push(currentStop);
-    if (targetStop && targetStop.stopId !== currentStop?.stopId) stopsToInclude.push(targetStop);
-
-    // Sort by sequence to maintain route order
-    return stopsToInclude.sort((a, b) => a.sequence - b.sequence);
-  }, [vehicle.stopSequence, showShortStopList, stationId]);
+    if (!stopSequence || !showShortStopList) return [];
+    
+    // Find current stop index
+    const currentStopIndex = stopSequence.findIndex(stop => stop.isCurrent);
+    if (currentStopIndex === -1) return stopSequence.slice(0, 3); // Show first 3 if no current stop
+    
+    // Show current stop + next 2 stops
+    return stopSequence.slice(currentStopIndex, currentStopIndex + 3);
+  }, [stopSequence, showShortStopList]);
 
   const backgrounds = getBackgroundColors();
   const borders = getBorderColors();
@@ -210,7 +213,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
               fontWeight: 'bold',
               fontSize: '1rem'
             }}>
-              {vehicle.route}
+              {vehicle.routeId}
             </Typography>
           </Box>
           
@@ -230,7 +233,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
             }}>
-              {vehicle.destination || 'Unknown destination'}
+              {destination || vehicle.routeName || `Route ${vehicle.routeId}`}
             </Typography>
             <Box sx={{ 
               display: 'flex', 
@@ -250,7 +253,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
                 whiteSpace: 'nowrap',
                 flexShrink: 1
               }}>
-                Vehicle: {vehicle.vehicle?.label || vehicle.vehicle?.id || 'Unknown'}
+                Vehicle: {vehicle.label || vehicle.id}
               </Typography>
               <Box sx={{ 
                 display: 'flex', 
@@ -259,40 +262,16 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
                 alignItems: { xs: 'flex-start', sm: 'center' },
                 flexWrap: 'wrap'
               }}>
-                {vehicle._internalDirection !== 'unknown' && (
+                {arrivalText && (
                   <Chip
-                    label={
-                      vehicle._internalDirection === 'arriving' 
-                        ? vehicle.minutesAway === 0 
-                          ? 'At station'
-                          : vehicle.minutesAway === 1 
-                            ? 'Arriving next'
-                            : `Arriving in ${vehicle.minutesAway}min`
-                        : `Already left`
-                    }
+                    label={arrivalText}
                     size="small"
                     sx={{
-                      bgcolor: vehicle._internalDirection === 'arriving' 
-                        ? vehicle.minutesAway === 0
-                          ? alpha(theme.palette.warning.main, 0.1) // Warning color for "At station"
-                          : alpha(theme.palette.success.main, 0.1) // Success color for "Arriving"
-                        : alpha(theme.palette.error.main, 0.1), // Error color for "Already left"
-                      color: vehicle._internalDirection === 'arriving' 
-                        ? vehicle.minutesAway === 0
-                          ? isDeparted 
-                            ? alpha(theme.palette.warning.main, 0.6)
-                            : theme.palette.warning.main
-                          : isDeparted 
-                            ? alpha(theme.palette.success.main, 0.6)
-                            : theme.palette.success.main
-                        : isDeparted 
-                          ? alpha(theme.palette.error.main, 0.6)
-                          : theme.palette.error.main,
-                      border: vehicle._internalDirection === 'arriving' 
-                        ? vehicle.minutesAway === 0
-                          ? `1px solid ${alpha(theme.palette.warning.main, isDeparted ? 0.2 : 0.3)}`
-                          : `1px solid ${alpha(theme.palette.success.main, isDeparted ? 0.2 : 0.3)}`
-                        : `1px solid ${alpha(theme.palette.error.main, isDeparted ? 0.2 : 0.3)}`,
+                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                      color: isDeparted 
+                        ? alpha(theme.palette.success.main, 0.6)
+                        : theme.palette.success.main,
+                      border: `1px solid ${alpha(theme.palette.success.main, isDeparted ? 0.2 : 0.3)}`,
                       fontSize: { xs: '0.7rem', sm: '0.75rem' },
                       height: { xs: 18, sm: 20 },
                       opacity: isDeparted ? 0.7 : 1,
@@ -307,7 +286,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
             {showShortStopList && stopsToShow.length > 0 && (
               <Box sx={{ mt: 1 }}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {stopsToShow.map((stop, index) => (
+                  {stopsToShow.map((stop) => (
                     <Box
                       key={`${vehicle.id}-short-stop-${stop.stopId}-${stop.sequence}`}
                       sx={{
@@ -392,7 +371,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
             )}
 
             {/* Expandable stops toggle and map button */}
-            {vehicle.stopSequence && vehicle.stopSequence.length > 0 && (
+            {stopSequence && stopSequence.length > 0 && (
               <Box sx={{ 
                 mt: 1, 
                 display: 'flex', 
@@ -443,7 +422,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      Stops ({vehicle.stopSequence.length})
+                      Stops ({stopSequence.length})
                     </Typography>
                   </Box>
                 )}
@@ -542,10 +521,10 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
           }}
         >
           {formatRefreshTime(
-            vehicle.vehicle?.timestamp instanceof Date 
-              ? vehicle.vehicle.timestamp 
-              : vehicle.vehicle?.timestamp 
-                ? new Date(vehicle.vehicle.timestamp)
+            vehicle.timestamp instanceof Date 
+              ? vehicle.timestamp 
+              : vehicle.timestamp 
+                ? new Date(vehicle.timestamp)
                 : new Date()
           )}
         </Typography>
@@ -556,7 +535,7 @@ const VehicleCardComponent: React.FC<VehicleCardProps> = ({
         <Box sx={{ px: 2, pb: 2 }}>
 
           <List dense sx={{ py: 0 }}>
-            {(vehicle.stopSequence || []).map((stop) => (
+            {(stopSequence || []).map((stop) => (
               <ListItem
                 key={`${vehicle.id}-stop-${stop.stopId}-${stop.sequence}`}
                 sx={{
@@ -664,8 +643,8 @@ export const VehicleCard = React.memo(VehicleCardComponent, (prevProps, nextProp
   return (
     prevProps.vehicle.id === nextProps.vehicle.id &&
     prevProps.vehicle.routeId === nextProps.vehicle.routeId &&
-    prevProps.vehicle.minutesAway === nextProps.vehicle.minutesAway &&
-    prevProps.vehicle._internalDirection === nextProps.vehicle._internalDirection &&
+    prevProps.arrivalText === nextProps.arrivalText &&
+    prevProps.destination === nextProps.destination &&
     prevProps.isExpanded === nextProps.isExpanded &&
     prevProps.stationId === nextProps.stationId &&
     prevProps.showShortStopList === nextProps.showShortStopList &&

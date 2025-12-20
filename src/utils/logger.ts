@@ -91,11 +91,64 @@ class FixedLogger {
     console.log(`%c${prefix} ${entry.message}`, styles[entry.level]);
     
     if (entry.data) {
-      console.log('📊 Data:', entry.data);
+      // Handle axios errors and other complex objects in data
+      if (entry.data && typeof entry.data === 'object') {
+        // Extract useful information from axios errors
+        if (entry.data.config?.url || entry.data.response) {
+          console.log('📊 Data:', {
+            url: entry.data.config?.url,
+            status: entry.data.response?.status,
+            statusText: entry.data.response?.statusText,
+            message: entry.data.message,
+            code: entry.data.code,
+          });
+        } else {
+          console.log('📊 Data:', entry.data);
+        }
+      } else {
+        console.log('📊 Data:', entry.data);
+      }
     }
     
     if (entry.error) {
-      console.error('❌ Error:', entry.error);
+      // Properly serialize error objects to avoid "[object Object]"
+      if (entry.error instanceof Error) {
+        const errorDetails: any = {
+          name: entry.error.name,
+          message: entry.error.message,
+        };
+        
+        // Include stack trace in development
+        if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+          errorDetails.stack = entry.error.stack;
+        }
+        
+        // Include any additional properties from the error object (like TransformationError properties)
+        const additionalProps = Object.keys(entry.error).filter(
+          key => !['name', 'message', 'stack'].includes(key)
+        );
+        additionalProps.forEach(key => {
+          const value = (entry.error as any)[key];
+          // Safely serialize complex objects
+          try {
+            errorDetails[key] = typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : value;
+          } catch {
+            errorDetails[key] = String(value);
+          }
+        });
+        
+        console.error('❌ Error:', errorDetails);
+      } else if (typeof entry.error === 'object' && entry.error !== null) {
+        // Handle non-Error objects (like axios errors)
+        try {
+          console.error('❌ Error:', JSON.stringify(entry.error, null, 2));
+        } catch {
+          // Fallback if JSON.stringify fails (circular references, etc.)
+          console.error('❌ Error:', entry.error);
+        }
+      } else {
+        console.error('❌ Error:', entry.error);
+      }
     }
   }
 
@@ -209,16 +262,43 @@ class FixedLogger {
     });
   }
 
-  error(message: string, error?: Error | any, category = 'APP'): void {
+  error(message: string, errorOrData?: Error | any, category = 'APP'): void {
     if (!this.shouldLog(LogLevel.ERROR)) return;
+    
+    let processedError: Error | undefined;
+    let additionalData: any;
+
+    // Handle different types of second parameter
+    if (errorOrData instanceof Error) {
+      // It's an actual Error object
+      processedError = errorOrData;
+    } else if (errorOrData && typeof errorOrData === 'object') {
+      // It's a data object (like the current case with {error: ..., duration: ...})
+      additionalData = errorOrData;
+      
+      // If the data object has an 'error' property, extract it
+      if (errorOrData.error) {
+        if (errorOrData.error instanceof Error) {
+          processedError = errorOrData.error;
+        } else if (typeof errorOrData.error === 'string') {
+          processedError = new Error(errorOrData.error);
+        } else {
+          // Avoid [object Object] by properly stringifying
+          processedError = new Error(JSON.stringify(errorOrData.error));
+        }
+      }
+    } else if (errorOrData !== undefined) {
+      // It's a primitive value
+      processedError = new Error(String(errorOrData));
+    }
     
     this.addLog({
       timestamp: new Date(),
       level: LogLevel.ERROR,
       category,
       message,
-      error: error instanceof Error ? error : new Error(String(error)),
-      data: error instanceof Error ? undefined : error,
+      error: processedError,
+      data: additionalData,
       userId: 'SYSTEM',
       sessionId: this.sessionId,
     });

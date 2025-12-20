@@ -8,7 +8,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
-import { useModernRefreshSystem } from '../../../hooks/shared/useModernRefreshSystem';
+import { useRefreshSystem } from '../../../hooks/shared/useRefreshSystem';
 import { useLocationStore } from '../../../stores/locationStore';
 import { logger } from '../../../utils/logger';
 import { useThemeUtils } from '../../../hooks';
@@ -19,7 +19,7 @@ export const RefreshControl: React.FC = () => {
     isAutoRefreshEnabled, 
     lastUpdate, 
     lastApiUpdate 
-  } = useModernRefreshSystem();
+  } = useRefreshSystem();
   const { requestLocation } = useLocationStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(Date.now());

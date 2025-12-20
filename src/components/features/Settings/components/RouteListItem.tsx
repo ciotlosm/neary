@@ -52,19 +52,18 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
         ...getCardStyles('glass'),
         mb: isLast ? 0 : 1,
         bgcolor: isFavorite 
-          ? alpha(theme.palette.success.main, 0.08)
+          ? alpha(theme.palette.primary.main, 0.08)
           : backgrounds.paper,
         border: `1px solid ${isFavorite 
-          ? alpha(theme.palette.success.main, 0.3)
+          ? alpha(theme.palette.primary.main, 0.3)
           : borders.divider}`,
         '&:hover': {
           bgcolor: isFavorite 
-            ? alpha(theme.palette.success.main, 0.12)
+            ? alpha(theme.palette.primary.main, 0.12)
             : backgrounds.paperHover,
           border: `1px solid ${isFavorite 
-            ? alpha(theme.palette.success.main, 0.5)
+            ? alpha(theme.palette.primary.main, 0.5)
             : borders.dividerMedium}`,
-          transform: 'translateY(-1px)',
         },
         transition: 'all 0.2s ease-in-out',
       }}
@@ -112,9 +111,9 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
                   label="Favorite"
                   size="small"
                   sx={{
-                    bgcolor: alpha(theme.palette.success.main, 0.1),
-                    color: theme.palette.success.main,
-                    border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    color: theme.palette.primary.main,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
                     fontWeight: 600,
                     fontSize: '0.7rem',
                     height: 22,
@@ -148,13 +147,13 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
               icon={<FavoriteBorderIcon />}
               checkedIcon={<FavoriteIcon />}
               sx={{
-                color: isFavorite ? theme.palette.success.main : theme.palette.text.secondary,
+                color: isFavorite ? theme.palette.primary.main : theme.palette.text.secondary,
                 '&.Mui-checked': {
-                  color: theme.palette.success.main,
+                  color: theme.palette.primary.main,
                 },
                 '&:hover': {
                   bgcolor: alpha(
-                    isFavorite ? theme.palette.success.main : theme.palette.text.secondary, 
+                    isFavorite ? theme.palette.primary.main : theme.palette.text.secondary, 
                     0.1
                   ),
                 },
