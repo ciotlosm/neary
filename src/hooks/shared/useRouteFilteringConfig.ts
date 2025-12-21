@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { routeFilteringConfigurationManager } from '../../services/RouteFilteringConfigurationManager';
+import { routeFilteringConfigurationManager } from '../../services/business-logic/RouteFilteringConfigurationManager';
 import type { RouteFilteringConfig, ValidationResult } from '../../types/routeFiltering';
 import { logger } from '../../utils/shared/logger';
 

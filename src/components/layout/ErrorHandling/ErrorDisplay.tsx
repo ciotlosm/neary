@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import type { ErrorState } from '../../../types';
-import { formatTime24 } from '../../../utils/timeFormat';
+import { formatTime24 } from '../../../utils/formatting/timeFormat';
 
 interface ErrorDisplayProps {
   error: ErrorState;

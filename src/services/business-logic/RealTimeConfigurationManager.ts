@@ -8,14 +8,14 @@
  * Requirements: 2.5, 3.3, 5.1
  */
 
-import type { RouteFilteringConfig, ConfigChangeEvent } from '../types/routeFiltering';
-import type { CoreVehicle } from '../types/coreVehicle';
+import type { RouteFilteringConfig, ConfigChangeEvent } from '../../types/routeFiltering';
+import type { CoreVehicle } from '../../types/coreVehicle';
 import type { RouteActivityInfo, RouteClassification } from './RouteActivityAnalyzer';
 import { RouteClassification as RouteClass } from './RouteActivityAnalyzer';
 import { routeFilteringConfigurationManager } from './RouteFilteringConfigurationManager';
 import { routeActivityAnalyzer } from './RouteActivityAnalyzer';
-import { intelligentVehicleFilter } from './data-processing/IntelligentVehicleFilter';
-import { logger } from '../utils/shared/logger';
+import { intelligentVehicleFilter } from '../data-processing/IntelligentVehicleFilter';
+import { logger } from '../../utils/shared/logger';
 
 // ============================================================================
 // INTERFACES AND TYPES

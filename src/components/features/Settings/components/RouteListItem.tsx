@@ -15,7 +15,7 @@ import {
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
 } from '@mui/icons-material';
-import { getRouteTypeInfo } from '../../../../utils/routeUtils';
+import { getRouteTypeInfo } from '../../../../utils/formatting/routeUtils';
 import { useThemeUtils, useMuiUtils } from '../../../../hooks';
 import { logger } from '../../../../utils/shared/logger';
 // Define the route type used by the store

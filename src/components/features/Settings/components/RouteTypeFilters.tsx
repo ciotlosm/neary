@@ -7,7 +7,7 @@ import {
   Stack,
 } from '@mui/material';
 import { FilterList as FilterIcon } from '@mui/icons-material';
-import { getRouteTypeInfo } from '../../../../utils/routeUtils';
+import { getRouteTypeInfo } from '../../../../utils/formatting/routeUtils';
 import { useThemeUtils } from '../../../../hooks';
 
 interface RouteTypeFiltersProps {
