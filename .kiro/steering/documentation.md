@@ -7,7 +7,7 @@
 **❌ NEVER create markdown files in the project root directory (except README.md)**
 **❌ NEVER create .md files anywhere in the root directory**
 **❌ NEVER create documentation files outside of docs/ folder**
-**✅ ALWAYS use /temporary folder for intermediate files, testing artifacts, and temporary documentation**
+**✅ ALWAYS use /temporary folder for intermediate files, testing artifacts, investigations and temporary documentation**
 
 ### **✅ CURRENT CONSOLIDATED STRUCTURE (December 2024):**
 
@@ -238,8 +238,7 @@ find docs -name "*.md" -exec wc -l {} + | sort -nr | head -10
 ### **FORBIDDEN PRACTICES:**
 
 ❌ **NEVER create new .md files** - Update existing files instead
-❌ **NEVER create detailed implementation docs** - Keep technical details minimal
-❌ **NEVER create micro-documentation** - One issue per section maximum
+❌ **NEVER create implementation docs** - Keep technical details minimal
 ❌ **NEVER create step-by-step guides over 20 lines** - Summarize instead
 ❌ **NEVER create hook/component documentation** - Code should be self-documenting
 ❌ **NEVER create architecture deep-dives** - High-level overview only
@@ -251,11 +250,10 @@ find docs -name "*.md" -exec wc -l {} + | sort -nr | head -10
 
 ✅ **ALWAYS update existing files** - Never create new ones
 ✅ **ALWAYS keep entries under 5 lines** - Problem + Solution format
-✅ **ALWAYS archive old content** - Move detailed history to archive
+✅ **ALWAYS delete old content** - Move detailed history to archive
 ✅ **ALWAYS check file sizes** - Monitor with `wc -l docs/*.md`
 ✅ **ALWAYS use minimal language** - No verbose explanations
 ✅ **ALWAYS prioritize user needs** - Skip implementation details
-✅ **ALWAYS maintain the current structure** - No exceptions
 ✅ **ALWAYS use temporary/ folder** - For all intermediate and testing files
 
 ### **FILE SIZE ENFORCEMENT:**

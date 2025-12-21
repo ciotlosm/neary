@@ -90,7 +90,7 @@ export type {
   
   // Form types
   FormFieldProps,
-  ValidationResult,
+  ValidationResult as FormValidationResult,
   FieldValidator,
   
   // Async types
@@ -568,7 +568,7 @@ export type Favorites = FavoriteRoute[];
 // Export route filtering configuration types and utilities
 export type {
   RouteFilteringConfig,
-  ValidationResult,
+  ValidationResult as RouteFilteringValidationResult,
   IConfigurationManager,
   ConfigChangeEvent,
 } from './routeFiltering';
@@ -753,6 +753,80 @@ export type DevOnlyTypes = typeof __DEV__ extends true ? {
     testData?: any;
   };
 } : {};
+
+// ============================================================================
+// ARCHITECTURE SIMPLIFICATION TYPES
+// ============================================================================
+
+// Export architecture simplification interfaces and data models
+export type {
+  // Core interfaces
+  CodeAnalyzer,
+  RefactoringEngine,
+  ValidationSystem,
+  
+  // Data models
+  AnalysisReport,
+  RefactoringPlan,
+  FileInfo,
+  FolderInfo,
+  
+  // Analysis reports
+  DuplicationReport,
+  SizeReport,
+  StructureReport,
+  NamingReport,
+  
+  // Analysis details
+  DuplicatePattern,
+  PatternLocation,
+  ConsolidationSuggestion,
+  NamingIssue,
+  ComplexityMetric,
+  
+  // Refactoring operations
+  RefactoringOperation,
+  OperationParameters,
+  CodeSelection,
+  DependencyMap,
+  RollbackOperation,
+  BackupData,
+  
+  // Validation results
+  TestResult,
+  TestFailure,
+  BuildResult,
+  BuildError,
+  BuildWarning,
+  FunctionalityResult,
+  FunctionalityChange,
+  PerformanceImpact,
+  
+  // Configuration
+  AnalysisConfig,
+  ImpactAssessment,
+  RefactoringResult,
+  RefactoringFailure,
+  ValidationReport,
+  
+  // Helper types
+  SizeDistribution,
+  ReorganizationSuggestion,
+  FolderStructure,
+  DepthAnalysis,
+  NamingSuggestion,
+  NamingPatternAnalysis,
+} from './architectureSimplification';
+
+export {
+  // Default configurations
+  DEFAULT_ANALYSIS_CONFIG,
+  
+  // Type guards
+  isAnalysisReport,
+  isRefactoringPlan,
+  isFileInfo,
+} from './architectureSimplification';
 
 // ============================================================================
 // VERSION INFORMATION
