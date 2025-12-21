@@ -17,7 +17,7 @@ export interface FilteredStation {
   station: TranzyStopResponse;
   distance: number;
   hasActiveTrips: boolean;
-  stationType: 'primary' | 'secondary';
+  stationType: 'primary' | 'secondary' | 'all';
 }
 
 /**
@@ -33,7 +33,7 @@ export interface SmartStationFilterResult {
   retryFiltering: () => void;
   utilities: {
     formatDistance: (distance: number) => string;
-    getStationTypeColor: (stationType: 'primary' | 'secondary') => 'primary' | 'secondary';
-    getStationTypeLabel: (stationType: 'primary' | 'secondary') => string;
+    getStationTypeColor: (stationType: 'primary' | 'secondary' | 'all') => 'primary' | 'secondary' | 'default';
+    getStationTypeLabel: (stationType: 'primary' | 'secondary' | 'all') => string;
   };
 }

@@ -20,12 +20,16 @@ const formatDistance = (distance: number): string => {
   return `${(distance / 1000).toFixed(1)}km`;
 };
 
-const getStationTypeColor = (stationType: 'primary' | 'secondary'): 'primary' | 'secondary' => {
-  return stationType === 'primary' ? 'primary' : 'secondary';
+const getStationTypeColor = (stationType: 'primary' | 'secondary' | 'all'): 'primary' | 'secondary' | 'default' => {
+  if (stationType === 'primary') return 'primary';
+  if (stationType === 'secondary') return 'secondary';
+  return 'default';
 };
 
-const getStationTypeLabel = (stationType: 'primary' | 'secondary'): string => {
-  return stationType === 'primary' ? 'Closest' : 'Nearby';
+const getStationTypeLabel = (stationType: 'primary' | 'secondary' | 'all'): string => {
+  if (stationType === 'primary') return 'Closest';
+  if (stationType === 'secondary') return 'Nearby';
+  return ''; // No label for 'all' type
 };
 
 // Safe distance calculation with error handling
@@ -76,7 +80,7 @@ export function useSmartStationFilter(): SmartStationFilterResult {
           { lat: station.stop_lat, lon: station.stop_lon }
         ) : 0,
         hasActiveTrips: hasActiveTrips(station, stopTimes),
-        stationType: 'primary' as const
+        stationType: 'all' as const // No type labels when showing all stations
       }));
 
       // Sort by distance if location is available

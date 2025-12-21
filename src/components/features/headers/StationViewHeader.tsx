@@ -39,7 +39,7 @@ export const StationViewHeader: FC<StationViewHeaderProps> = ({
               size="small"
             />
           }
-          label="Smart Filter"
+          label="Nearby only"
           sx={{ ml: 1 }}
         />
       </Stack>
