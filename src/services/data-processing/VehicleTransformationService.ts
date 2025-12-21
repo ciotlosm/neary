@@ -48,10 +48,10 @@ import {
 import type { TransformationStep } from '../../types/transformationPipeline';
 import { DataValidator } from './DataValidator';
 import { transformationRetryManager } from './TransformationRetryManager';
-import { routeFilteringConfigurationManager } from '../RouteFilteringConfigurationManager';
-import { routeActivityAnalyzer } from '../RouteActivityAnalyzer';
+import { routeFilteringConfigurationManager } from '../business-logic/RouteFilteringConfigurationManager';
+import { routeActivityAnalyzer } from '../business-logic/RouteActivityAnalyzer';
 import { intelligentVehicleFilter } from '../data-processing/IntelligentVehicleFilter';
-import { realTimeConfigurationManager } from '../RealTimeConfigurationManager';
+import { realTimeConfigurationManager } from '../business-logic/RealTimeConfigurationManager';
 import type { FilteringContext } from '../data-processing/IntelligentVehicleFilter';
 import { logger } from '../../utils/shared/logger';
 
@@ -2205,7 +2205,7 @@ export class VehicleTransformationService {
   async applyRealTimeConfigurationUpdate(
     configChange: Partial<import('../../types/routeFiltering').RouteFilteringConfig>,
     currentVehicles: CoreVehicle[]
-  ): Promise<import('../RealTimeConfigurationManager').RealTimeUpdateResult> {
+  ): Promise<import('../business-logic/RealTimeConfigurationManager').RealTimeUpdateResult> {
     logger.info('Applying real-time configuration update to VehicleTransformationService', {
       configChange,
       vehicleCount: currentVehicles.length
@@ -2269,7 +2269,7 @@ export class VehicleTransformationService {
    * @returns Unsubscribe function
    */
   onRouteTransition(
-    callback: (transition: import('../RealTimeConfigurationManager').RouteTransitionEvent) => void
+    callback: (transition: import('../business-logic/RealTimeConfigurationManager').RouteTransitionEvent) => void
   ): () => void {
     return realTimeConfigurationManager.onRouteTransition(callback);
   }
@@ -2279,7 +2279,7 @@ export class VehicleTransformationService {
    * 
    * @returns Current performance metrics
    */
-  getRealTimePerformanceMetrics(): import('../RealTimeConfigurationManager').RealTimePerformanceMetrics {
+  getRealTimePerformanceMetrics(): import('../business-logic/RealTimeConfigurationManager').RealTimePerformanceMetrics {
     return realTimeConfigurationManager.getPerformanceMetrics();
   }
 
@@ -2288,7 +2288,7 @@ export class VehicleTransformationService {
    * 
    * @returns Current circuit breaker state
    */
-  getCircuitBreakerState(): import('../RealTimeConfigurationManager').CircuitBreakerState {
+  getCircuitBreakerState(): import('../business-logic/RealTimeConfigurationManager').CircuitBreakerState {
     return realTimeConfigurationManager.getCircuitBreakerState();
   }
   

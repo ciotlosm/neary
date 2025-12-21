@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ErrorState } from '../../types';
 import { StoreErrorHandler } from '../../stores/shared/errorHandler';
-import { withRetry, isRetryableError, RetryError } from '../../utils/retryUtils';
+import { withRetry, isRetryableError, RetryError } from '../../utils/formatting/retryUtils';
 
 export interface UseErrorHandlerReturn {
   error: ErrorState | null;

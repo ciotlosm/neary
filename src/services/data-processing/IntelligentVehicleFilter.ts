@@ -11,8 +11,8 @@
 
 import type { CoreVehicle, Coordinates } from '../../types/coreVehicle';
 import type { TransformationStation, TransformationContext } from '../../types/presentationLayer';
-import type { RouteActivityInfo, RouteClassification } from '../RouteActivityAnalyzer';
-import { RouteClassification as RouteClass } from '../RouteActivityAnalyzer';
+import type { RouteActivityInfo, RouteClassification } from '../business-logic/RouteActivityAnalyzer';
+import { RouteClassification as RouteClass } from '../business-logic/RouteActivityAnalyzer';
 import { logger } from '../../utils/shared/logger';
 import { debugMonitoringService } from '../DebugMonitoringService';
 import type { RouteClassificationDebug } from '../DebugMonitoringService';

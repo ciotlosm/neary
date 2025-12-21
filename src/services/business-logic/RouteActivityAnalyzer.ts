@@ -8,12 +8,12 @@
  * Requirements: 1.1, 1.2, 1.3, 7.5
  */
 
-import type { CoreVehicle } from '../types/coreVehicle';
-import { logger } from '../utils/shared/logger';
-import { gracefulDegradationService, DegradationLevel, FallbackStrategy } from './GracefulDegradationService';
-import type { DegradationContext } from './GracefulDegradationService';
-import { debugMonitoringService } from './DebugMonitoringService';
-import type { RouteClassificationDebug } from './DebugMonitoringService';
+import type { CoreVehicle } from '../../types/coreVehicle';
+import { logger } from '../../utils/shared/logger';
+import { gracefulDegradationService, DegradationLevel, FallbackStrategy } from '../GracefulDegradationService';
+import type { DegradationContext } from '../GracefulDegradationService';
+import { debugMonitoringService } from '../DebugMonitoringService';
+import type { RouteClassificationDebug } from '../DebugMonitoringService';
 
 // ============================================================================
 // INTERFACES AND TYPES

@@ -4,7 +4,7 @@
  */
 
 import { logger } from '../../utils/shared/logger';
-import { withRetry } from '../../utils/retryUtils';
+import { withRetry } from '../../utils/formatting/retryUtils';
 
 export interface ErrorState {
   type: 'network' | 'parsing' | 'noData' | 'partial' | 'authentication';

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useConfigStore } from '../../stores/configStore';
 import { useStoreEvent, StoreEvents } from '../../stores/shared/storeEvents';
-import { getUniqueRouteTypes } from '../../utils/routeUtils';
+import { getUniqueRouteTypes } from '../../utils/formatting/routeUtils';
 import { logger } from '../../utils/shared/logger';
 
 import { useRouteData } from '../shared/useStoreData';

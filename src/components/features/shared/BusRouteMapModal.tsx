@@ -16,7 +16,7 @@ import { enhancedTranzyApi } from '../../../services/api/tranzyApiService';
 import { agencyService } from '../../../services/agencyService';
 import { logger } from '../../../utils/shared/logger';
 import { calculateDistance } from '../../../utils/data-processing/distanceUtils';
-import { arePointsOverlapping, calculateOverlapBounds, logOverlapDetection } from '../../../utils/mapUtils';
+import { arePointsOverlapping, calculateOverlapBounds, logOverlapDetection } from '../../../utils/formatting/mapUtils';
 import { useAsyncOperation } from '../../../hooks/shared/useAsyncOperation';
 import type { MapModalBusInfo } from '../../../types/mapModal';
 

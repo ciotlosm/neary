@@ -9,7 +9,7 @@
  */
 
 import type { CoreVehicle } from '../types/coreVehicle';
-import type { RouteActivityInfo } from './RouteActivityAnalyzer';
+import type { RouteActivityInfo } from './business-logic/RouteActivityAnalyzer';
 import type { FilteringResult } from './data-processing/IntelligentVehicleFilter';
 import type { RouteFilteringConfig } from '../types/routeFiltering';
 import { DEFAULT_ROUTE_FILTERING_CONFIG } from '../types/routeFiltering';

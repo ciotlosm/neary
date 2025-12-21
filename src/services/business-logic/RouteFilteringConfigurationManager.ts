@@ -4,21 +4,21 @@
  * Requirements: 3.1, 3.2, 3.4, 3.5
  */
 
-import { logger } from '../utils/shared/logger';
-import { gracefulDegradationService } from './GracefulDegradationService';
+import { logger } from '../../utils/shared/logger';
+import { gracefulDegradationService } from '../GracefulDegradationService';
 import type {
   RouteFilteringConfig,
   IConfigurationManager,
   ValidationResult,
   ConfigChangeEvent,
-} from '../types/routeFiltering';
+} from '../../types/routeFiltering';
 import {
   DEFAULT_ROUTE_FILTERING_CONFIG,
   CONFIG_VALIDATION_CONSTRAINTS,
   createDefaultRouteFilteringConfig,
   mergeRouteFilteringConfig,
   isRouteFilteringConfig,
-} from '../types/routeFiltering';
+} from '../../types/routeFiltering';
 
 /**
  * Configuration Manager for Route Filtering
@@ -195,7 +195,7 @@ export class RouteFilteringConfigurationManager implements IConfigurationManager
   async loadPersistedConfig(): Promise<RouteFilteringConfig> {
     try {
       // Use a safer approach to access the store
-      const { useConfigStore } = await import('../stores/configStore');
+      const { useConfigStore } = await import('../../stores/configStore');
       const configStore = useConfigStore.getState();
       const userConfig = configStore.config;
       

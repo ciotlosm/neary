@@ -20,7 +20,7 @@ import {
   LocationOn,
   PersonPin,
 } from '@mui/icons-material';
-import { formatRefreshTime } from '../../../utils/timeFormat';
+import { formatRefreshTime } from '../../../utils/formatting/timeFormat';
 import type { CoreVehicle } from '../../../types/coreVehicle';
 import { useConfigStore } from '../../../stores/configStore';
 import { useVehicleStore } from '../../../stores/vehicleStore';
