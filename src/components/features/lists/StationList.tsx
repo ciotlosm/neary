@@ -19,8 +19,8 @@ interface StationListProps {
   stations: FilteredStation[];
   utilities: {
     formatDistance: (distance: number) => string;
-    getStationTypeColor: (stationType: 'primary' | 'secondary') => 'primary' | 'secondary';
-    getStationTypeLabel: (stationType: 'primary' | 'secondary') => string;
+    getStationTypeColor: (stationType: 'primary' | 'secondary' | 'all') => 'primary' | 'secondary' | 'default';
+    getStationTypeLabel: (stationType: 'primary' | 'secondary' | 'all') => string;
   };
 }
 
@@ -45,13 +45,15 @@ export const StationList: FC<StationListProps> = ({ stations, utilities }) => {
                     {station.stop_name}
                   </Typography>
                   
-                  {/* Primary/Secondary station indicator */}
-                  <Chip
-                    label={getStationTypeLabel(stationType)}
-                    size="small"
-                    color={getStationTypeColor(stationType)}
-                    variant="filled"
-                  />
+                  {/* Primary/Secondary station indicator - only show if has label */}
+                  {getStationTypeLabel(stationType) && (
+                    <Chip
+                      label={getStationTypeLabel(stationType)}
+                      size="small"
+                      color={getStationTypeColor(stationType)}
+                      variant="filled"
+                    />
+                  )}
                 </Stack>
               }
               secondary={
