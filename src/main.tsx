@@ -6,13 +6,13 @@ import { createRoot } from 'react-dom/client';
 import { AppLayout } from './components/layout/AppLayout';
 import { Navigation } from './components/layout/Navigation';
 import { StationView } from './components/features/views/StationView';
-import { VehicleView } from './components/features/views/VehicleView';
+import { RouteView } from './components/features/views/RouteView';
 import { SettingsView } from './components/features/views/SettingsView';
 import { ThemeProvider } from './components/theme/ThemeProvider';
 import { useAutoLocation } from './hooks/useAutoLocation';
 
 function App() {
-  const [currentView, setCurrentView] = useState(0); // 0 = stations, 1 = vehicles, 2 = settings
+  const [currentView, setCurrentView] = useState(0); // 0 = stations, 1 = routes, 2 = settings
   
   // Auto-request location on app start and foreground return
   useAutoLocation();
@@ -22,7 +22,7 @@ function App() {
       case 0:
         return <StationView />;
       case 1:
-        return <VehicleView />;
+        return <RouteView />;
       case 2:
         return <SettingsView />;
       default:
