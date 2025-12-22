@@ -6,8 +6,16 @@ import {
   Box, 
   Chip, 
   Typography, 
-  Divider 
+  Divider,
+  Paper
 } from '@mui/material';
+import {
+  DirectionsBus,
+  Tram,
+  ElectricBolt,
+  Star,
+  Public
+} from '@mui/icons-material';
 import type { RouteFilterState, TransportTypeKey } from '../../../types/routeFilter';
 import { getTransportTypeOptions } from '../../../types/rawTranzyApi';
 
@@ -21,11 +29,20 @@ interface RouteFilterBarProps {
 }
 
 /**
- * Meta filter options for toggle selection
+ * Transport type icon mapping for visual identification
+ */
+const TRANSPORT_TYPE_ICONS = {
+  bus: DirectionsBus,
+  tram: Tram,
+  trolleybus: ElectricBolt
+} as const;
+
+/**
+ * Meta filter options for toggle selection with icons
  */
 const META_FILTER_OPTIONS = [
-  { key: 'elevi' as const, label: 'Elevi' },
-  { key: 'external' as const, label: 'External' }
+  { key: 'elevi' as const, label: 'Elevi', icon: Star },
+  { key: 'external' as const, label: 'External', icon: Public }
 ];
 
 export const RouteFilterBar: FC<RouteFilterBarProps> = ({
@@ -53,20 +70,16 @@ export const RouteFilterBar: FC<RouteFilterBarProps> = ({
   /**
    * Handle meta filter toggle
    * Implements exclusivity: activating one meta filter deactivates the other
-   * Resets all transport types to inactive when meta filter is activated
+   * Transport types remain unchanged when meta filters are toggled
    */
   const handleMetaFilterToggle = (filterKey: 'elevi' | 'external') => {
     const currentValue = filterState.metaFilters[filterKey];
     const newValue = !currentValue;
 
-    // If activating a meta filter
+    // If activating a meta filter, deactivate the other one
     if (newValue) {
       onFilterChange({
-        transportTypes: {
-          bus: false,
-          tram: false,
-          trolleybus: false
-        },
+        ...filterState,
         metaFilters: {
           elevi: filterKey === 'elevi',
           external: filterKey === 'external'
@@ -91,15 +104,25 @@ export const RouteFilterBar: FC<RouteFilterBarProps> = ({
         {routeCount} route{routeCount !== 1 ? 's' : ''} found
       </Typography>
 
-      {/* Transport type chips (toggleable selection) */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Transport Type
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {transportOptions.map(({ key, label }) => (
+      {/* Grouped filter chips in a single row */}
+      <Paper 
+        variant="outlined" 
+        sx={{ 
+          p: 1.5, 
+          display: 'flex', 
+          gap: 1, 
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          bgcolor: 'background.default'
+        }}
+      >
+        {/* Transport type chips */}
+        {transportOptions.map(({ key, label }) => {
+          const IconComponent = TRANSPORT_TYPE_ICONS[key];
+          return (
             <Chip
               key={key}
+              icon={<IconComponent />}
               label={label}
               variant={filterState.transportTypes[key] ? 'filled' : 'outlined'}
               color={filterState.transportTypes[key] ? 'primary' : 'default'}
@@ -107,37 +130,26 @@ export const RouteFilterBar: FC<RouteFilterBarProps> = ({
               clickable
               size="small"
             />
-          ))}
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Select one or more types. When none selected, shows all types.
-        </Typography>
-      </Box>
+          );
+        })}
 
-      <Divider sx={{ my: 2 }} />
+        {/* Visual separator */}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-      {/* Meta filter chips (toggle selection) */}
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Special Categories
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {META_FILTER_OPTIONS.map(({ key, label }) => (
-            <Chip
-              key={key}
-              label={label}
-              variant={filterState.metaFilters[key] ? 'filled' : 'outlined'}
-              color={filterState.metaFilters[key] ? 'secondary' : 'default'}
-              onClick={() => handleMetaFilterToggle(key)}
-              clickable
-              size="small"
-            />
-          ))}
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Special routes are excluded by default. Select a category to view them.
-        </Typography>
-      </Box>
+        {/* Meta filter chips */}
+        {META_FILTER_OPTIONS.map(({ key, label, icon: IconComponent }) => (
+          <Chip
+            key={key}
+            icon={<IconComponent />}
+            label={label}
+            variant={filterState.metaFilters[key] ? 'filled' : 'outlined'}
+            color={filterState.metaFilters[key] ? 'secondary' : 'default'}
+            onClick={() => handleMetaFilterToggle(key)}
+            clickable
+            size="small"
+          />
+        ))}
+      </Paper>
     </Box>
   );
 };
