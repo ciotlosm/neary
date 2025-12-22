@@ -27,7 +27,7 @@ export const Navigation: FC<NavigationProps> = ({ value, onChange }) => {
           icon={<LocationIcon />}
         />
         <BottomNavigationAction
-          label="Vehicles"
+          label="Routes"
           icon={<BusIcon />}
         />
         <BottomNavigationAction
