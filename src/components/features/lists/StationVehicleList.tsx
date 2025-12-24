@@ -121,83 +121,135 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
       borderRadius: 2,
       boxShadow: 1
     }}>
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+      <CardContent sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        '&:last-child': { pb: { xs: 1.5, sm: 2 } } 
+      }}>
         {/* Header with route badge, headsign, and vehicle ID */}
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-          {/* Circular route badge */}
+        <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 1.5 }}>
+          {/* Circular route badge - smaller on mobile */}
           <Avatar sx={{ 
             bgcolor: 'primary.main', 
-            width: 48, 
-            height: 48,
-            fontSize: '1.1rem',
-            fontWeight: 'bold'
+            width: { xs: 40, sm: 48 }, 
+            height: { xs: 40, sm: 48 },
+            fontSize: { xs: '1rem', sm: '1.1rem' },
+            fontWeight: 'bold',
+            flexShrink: 0
           }}>
             {routeShortName}
           </Avatar>
           
           {/* Route name and vehicle info */}
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-              {headsign}
-            </Typography>
-            <Chip 
-              label={`${vehicle.label}`} 
-              size="small" 
-              variant="outlined"
-              sx={{ fontSize: '0.75rem' }}
-            />
-            
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5 }}>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  fontWeight: 600,
+                  fontSize: { xs: '0.95rem', sm: '1.1rem' },
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1
+                }}
+              >
+                {headsign}
+              </Typography>
+              
+              {/* Vehicle ID chip - inline with headsign */}
+            </Box>
           </Box>
           
-          {/* Timestamp */}
-          <Box display="flex" alignItems="center" gap={0.5}>
+          {/* Timestamp - compact */}
+          <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
             <TimeIcon fontSize="small" color="action" />
-            <Typography variant="caption" color="text.secondary">
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                whiteSpace: 'nowrap'
+              }}
+            >
               {formatTimestamp(vehicle.timestamp)}
             </Typography>
           </Box>
         </Stack>
 
-        {/* Arrival time information */}
-        {arrivalTime && (
-          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
-            <Chip
-              icon={<ArrivalIcon />}
-              label={formatArrivalTime(arrivalTime)}
-              color="success"
-              variant="filled"
-              size="small"
-              sx={{ 
-                fontWeight: 'medium',
-                '& .MuiChip-icon': { color: 'inherit' }
-              }}
-            />
-          </Box>
-        )}
-
-        {/* Vehicle details */}
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-          <Box display="flex" alignItems="center" gap={0.5}>
+        {/* Vehicle details row - compact horizontal layout */}
+        <Stack 
+          direction="row" 
+          alignItems="center" 
+          spacing={{ xs: 1.5, sm: 2 }} 
+          sx={{ mb: 1.5, flexWrap: 'wrap' }}
+        >
+              <Chip 
+                label={`${vehicle.label}`} 
+                size="small" 
+                variant="outlined"
+                sx={{ 
+                  fontSize: '0.7rem',
+                  height: { xs: 20, sm: 24 },
+                  flexShrink: 0
+                }}
+              />
+          {/* Speed */}
+          <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
             <SpeedIcon fontSize="small" color="action" />
-            <Typography variant="caption">
+            <Typography 
+              variant="caption"
+              sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                whiteSpace: 'nowrap'
+              }}
+            >
               {formatSpeed(vehicle.speed)}
             </Typography>
           </Box>
           
           {/* Accessibility information */}
           {getAccessibilityFeatures(vehicle.wheelchair_accessible, vehicle.bike_accessible).map(feature => (
-            <Box key={feature.type} display="flex" alignItems="center" gap={0.25}>
+            <Box key={feature.type} display="flex" alignItems="center" gap={0.25} sx={{ flexShrink: 0 }}>
               {feature.type === 'wheelchair' ? (
                 <WheelchairIcon fontSize="small" color="primary" />
               ) : (
                 <BikeIcon fontSize="small" color="primary" />
               )}
-              <Typography variant="caption" color="primary">
+              <Typography 
+                variant="caption" 
+                color="primary"
+                sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {feature.label}
               </Typography>
             </Box>
           ))}
         </Stack>
+
+        {/* Arrival time information */}
+        {arrivalTime && (
+          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1.5 }}>
+            <Chip
+              icon={<ArrivalIcon />}
+              label={formatArrivalTime(arrivalTime)}
+              color={arrivalTime.statusMessage.includes('Departed') ? 'default' : 'success'}
+              variant="filled"
+              size="small"
+              sx={{ 
+                fontWeight: 'medium',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                '& .MuiChip-icon': { color: 'inherit' }
+              }}
+            />
+          </Box>
+        )}
+
+
+
+       
 
         {/* Stops section */}
         <Box>

@@ -74,6 +74,11 @@ export const filterStations = (
       stationType: 'all' as const // Will be updated based on position
     }, stopTimes, vehicles, allRoutes, favoriteRouteIds, favoritesStoreAvailable, trips, stops);
 
+    // Skip stations with no active vehicles - they should be filtered out entirely
+    if (stationWithMetadata.vehicles.length === 0) {
+      continue;
+    }
+
     validStations.push(stationWithMetadata);
 
     // For smart filtering, apply proximity logic for secondary station

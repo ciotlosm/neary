@@ -2,6 +2,9 @@
 
 ## Recent Updates (December 2024)
 
+### December 24, 2024 - Station Filtering Fix
+- **🚫 FILTER EMPTY STATIONS**: Stations with no active vehicles are now properly filtered out instead of showing "No active vehicles serving this station"
+
 ### December 24, 2024 - Improved Arrival Time Estimation Accuracy
 - **🕐 REALISTIC TIMING**: Reduced average speed from 25 km/h to 18 km/h for more accurate urban bus estimates
 - **⏱️ LONGER DWELL TIMES**: Increased stop dwell time from 30s to 60s for realistic boarding times
