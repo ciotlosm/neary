@@ -5,11 +5,13 @@ import type { FC } from 'react';
 import { 
   Box, 
   Typography, 
-  Switch,
-  FormControlLabel,
   Chip,
   Stack
 } from '@mui/material';
+import { 
+  Favorite as FavoriteIcon,
+  LocationOn as LocationIcon
+} from '@mui/icons-material';
 
 interface StationViewHeaderProps {
   isFiltering: boolean;
@@ -37,43 +39,30 @@ export const StationViewHeader: FC<StationViewHeaderProps> = ({
           Stations
         </Typography>
         
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center">
           {/* Favorites filter toggle - only show when user has favorite routes */}
           {hasFavoriteRoutes && (
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={favoritesFilterEnabled}
-                  onChange={toggleFavoritesFilter}
-                  size="small"
-                />
-              }
+            <Chip
+              icon={<FavoriteIcon />}
               label="Favorites"
-              sx={{ ml: 1 }}
+              variant={favoritesFilterEnabled ? 'filled' : 'outlined'}
+              color={favoritesFilterEnabled ? 'error' : 'default'}
+              onClick={toggleFavoritesFilter}
+              clickable
+              size="small"
             />
           )}
           
-          <FormControlLabel
-            control={
-              <Switch
-                checked={isFiltering}
-                onChange={toggleFiltering}
-                size="small"
-              />
-            }
+          <Chip
+            icon={<LocationIcon />}
             label="Nearby"
-            sx={{ ml: 1 }}
+            variant={isFiltering ? 'filled' : 'outlined'}
+            color={isFiltering ? 'primary' : 'default'}
+            onClick={toggleFiltering}
+            clickable
+            size="small"
           />
         </Stack>
-      </Stack>
-
-      {/* Filtering status indicators */}
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-        <Chip
-          label={`${filteredCount} of ${totalCount} stations`}
-          size="small"
-          variant="outlined"
-        />
       </Stack>
     </Box>
   );

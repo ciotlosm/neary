@@ -1,28 +1,30 @@
-// StationList - Enhanced display component with expandable vehicle sections
+// StationList - Enhanced display component with card-based design matching vehicle cards
 // Displays filtered stations with distance, trip information, and expandable vehicle lists
 // Includes performance optimizations with memoization and optimized callbacks
 
 import type { FC } from 'react';
 import { useState, useCallback, useEffect, memo } from 'react';
 import { 
-  List, 
-  ListItem, 
-  ListItemText,
-  ListItemButton,
+  Stack, 
   Typography, 
   Chip, 
-  Stack,
   IconButton,
-  Collapse
+  Collapse,
+  Card,
+  CardContent,
+  Box,
+  Avatar,
+  Tooltip
 } from '@mui/material';
 import { 
   LocationOn as LocationIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Favorite as FavoriteIcon
+  FavoriteBorder as FavoriteOutlineIcon,
+  DirectionsBus as BusStopIcon
 } from '@mui/icons-material';
 import type { FilteredStation, StationUtilities } from '../../../types/stationFilter';
 import { StationVehicleList } from './StationVehicleList';
+import { useRouteStore } from '../../../stores/routeStore';
 
 interface StationListProps {
   stations: FilteredStation[];
@@ -32,6 +34,7 @@ interface StationListProps {
 
 export const StationList: FC<StationListProps> = memo(({ stations, utilities, isFiltering }) => {
   const { formatDistance, getStationTypeColor, getStationTypeLabel } = utilities;
+  const { routes } = useRouteStore();
   
   // Expansion state management per station
   const [expandedStations, setExpandedStations] = useState<Set<number>>(() => {
@@ -76,90 +79,182 @@ export const StationList: FC<StationListProps> = memo(({ stations, utilities, is
   }
 
   return (
-    <List>
+    <Stack spacing={1.5} sx={{ p: { xs: 1, sm: 2 } }}>
       {stations.map((filteredStation) => {
-        const { station, distance, stationType, matchesFavorites, favoriteRouteCount } = filteredStation;
+        const { station, distance, stationType, matchesFavorites, vehicles, routeIds } = filteredStation;
         const isExpanded = expandedStations.has(station.stop_id);
         
+        // Get route data for the bubbles
+        const stationRoutes = routes.filter(route => routeIds.includes(route.route_id));
+        
         return (
-          <div key={station.stop_id}>
-            <ListItem divider disablePadding>
-              <ListItemButton 
-                onClick={() => toggleStationExpansion(station.stop_id)}
-                sx={{ py: 1 }}
-              >
-                <ListItemText
-                  primary={
-                    <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                      <Typography variant="subtitle1" component="span">
-                        {station.stop_name}
-                      </Typography>
-                      
-                      {/* Primary/Secondary station indicator - only show if has label */}
-                      {getStationTypeLabel(stationType) && (
-                        <Chip
-                          label={getStationTypeLabel(stationType)}
-                          size="small"
-                          color={getStationTypeColor(stationType)}
-                          variant="filled"
-                        />
-                      )}
-                      
-                      {/* Favorite route indicator - show when station matches favorites */}
-                      {matchesFavorites && (
-                        <Chip
-                          icon={<FavoriteIcon />}
-                          label={`${favoriteRouteCount} ${favoriteRouteCount !== 1 ? 's' : ''}`}
-                          size="small"
-                          color="error"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                  }
-                  secondary={
-                    <>
-                      {/* Distance information */}
-                      <Typography variant="body2" color="text.secondary" component="span">
-                        <LocationIcon fontSize="small" color="action" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                        {formatDistance(distance)} away
-                      </Typography>
-                      <br />
-                      
-                      {/* Station details */}
-                      <Typography variant="body2" color="text.secondary" component="span">
-                        ID: {station.stop_id} | Lat: {station.stop_lat}, Lon: {station.stop_lon}
-                      </Typography>
-                    </>
-                  }
-                />
+          <Card key={station.stop_id} sx={{ 
+            backgroundColor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 1
+          }}>
+            <CardContent sx={{ 
+              p: { xs: 1.5, sm: 2 }, 
+              '&:last-child': { pb: { xs: 1.5, sm: 2 } } 
+            }}>
+              {/* Header with station avatar, name, and station ID */}
+              <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
+                {/* Station avatar - smaller on mobile */}
+                <Avatar sx={{ 
+                  bgcolor: 'primary.main', 
+                  width: { xs: 40, sm: 48 }, 
+                  height: { xs: 40, sm: 48 },
+                  fontSize: { xs: '1rem', sm: '1.2rem' },
+                  flexShrink: 0
+                }}>
+                  <BusStopIcon />
+                </Avatar>
                 
-                {/* Expand/Collapse chevron icon */}
-                <IconButton 
-                  edge="end" 
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleStationExpansion(station.stop_id);
-                  }}
-                >
-                  {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </ListItemButton>
-            </ListItem>
-            
-            {/* Expandable vehicle list section */}
-            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-              <StationVehicleList 
-                vehicles={filteredStation.vehicles}
-                expanded={isExpanded}
-                station={filteredStation.station}
-              />
-            </Collapse>
-          </div>
+                {/* Station name and details */}
+                <Box sx={{ flex: 1, minWidth: 0 }}> {/* minWidth: 0 allows text truncation */}
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      mb: 0.5,
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {station.stop_name}
+                  </Typography>
+                  
+                  {/* Distance and station type chips */}
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <Chip
+                      icon={<LocationIcon />}
+                      label={`${formatDistance(distance)}`}
+                      color="default"
+                      variant="filled"
+                      size="small"
+                      sx={{ 
+                        bgcolor: 'grey.200',
+                        color: 'grey.800',
+                        '& .MuiChip-icon': { color: 'grey.800' }
+                      }}
+                    />
+                    
+                    {/* Station type indicator - blue circle for closest */}
+                    {stationType === 'primary' && (
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          bgcolor: 'primary.main',
+                          flexShrink: 0
+                        }}
+                      />
+                    )}
+                    
+                    {/* Station type chip for secondary stations */}
+                    {stationType === 'secondary' && (
+                      <Chip
+                        label={getStationTypeLabel(stationType)}
+                        size="small"
+                        color={getStationTypeColor(stationType)}
+                        variant="filled"
+                      />
+                    )}
+                  </Stack>
+                  
+                  {/* Route bubbles - mobile optimized */}
+                  {stationRoutes.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Stack 
+                        direction="row" 
+                        spacing={0.5} 
+                        alignItems="center" 
+                        flexWrap="wrap"
+                        sx={{ 
+                          gap: 0.5,
+                          maxWidth: '100%'
+                        }}
+                      >
+                        {stationRoutes.length > 8 && (
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ ml: 0.5, fontSize: '0.65rem' }}
+                          >
+                            +{stationRoutes.length - 8} more
+                          </Typography>
+                        )}
+                      </Stack>
+                     
+                    </Box>
+                  )}
+                </Box>
+                
+                {/* GPS coordinates tooltip, favorite indicator, and expand button */}
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Tooltip 
+                    title={`Station ID: ${station.stop_id} | GPS: ${station.stop_lat}, ${station.stop_lon}`}
+                    placement="left"
+                  >
+                    <IconButton size="small" color="default">
+                      <LocationIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  
+                  {/* Favorite indicator - hollow heart icon */}
+                  {matchesFavorites && (
+                    <IconButton size="small" color="error">
+                      <FavoriteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  
+                  <IconButton 
+                    size="small"
+                    onClick={() => toggleStationExpansion(station.stop_id)}
+                    sx={{ 
+                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s'
+                    }}
+                  >
+                    <ExpandMoreIcon />
+                  </IconButton>
+                </Box>
+              </Stack>
+               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap"> 
+                                                {stationRoutes.slice(0, 8).map((route) => (
+                          <Avatar
+                            key={route.route_id}
+                            sx={{
+                              width: 45,
+                              height: 45,
+                              fontSize: '1rem',
+                              fontWeight: 'bold',
+                              bgcolor: route.route_color ? `#${route.route_color}` : 'primary.main',
+                              color: 'white',
+                              minWidth: 24, // Prevent shrinking
+                              flexShrink: 0
+                            }}
+                          >
+                            {route.route_short_name}
+                          </Avatar>
+                        ))}
+                      </Stack>
+              {/* Expandable vehicle list section */}
+              <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                <StationVehicleList 
+                  vehicles={vehicles}
+                  expanded={isExpanded}
+                  station={station}
+                />
+              </Collapse>
+            </CardContent>
+          </Card>
         );
       })}
-    </List>
+    </Stack>
   );
 });
 
