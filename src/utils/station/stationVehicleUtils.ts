@@ -104,7 +104,7 @@ export const getStationVehicles = (
     // Find the target stop for arrival calculations
     const targetStop = stops.find(stop => stop.stop_id === stationId);
     
-    // Filter vehicles that match this station's route IDs
+    // Filter vehicles that match this station's route IDs AND actually stop at this station
     const filteredVehicles = vehicles.filter(vehicle => {
       // Basic route matching - require both route_id and trip_id
       if (vehicle.route_id === null || 
@@ -116,6 +116,15 @@ export const getStationVehicles = (
       
       // Basic validation - vehicle must have valid coordinates
       if (!vehicle.latitude || !vehicle.longitude) {
+        return false;
+      }
+      
+      // CRITICAL: Verify this vehicle's trip actually stops at this station
+      const vehicleStopsAtStation = stopTimes.some(st => 
+        st.trip_id === vehicle.trip_id && st.stop_id === stationId
+      );
+      
+      if (!vehicleStopsAtStation) {
         return false;
       }
       

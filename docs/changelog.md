@@ -2,6 +2,10 @@
 
 ## Recent Updates (December 2024)
 
+### December 25, 2024 - Off-Route Vehicle Display Fix
+- **🐛 BUG FIX**: Fixed off-route vehicles appearing in station lists despite filtering
+- **🔧 TECHNICAL**: Added trip-level validation to ensure vehicles actually stop at displayed stations
+
 ### December 25, 2024 - Routes View Card Design
 - **🎨 UI REDESIGN**: Changed routes view from simple list to card-based layout matching vehicle list
 - **📱 MOBILE RESPONSIVE**: Improved mobile experience with responsive spacing and typography

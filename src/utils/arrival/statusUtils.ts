@@ -66,7 +66,7 @@ export function getArrivalStatus(
   } else if (targetStopRelation === 'passed') {
     return 'departed';
   } else {
-    // not_in_trip
+    // not_in_trip - this should now be rare since filtering is fixed
     return 'off_route';
   }
 }
