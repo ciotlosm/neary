@@ -14,6 +14,10 @@
 **Problem**: Shows buses that don't serve the station or no buses at all
 **Solution**: Use GTFS trip_id filtering instead of proximity-based filtering
 
+### Off-Route Vehicles Still Showing
+**Problem**: Vehicles with "off route" status appear in station lists despite filtering
+**Solution**: Fixed trip-level validation to ensure vehicles actually stop at the station they're displayed for
+
 ### Empty Station View
 **Problem**: Shows "No vehicles currently serve these stations" despite API data available
 **Solution**: Use direct API calls instead of complex store dependencies
