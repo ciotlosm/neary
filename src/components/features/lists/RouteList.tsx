@@ -1,14 +1,15 @@
-// RouteList - Simple display component for enhanced routes
-// Uses raw API field names directly with enhanced route data
+// RouteList - Card-based display component for enhanced routes
+// Uses Material-UI Cards for consistent design with vehicle list
 
 import type { FC } from 'react';
 import { 
-  List, 
-  ListItem, 
-  ListItemText, 
+  Card,
+  CardContent,
   Typography, 
   Chip, 
-  Box 
+  Box,
+  Stack,
+  Avatar
 } from '@mui/material';
 import type { EnhancedRoute } from '../../../types/routeFilter';
 import { getRouteTypeLabel } from '../../../types/rawTranzyApi';
@@ -33,67 +34,144 @@ export const RouteList: FC<RouteListProps> = ({ routes }) => {
 
   if (routes.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ p: 2, fontStyle: 'italic' }}>
         No routes found
       </Typography>
     );
   }
 
   return (
-    <List>
+    <Stack spacing={2} sx={{ p: 2 }}>
       {routes.map((route) => (
-        <ListItem key={route.route_id} divider>
-          <ListItemText
-            primary={
-              <Box display="flex" alignItems="center" gap={1}>
-                <Typography variant="subtitle1" component="span">
-                  {route.route_short_name}
-                </Typography>
-                {route.route_color && (
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      backgroundColor: `#${route.route_color}`,
-                      border: '1px solid rgba(0,0,0,0.1)',
-                      display: 'inline-block'
-                    }}
-                  />
-                )}
-                <Chip 
-                  label={getRouteTypeLabel(route.route_type)} 
-                  size="small" 
-                  color={getRouteTypeColor(route.route_type)}
-                />
-              </Box>
-            }
-            secondary={
-              <>
-                <Typography variant="body2" color="text.primary" component="div">
-                  {route.route_long_name}
-                </Typography>
-                {route.route_desc && (
-                  <Typography variant="body2" color="text.secondary" component="div">
-                    {route.route_desc}
-                  </Typography>
-                )}
-              </>
-            }
-            slotProps={{
-              primary: { component: 'div' },
-              secondary: { component: 'div' }
-            }}
-          />
+        <RouteCard 
+          key={route.route_id}
+          route={route}
+          onToggleFavorite={toggleFavorite}
+        />
+      ))}
+    </Stack>
+  );
+};
+
+// Individual Route Card Component
+interface RouteCardProps {
+  route: EnhancedRoute;
+  onToggleFavorite: (routeId: string) => void;
+}
+
+const RouteCard: FC<RouteCardProps> = ({ route, onToggleFavorite }) => {
+  return (
+    <Card sx={{ 
+      backgroundColor: 'background.paper',
+      borderRadius: 2,
+      boxShadow: 1
+    }}>
+      <CardContent sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        '&:last-child': { pb: { xs: 1.5, sm: 2 } } 
+      }}>
+        {/* Header with route badge, name, and favorite toggle */}
+        <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 1.5 }}>
+          {/* Circular route badge */}
+          <Avatar sx={{ 
+            bgcolor: route.route_color ? `#${route.route_color}` : 'primary.main',
+            width: { xs: 40, sm: 48 }, 
+            height: { xs: 40, sm: 48 },
+            fontSize: { xs: '1rem', sm: '1.1rem' },
+            fontWeight: 'bold',
+            flexShrink: 0,
+            border: '1px solid rgba(0,0,0,0.1)'
+          }}>
+            {route.route_short_name}
+          </Avatar>
+          
+          {/* Route name and description */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '0.95rem', sm: '1.1rem' },
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                mb: 0.5
+              }}
+            >
+              {route.route_long_name}
+            </Typography>
+            
+            {route.route_desc && (
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {route.route_desc}
+              </Typography>
+            )}
+          </Box>
+          
+          {/* Favorite toggle */}
           <HeartToggle
             routeId={route.route_id.toString()}
             isFavorite={route.isFavorite}
-            onToggle={toggleFavorite}
+            onToggle={onToggleFavorite}
             size="small"
           />
-        </ListItem>
-      ))}
-    </List>
+        </Stack>
+
+        {/* Route details row */}
+        <Stack 
+          direction="row" 
+          alignItems="center" 
+          spacing={{ xs: 1.5, sm: 2 }} 
+          sx={{ flexWrap: 'wrap' }}
+        >
+          {/* Route type chip */}
+          <Chip 
+            label={getRouteTypeLabel(route.route_type)} 
+            size="small" 
+            color={getRouteTypeColor(route.route_type)}
+            sx={{ 
+              fontSize: '0.7rem',
+              height: { xs: 20, sm: 24 },
+              flexShrink: 0
+            }}
+          />
+          
+          {/* Route color indicator (if different from avatar) */}
+          {route.route_color && (
+            <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: `#${route.route_color}`,
+                  border: '1px solid rgba(0,0,0,0.2)',
+                  flexShrink: 0
+                }}
+              />
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+                sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                #{route.route_color}
+              </Typography>
+            </Box>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
   );
 };
