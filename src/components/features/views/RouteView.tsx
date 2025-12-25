@@ -83,10 +83,6 @@ export const RouteView: FC = () => {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ p: 2 }}>
-        Routes
-      </Typography>
-      
       {/* Filter bar - only show when routes are loaded */}
       {routes.length > 0 && (
         <RouteFilterBar

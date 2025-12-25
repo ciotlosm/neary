@@ -11,6 +11,7 @@ import { RouteView } from './components/features/views/RouteView';
 import { SettingsView } from './components/features/views/SettingsView';
 import { ThemeProvider } from './components/theme/ThemeProvider';
 import { useAutoLocation } from './hooks/useAutoLocation';
+import { useShapeInitialization } from './hooks/useShapeInitialization';
 import { setupAppContext } from './context/contextInitializer';
 
 // Error boundary for context initialization failures
@@ -75,6 +76,22 @@ function App() {
   
   // Auto-request location on app start and foreground return
   useAutoLocation();
+  
+  // Initialize shape store with cache-first loading strategy
+  useShapeInitialization();
+
+  const getViewTitle = () => {
+    switch (currentView) {
+      case 0:
+        return 'Stations';
+      case 1:
+        return 'Routes';
+      case 2:
+        return 'Settings';
+      default:
+        return 'Stations';
+    }
+  };
 
   const renderContent = () => {
     switch (currentView) {
@@ -91,7 +108,10 @@ function App() {
 
   return (
     <ThemeProvider>
-      <AppLayout onNavigateToSettings={() => setCurrentView(2)}>
+      <AppLayout 
+        title={getViewTitle()}
+        onNavigateToSettings={() => setCurrentView(2)}
+      >
         {renderContent()}
         <Navigation 
           value={currentView} 

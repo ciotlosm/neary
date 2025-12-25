@@ -7,10 +7,11 @@ import { Header } from './Header';
 
 interface AppLayoutProps {
   children: ReactNode;
+  title?: string;
   onNavigateToSettings?: () => void;
 }
 
-export const AppLayout: FC<AppLayoutProps> = ({ children, onNavigateToSettings }) => {
+export const AppLayout: FC<AppLayoutProps> = ({ children, title, onNavigateToSettings }) => {
   const handleSettingsClick = () => {
     onNavigateToSettings?.();
   };
@@ -18,6 +19,7 @@ export const AppLayout: FC<AppLayoutProps> = ({ children, onNavigateToSettings }
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header 
+        title={title}
         onSettingsClick={handleSettingsClick}
       />
       

@@ -35,10 +35,6 @@ export const SettingsView: FC = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        Settings
-      </Typography>
-      
       {error && (
         <Alert 
           severity="error" 

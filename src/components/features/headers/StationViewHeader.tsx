@@ -34,35 +34,29 @@ export const StationViewHeader: FC<StationViewHeaderProps> = ({
 }) => {
   return (
     <Box sx={{ p: 2, pb: 1 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-        <Typography variant="h5">
-          Stations
-        </Typography>
-        
-        <Stack direction="row" spacing={1} alignItems="center">
-          {/* Favorites filter toggle - only show when user has favorite routes */}
-          {hasFavoriteRoutes && (
-            <Chip
-              icon={<FavoriteIcon />}
-              label="Favorites"
-              variant={favoritesFilterEnabled ? 'filled' : 'outlined'}
-              color={favoritesFilterEnabled ? 'error' : 'default'}
-              onClick={toggleFavoritesFilter}
-              clickable
-              size="small"
-            />
-          )}
-          
+      <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+        {/* Favorites filter toggle - only show when user has favorite routes */}
+        {hasFavoriteRoutes && (
           <Chip
-            icon={<LocationIcon />}
-            label="Nearby"
-            variant={isFiltering ? 'filled' : 'outlined'}
-            color={isFiltering ? 'primary' : 'default'}
-            onClick={toggleFiltering}
+            icon={<FavoriteIcon />}
+            label="Favorites"
+            variant={favoritesFilterEnabled ? 'filled' : 'outlined'}
+            color={favoritesFilterEnabled ? 'error' : 'default'}
+            onClick={toggleFavoritesFilter}
             clickable
             size="small"
           />
-        </Stack>
+        )}
+        
+        <Chip
+          icon={<LocationIcon />}
+          label="Nearby"
+          variant={isFiltering ? 'filled' : 'outlined'}
+          color={isFiltering ? 'primary' : 'default'}
+          onClick={toggleFiltering}
+          clickable
+          size="small"
+        />
       </Stack>
     </Box>
   );
