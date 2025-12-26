@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/vite.svg",
+      "src": "/neary.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

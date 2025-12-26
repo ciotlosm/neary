@@ -2,9 +2,17 @@
 
 ## Recent Updates (December 2024)
 
+### December 26, 2024 - Documentation Accuracy Fixes
+- **📚 TECH STACK**: Fixed Tailwind CSS reference in tech-essentials.md - now correctly shows Material-UI exclusive styling
+- **🧪 TEST COUNT**: Updated test count from outdated 271 to current 88 tests in getting-started.md
+- **🧭 NAVIGATION**: Fixed navigation description in user-guide.md to match actual 2-tab layout (Stations, Favorites + Settings via header)
+- **⚙️ COMMANDS**: Added missing npm commands (build:prod, analyze, test:performance) to tech-essentials.md
+- **✅ ACCURACY**: All documentation now verified against actual codebase implementation
+
 ### December 26, 2024 - App Rebranding to Neary
 - **🎨 REBRANDING**: Changed app name from "Cluj Bus App" to "Neary" for broader appeal
 - **📱 BRANDING**: Updated app icon with new Neary branding using theme color (#6750A4)
+- **🖼️ HEADER ICON**: Added Neary icon to main header on left side of view titles
 - **🌍 GENERIC**: Removed city-specific references while keeping Cluj-Napoca as example in docs
 - **📦 BUILD**: Fixed all build errors and maintained existing constants structure
 

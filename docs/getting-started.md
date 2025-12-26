@@ -61,7 +61,7 @@ npm run test:watch
 npm run test:ui
 ```
 
-All 271 tests should pass (100% success rate).
+All 88 tests should pass (100% success rate).
 
 ## 🏗️ Build for Production
 

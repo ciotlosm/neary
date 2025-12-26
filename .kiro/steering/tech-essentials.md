@@ -2,9 +2,8 @@
 
 ## Stack
 - **React 19.2.0** + TypeScript + Vite
-- **Material-UI 7.3.6** for components
+- **Material-UI 7.3.6** for components and styling (exclusive)
 - **Zustand 5.0.9** for state (minimal stores)
-- **Tailwind CSS 4.1.18** for styling
 - **Vitest** for testing
 
 ## Commands
@@ -12,6 +11,9 @@
 npm run dev          # Start dev server (port 5175)
 npm test             # Run tests (--run already included)
 npm test -- pattern  # Run specific tests (NO --run needed)
+npm run build:prod   # Production build with version update
+npm run analyze      # Codebase analysis
+npm run test:performance  # Performance testing
 ```
 
 ## File Organization

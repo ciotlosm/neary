@@ -18,6 +18,22 @@ export const Header: FC<HeaderProps> = ({
   return (
     <AppBar position="static">
       <Toolbar>
+        {/* App Icon */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          mr: 2
+        }}>
+          <img 
+            src="/neary.svg" 
+            alt="Neary" 
+            style={{ 
+              width: 32, 
+              height: 32
+            }} 
+          />
+        </Box>
+        
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
