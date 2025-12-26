@@ -2,6 +2,12 @@
 
 ## Recent Updates (December 2024)
 
+### December 26, 2024 - Production API Fix
+- **🔧 CRITICAL FIX**: Fixed production API calls returning HTML instead of JSON
+- **⚡ NETLIFY CONFIG**: Added API proxy redirects before SPA redirect in netlify.toml
+- **🛠️ ERROR HANDLING**: Added response validation to prevent .map() errors on non-array data
+- **📱 STARTUP UX**: Fixed station view showing context error instead of "Please configure API key" message
+
 ### December 26, 2024 - Enhanced Favorites Filtering
 - **✨ FAVORITES PRIORITY**: Favorites now always appear first in route lists regardless of active filters
 - **🔄 SMART FILTERING**: Favorites bypass transport type filters (e.g., favorite bus shows when filtering by tram)
