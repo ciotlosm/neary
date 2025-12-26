@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cluj Bus App - Nearby Station Debug Tool</title>
+    <title>Neary - Nearby Station Debug Tool</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -110,7 +110,7 @@
     </style>
 </head>
 <body>
-    <h1>🚌 Cluj Bus App - Nearby Station Debug Tool</h1>
+    <h1>🚌 Neary - Nearby Station Debug Tool</h1>
     
     <div class="container">
         <h2>Quick Diagnosis</h2>
@@ -646,7 +646,7 @@
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
                         'X-API-Key': apiKey,
-                        'X-Agency-Id': '2', // Default to CTP Cluj
+                        'X-Agency-Id': '2', // Default agency ID
                         'Content-Type': 'application/json'
                     }
                 });
@@ -718,8 +718,8 @@
                         longitude: position.coords.longitude
                     };
                 } catch (error) {
-                    console.log('GPS not available, using Cluj center as fallback');
-                    userLocation = { latitude: 46.7712, longitude: 23.6236 }; // Cluj center
+                    console.log('GPS not available, using default center as fallback');
+                    userLocation = { latitude: 46.7712, longitude: 23.6236 }; // Default center
                 }
                 
                 // Fetch stations

@@ -341,7 +341,7 @@ export const createColorScheme = (routes: Map<number, string>): MapColorScheme =
 // ============================================================================
 
 export const MAP_DEFAULTS = {
-  CENTER: { lat: 46.7712, lon: 23.6236 } as Coordinates, // Cluj-Napoca center
+  CENTER: { lat: 46.7712, lon: 23.6236 } as Coordinates,
   ZOOM: 13,
   MIN_ZOOM: 10,
   MAX_ZOOM: 18,

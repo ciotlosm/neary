@@ -1,8 +1,8 @@
-# Cluj Bus App - User Guide
+# Neary - User Guide
 
-## 📱 What is Cluj Bus App?
+## 📱 What is Neary?
 
-A real-time bus tracking app for Cluj-Napoca that shows you:
+A real-time bus tracking app that shows you:
 - **Live bus locations** with GPS tracking via Tranzy API
 - **GTFS schedule data** from Tranzy API
 - **Smart route suggestions** based on your location
@@ -199,14 +199,14 @@ The app uses your location to:
 - Configurable fallback location for direction detection
 - Used when GPS permission denied and no saved locations available
 - Set in Settings > Config > Location Settings
-- Defaults to Cluj-Napoca center but can be customized to your preferred area
+- Defaults to configurable center but can be customized to your preferred area
 
 #### Location Priority System
 The app uses locations in this priority order for route suggestions:
 1. **Current GPS** (if permission granted and available)
 2. **Home Location** (if saved and GPS unavailable)
 3. **Work Location** (if saved and no home location)
-4. **Fallback Location** (configurable fallback, defaults to Cluj center)
+4. **Fallback Location** (configurable fallback, defaults to app center)
 
 #### Location Settings Interface
 - **Adaptive 3-column layout** - Home, Work, and Fallback locations in one view
@@ -322,7 +322,7 @@ Configure your locations for smart route suggestions:
 
 #### **Offline Location**
 - **Purpose**: Fallback location when GPS is unavailable
-- **Default**: Cluj-Napoca city center
+- **Default**: Configurable city center
 - **Tip**: Set to your most common location for better offline experience
 
 ## 📱 Mobile Tips

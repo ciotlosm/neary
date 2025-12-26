@@ -283,7 +283,7 @@ function formatPercentage(part, total) {
 }
 
 function printResults(results) {
-  console.log('# Cluj Bus App - Codebase Statistics\n');
+  console.log('# Neary - Codebase Statistics\n');
   
   // Overall summary
   console.log('## Overall Summary');

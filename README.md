@@ -1,11 +1,11 @@
-# 🚌 Cluj Bus App
+# 🚌 Neary
 
-A real-time bus tracking application for Cluj-Napoca, Romania, providing live vehicle locations and official CTP Cluj schedule data.
+A real-time bus tracking application providing live vehicle locations and schedule data.
 
 ## ✨ Features
 
 - **🔴 Live Vehicle Tracking** - Real-time bus locations and ETAs
-- **📋 Official Schedules** - Integration with CTP Cluj official timetables
+- **📋 Official Schedules** - Integration with local transit authority timetables
 - **🎯 Smart Favorites** - Personalized route tracking based on location
 - **📱 Mobile-First Design** - Responsive interface optimized for mobile devices
 - **⚡ Real-time Updates** - Automatic refresh with live data
@@ -21,7 +21,7 @@ A real-time bus tracking application for Cluj-Napoca, Romania, providing live ve
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd cluj-bus
+cd neary
 
 # Install dependencies
 npm install
@@ -41,7 +41,7 @@ npm run preview
 ## 🏗️ Project Structure
 
 ```
-cluj-bus/
+neary/
 ├── 📂 src/                    # Source code
 │   ├── 📂 components/         # React components
 │   ├── 📂 services/           # API services & business logic
@@ -58,7 +58,7 @@ cluj-bus/
 ### Environment Setup
 The app uses proxy configuration for API requests:
 - **Tranzy API**: `/api/tranzy` → `https://api.tranzy.ai`
-- **CTP Cluj**: `/api/ctp-cluj` → `https://ctpcj.ro`
+- **Local Transit API**: `/api/local-transit` → Local transit authority endpoint
 
 ### Key Configuration Files
 - `vite.config.ts` - Build configuration and API proxies
@@ -72,8 +72,8 @@ The app uses proxy configuration for API requests:
    - Real-time vehicle positions from Tranzy API
    - Actual ETAs based on current location and route
 
-2. **📋 Official CTP Cluj Schedules** (High Priority)
-   - Runtime fetched from CTP Cluj website
+2. **📋 Official Local Transit Schedules** (High Priority)
+   - Runtime fetched from local transit authority website
    - Official timetables for accurate departure times
 
 3. **⏱️ API Fallback Data** (Low Priority)
@@ -94,7 +94,7 @@ The app uses proxy configuration for API requests:
 
 ### Confidence Indicators
 - **🔴 LIVE**: Real-time vehicle tracking data
-- **📋 OFFICIAL**: CTP Cluj official schedule data
+- **📋 OFFICIAL**: Local transit authority official schedule data
 - **⏱️ ESTIMATED**: API fallback or calculated timing
 
 ### Error Handling
@@ -207,4 +207,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**🎯 Built with ❤️ for Cluj-Napoca public transportation**
+**🎯 Built with ❤️ for public transportation**

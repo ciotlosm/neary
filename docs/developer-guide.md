@@ -60,6 +60,113 @@ The `temporary/` directory is used for:
 3. **Process**: Filter and transform data
 4. **Display**: Show in UI components
 
+## Data Refresh Architecture
+
+### Cache Durations & Refresh Frequencies
+
+**Cache Durations** (defined in `src/utils/core/constants.ts`):
+- **VEHICLES**: 30 seconds (real-time tracking)
+- **ROUTES**: 5 minutes (stable data)
+- **STOP_TIMES**: 24 hours (rarely changes)
+- **TRIPS**: 24 hours (schedule stability)
+- **ROUTE_MAPPING**: 5 minutes (route-to-station mapping)
+- **SHAPES**: 24 hours (route geometry)
+
+### Event-Driven Refresh Strategy
+
+**No Continuous Polling** - The app uses **event-driven refresh** instead of automatic polling:
+
+**Primary Refresh Triggers:**
+1. **Component Mount** - `StationView`/`RouteView` trigger data fetch when API credentials are available
+2. **App Return from Background** - `useAutoLocation` hook listens for `visibilitychange` events
+3. **Network Status Changes** - Listens to `online`/`offline` events for immediate status updates
+4. **Manual User Actions** - Retry buttons, pull-to-refresh gestures
+
+**Cache-First Strategy:**
+- Each store checks `isDataFresh()` before making API calls
+- If data is within cache duration → uses cached data
+- If stale → makes new API call
+- `ShapeStore` uses "cache-first, refresh-behind" → loads cached data immediately, then refreshes in background if expired
+
+### API Service Architecture
+
+**Service Layer** (`src/services/`):
+- `vehicleService.ts` - Vehicle positions with status tracking
+- `arrivalService.ts` - Real-time arrival calculations (on-demand, no caching)
+- `stationService.ts` - Stop/station data
+- `routeService.ts` - Route information
+- `tripService.ts` - Trip schedules and stop times
+- `routeShapeService.ts` - Route shapes with deduplication
+- `shapesService.ts` - Bulk shape fetching with 30-second timeout
+- `locationService.ts` - GPS operations with retry logic
+
+All services use **axios** with centralized error handling and response time tracking via `apiStatusTracker`.
+
+### Caching & Persistence
+
+**Store-Level Caching** (`src/stores/`):
+- `vehicleStore`, `routeStore` - In-memory with `lastUpdated` tracking and `isDataFresh()` helpers
+- `tripStore`, `shapeStore` - **localStorage persistence** with compression
+- `shapeStore` - Most sophisticated: gzip compression + exponential backoff retry (100ms, 200ms, 400ms)
+- `locationStore` - Persists preferences only, not GPS data
+
+**Refresh Strategy:**
+- Stores check `isDataFresh()` before loading - skips API call if cache is valid
+- `TripStore` and `ShapeStore` use `persist` middleware for localStorage
+- `ShapeStore` decompresses cached data on initialization
+
+### Error Handling & Retry Logic
+
+**Exponential Backoff:**
+- `ShapeStore` uses 3 attempts with delays [100ms, 200ms, 400ms]
+- Network error detection checks for 'network', 'connection', 'timeout', 'fetch' in error messages
+- Graceful degradation uses cached data if available during network errors
+
+**Status Tracking:**
+- `apiStatusTracker` records success/failure with response times
+- `locationService` has configurable retry with `DEFAULT_RETRY_CONFIG`
+- Duplicate request prevention: stores check `if (currentState.loading)` to avoid concurrent requests
+
+### Performance Optimizations
+
+**Request Optimization:**
+- Shape deduplication: `routeShapeService` fetches unique shape IDs only
+- Compression: `ShapeStore` uses gzip compression for localStorage
+- Lazy loading: Services imported dynamically to avoid circular dependencies
+- Debounced loading: `useDebouncedLoading` hook prevents flicker with 300ms delay
+
+**Event Listeners & Hooks:**
+- `useAutoLocation()` - Requests location on mount and visibility change
+- `useShapeInitialization()` - Initializes shape store with cache-first loading
+- `useStationFilter()` - Checks vehicle data freshness and triggers refresh if needed
+- `visibilitychange` event - Triggers location request when returning from background
+- `online`/`offline` events - Updates network status in real-time
+
+### Data Flow Architecture
+
+```
+User Action / Event
+    ↓
+Component (StationView, RouteView)
+    ↓
+Store Action (loadVehicles, loadRoutes, etc.)
+    ↓
+Check Cache Freshness (isDataFresh)
+    ↓
+If Fresh: Use Cached Data
+If Stale: Call Service
+    ↓
+Service (vehicleService, routeService, etc.)
+    ↓
+API Call (axios) + Status Tracking
+    ↓
+Store Update + localStorage Persistence
+    ↓
+Component Re-render
+```
+
+**Key Insight:** This event-driven approach is more battery-efficient than continuous polling while providing fresh data when needed. Data refreshes happen when users actually need it, not on arbitrary timers.
+
 ## Development Commands
 
 ### Local Development
@@ -191,10 +298,10 @@ const { data: stopTimes } = useStopTimesData({ agencyId: '2' });
 import { unifiedCache } from '@/hooks/shared/cache/instance';
 
 // Get cached data
-const data = unifiedCache.get<LiveVehicle[]>('vehicles:cluj');
+const data = unifiedCache.get<LiveVehicle[]>('vehicles:agency-id');
 
 // Set with TTL
-unifiedCache.set('vehicles:cluj', vehicles, 60000);
+unifiedCache.set('vehicles:agency-id', vehicles, 60000);
 
 // Invalidate patterns
 unifiedCache.invalidate(/^vehicles:/);
@@ -214,7 +321,7 @@ import { ErrorHandler, ErrorType } from '@/hooks/shared/errors';
 const error = ErrorHandler.createError(
   ErrorType.NETWORK,
   'Failed to fetch vehicles',
-  { agencyId: 'cluj' }
+  { agencyId: 'agency-id' }
 );
 
 // Get user-friendly message
@@ -252,7 +359,7 @@ const defaults = InputValidator.createSafeDefaults<LiveVehicle>('vehicle');
 ```typescript
 // Duplicated hook with 200+ lines
 const { vehicles, loading, error } = useVehicleStoreData({
-  agencyId: 'cluj',
+  agencyId: 'agency-id',
   autoRefresh: true
 });
 ```
@@ -262,7 +369,7 @@ const { vehicles, loading, error } = useVehicleStoreData({
 // Generic hook with type safety
 const { data: vehicles, isLoading: loading, error } = useStoreData<LiveVehicle>({
   dataType: 'vehicles',
-  agencyId: 'cluj',
+  agencyId: 'agency-id',
   autoRefresh: true
 });
 ```
