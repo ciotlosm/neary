@@ -41,23 +41,15 @@ Designed for your phone with touch-friendly controls and fast loading.
 ### Daily Usage
 
 #### Main Navigation
-The app has four main views accessible via bottom navigation:
+The app has two main tabs accessible via bottom navigation plus Settings:
 
-1. **Buses** - Your favorite routes and personalized bus tracking
-2. **Station** - Buses arriving at the station closest to your current location
-3. **Favorites** - Manage your favorite routes and settings
-4. **Settings** - Configure API keys, locations, and app preferences
+1. **Stations** - Buses arriving at the station closest to your current location
+2. **Favorites** - Manage your favorite routes and settings
+3. **Settings** - Configure API keys, locations, and app preferences (accessible via header button)
 
 #### Using Each View
 
-**Buses View:**
-1. **Check your favorites** - routes you use regularly
-2. **See live buses** - red dots show real-time positions
-3. **Check departure times** - schedule data from Tranzy API
-4. **Get directions** - tap routes for detailed information
-5. **View on map** - tap the small map icon in the bottom-right corner to see the route on an interactive map
-
-**Station View:**
+**Stations View:**
 1. **Multi-station detection** - finds all stations within 100m of your closest station
 2. **Smart station prioritization** - when near home/work, prioritizes stations with relevant buses
 3. **Station identification** - each station clearly labeled with name and distance chips
@@ -74,9 +66,14 @@ The app has four main views accessible via bottom navigation:
    - **Target station highlight** - special marker for the station you're viewing
    - **Route shape** - actual path the bus follows, not just straight lines
    - **Destination marker** - clear indication of where the route ends
-6. **Real-world optimization** - perfect for main streets with stations on opposite sides
-7. **Route diversity** - shows different bus routes per station (avoids duplicates)
-8. **Comprehensive coverage** - see buses from multiple nearby stations in one view
+7. **Check your favorites** - routes you use regularly are highlighted
+8. **See live buses** - red dots show real-time positions
+9. **Check departure times** - schedule data from Tranzy API
+10. **Get directions** - tap routes for detailed information
+11. **View on map** - tap the small map icon in the bottom-right corner to see the route on an interactive map
+12. **Real-world optimization** - perfect for main streets with stations on opposite sides
+13. **Route diversity** - shows different bus routes per station (avoids duplicates)
+14. **Comprehensive coverage** - see buses from multiple nearby stations in one view
 
 **Favorites View:**
 1. **Manage favorite routes** - add/remove routes you use frequently
