@@ -25,6 +25,12 @@ export const stationService = {
         }
       });
       
+      // Validate response is JSON array, not HTML error page
+      if (!Array.isArray(response.data)) {
+        console.error('API returned non-array response:', typeof response.data, response.data);
+        throw new Error('API returned invalid data format (expected array, got ' + typeof response.data + ')');
+      }
+      
       // Record successful API call
       const responseTime = Date.now() - startTime;
       apiStatusTracker.recordSuccess('fetch stops', responseTime);

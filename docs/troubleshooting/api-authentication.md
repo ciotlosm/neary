@@ -7,6 +7,11 @@
 **Cause**: Timing issue - data hooks run before API key is configured
 **Solution**: Refresh page after setup, or wait for initialization to complete
 
+### Context Error on App Start
+**Problem**: Station view shows context error instead of "Please configure API key" message
+**Cause**: Missing API configuration check in StationView component
+**Solution**: Added API key validation before loading data, matching RouteView pattern
+
 ### Invalid API Key
 **Problem**: "Invalid API key" or 401 errors
 **Solution**: 
@@ -19,6 +24,11 @@
 **Solution**: Check browser allows localStorage, disable private browsing
 
 ## Network Issues
+
+### Production API Returns HTML Instead of JSON
+**Problem**: API calls return HTML error pages in production, causing "TypeError: e.map is not a function"
+**Cause**: Netlify catch-all redirect intercepts API calls before proxy rules
+**Solution**: Ensure API proxy redirects come BEFORE SPA redirect in netlify.toml
 
 ### Connection Timeout
 **Problem**: Requests timeout or fail to connect

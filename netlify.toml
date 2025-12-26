@@ -2,6 +2,13 @@
   command = "npm run build"
   publish = "dist"
 
+# API proxy redirects (must come BEFORE the SPA redirect)
+[[redirects]]
+  from = "/api/tranzy/*"
+  to = "https://api.tranzy.ai/:splat"
+  status = 200
+  force = true
+
 # SPA redirect for client-side routing
 [[redirects]]
   from = "/*"
