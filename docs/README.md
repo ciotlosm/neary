@@ -1,6 +1,6 @@
-# Cluj Bus App Documentation
+# Neary Documentation
 
-Welcome to the Cluj Bus App documentation! This is a real-time bus tracking application for Cluj-Napoca, Romania.
+Welcome to the Neary documentation! This is a real-time bus tracking application.
 
 ## 📖 Quick Start
 
@@ -17,7 +17,7 @@ Welcome to the Cluj Bus App documentation! This is a real-time bus tracking appl
 
 ### For Developers
 - **[Technical Architecture](developer-guide.md#architecture)** - How the app is built
-- **[API Integration](developer-guide.md#api-integration)** - Tranzy API and CTP Cluj integration
+- **[API Integration](developer-guide.md#api-integration)** - Tranzy API integration
 - **[API Documentation](api/README.md)** - Vehicle Transformation Service API reference
 - **[Performance Benchmarks](developer-guide.md#performance-benchmarking)** - Performance testing and optimization
 - **[Development Workflow](developer-guide.md#development)** - Building and testing

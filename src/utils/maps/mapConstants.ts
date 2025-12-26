@@ -11,7 +11,6 @@ import type { Coordinates, MapPerformanceConfig } from '../../types/interactiveM
 // ============================================================================
 
 export const MAP_DEFAULTS = {
-  // Cluj-Napoca city center
   CENTER: { lat: 46.7712, lon: 23.6236 } as Coordinates,
   ZOOM: 13,
   MIN_ZOOM: 10,
@@ -192,8 +191,8 @@ export const ERROR_CONFIG = {
   
   // Fallback configuration
   FALLBACK_TILE_URL: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
-  FALLBACK_CENTER: MAP_DEFAULTS.CENTER,
-  FALLBACK_ZOOM: MAP_DEFAULTS.ZOOM,
+  FALLBACK_CENTER: { lat: 46.7712, lon: 23.6236 } as Coordinates,
+  FALLBACK_ZOOM: 13,
 } as const;
 
 // ============================================================================

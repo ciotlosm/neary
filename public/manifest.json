@@ -1,7 +1,7 @@
 {
-  "name": "Cluj Bus Tracker",
-  "short_name": "Cluj Bus",
-  "description": "Real-time bus tracking for Cluj-Napoca, Romania",
+  "name": "Neary",
+  "short_name": "Neary",
+  "description": "Real-time bus tracking application",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#6750A4",
@@ -18,5 +18,5 @@
   "categories": ["travel", "navigation", "utilities"],
   "lang": "en",
   "scope": "/",
-  "id": "cluj-bus-tracker"
+  "id": "neary-bus-tracker"
 }

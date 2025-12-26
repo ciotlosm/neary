@@ -2,7 +2,7 @@
 
 ## Overview
 
-Simple API services for Cluj Bus App using Tranzy API. All services use raw API field names with no transformations for consistency and simplicity.
+Simple API services for Neary using Tranzy API. All services use raw API field names with no transformations for consistency and simplicity.
 
 ## Available Services
 

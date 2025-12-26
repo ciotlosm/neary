@@ -8,9 +8,9 @@ import {
 } from './distanceUtils';
 
 describe('distanceUtils', () => {
-  // Test coordinates (Bucharest and Cluj-Napoca)
+  // Test coordinates (Bucharest and example city)
   const bucharest: Coordinates = { lat: 44.4268, lon: 26.1025 };
-  const clujNapoca: Coordinates = { lat: 46.7712, lon: 23.6236 };
+  const exampleCity: Coordinates = { lat: 46.7712, lon: 23.6236 };
   const sameLocation: Coordinates = { lat: 44.4268, lon: 26.1025 };
 
   describe('calculateDistance', () => {
@@ -19,8 +19,8 @@ describe('distanceUtils', () => {
       expect(distance).toBe(0);
     });
 
-    it('should calculate distance between Bucharest and Cluj-Napoca', () => {
-      const distance = calculateDistance(bucharest, clujNapoca);
+    it('should calculate distance between Bucharest and example city', () => {
+      const distance = calculateDistance(bucharest, exampleCity);
       // Expected distance is approximately 328km
       expect(distance).toBeGreaterThan(320000);
       expect(distance).toBeLessThan(340000);
@@ -40,7 +40,7 @@ describe('distanceUtils', () => {
   describe('filterByDistance', () => {
     const locations: LocationWithCoordinates[] = [
       { lat: 44.4268, lon: 26.1025 }, // Bucharest
-      { lat: 46.7712, lon: 23.6236 }, // Cluj-Napoca
+      { lat: 46.7712, lon: 23.6236 }, // Example city
       { lat: 44.4300, lon: 26.1000 }, // Near Bucharest
     ];
 
@@ -63,7 +63,7 @@ describe('distanceUtils', () => {
 
   describe('sortByDistance', () => {
     const locations: LocationWithCoordinates[] = [
-      { lat: 46.7712, lon: 23.6236 }, // Cluj-Napoca (far)
+      { lat: 46.7712, lon: 23.6236 }, // Example city (far)
       { lat: 44.4300, lon: 26.1000 }, // Near Bucharest (close)
       { lat: 44.4268, lon: 26.1025 }, // Bucharest (closest)
     ];
@@ -71,7 +71,7 @@ describe('distanceUtils', () => {
     it('should sort locations by distance from center', () => {
       const sorted = sortByDistance(locations, bucharest);
       expect(sorted[0]).toEqual({ lat: 44.4268, lon: 26.1025 }); // Bucharest first
-      expect(sorted[2]).toEqual({ lat: 46.7712, lon: 23.6236 }); // Cluj-Napoca last
+      expect(sorted[2]).toEqual({ lat: 46.7712, lon: 23.6236 }); // Example city last
     });
 
     it('should return original array for invalid center', () => {

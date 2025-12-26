@@ -2,6 +2,18 @@
 
 ## Recent Updates (December 2024)
 
+### December 26, 2024 - App Rebranding to Neary
+- **🎨 REBRANDING**: Changed app name from "Cluj Bus App" to "Neary" for broader appeal
+- **📱 BRANDING**: Updated app icon with new Neary branding using theme color (#6750A4)
+- **🌍 GENERIC**: Removed city-specific references while keeping Cluj-Napoca as example in docs
+- **📦 BUILD**: Fixed all build errors and maintained existing constants structure
+
+### December 26, 2024 - Data Refresh Architecture Documentation
+- **📚 DOCUMENTATION**: Added comprehensive data refresh analysis to developer guide
+- **⚡ REFRESH STRATEGY**: Documented event-driven refresh (no polling) with cache-first approach
+- **🔄 CACHE DURATIONS**: Documented all cache durations (vehicles: 30s, routes: 5min, shapes: 24h)
+- **🎯 TRIGGERS**: Documented refresh triggers (component mount, visibility change, network events, manual actions)
+
 ### December 26, 2024 - Production API Fix
 - **🔧 CRITICAL FIX**: Fixed production API calls returning HTML instead of JSON
 - **⚡ NETLIFY CONFIG**: Added API proxy redirects before SPA redirect in netlify.toml
@@ -11,6 +23,7 @@
 - **🟢 GPS STATUS**: Balanced GPS accuracy now shows green instead of yellow for better UX
 - **🗺️ MAP ARROWS**: Direction arrows on map are now bigger with white centers for better visibility
 - **💜 ROUTE SHAPES**: Route shapes now use slightly lighter purple color for improved readability
+- **🗺️ STATION POPUPS**: Fixed empty "Type" field and "Unknown" location in map station popups
 
 ### December 26, 2024 - Enhanced Favorites Filtering
 - **✨ FAVORITES PRIORITY**: Favorites now always appear first in route lists regardless of active filters

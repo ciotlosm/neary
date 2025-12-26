@@ -1,4 +1,4 @@
-# Getting Started with Cluj Bus App
+# Getting Started with Neary
 
 ## 🚀 Quick Setup
 
@@ -11,7 +11,7 @@
 1. **Clone and install dependencies**
    ```bash
    git clone <repository-url>
-   cd cluj-bus
+   cd neary
    npm install
    ```
 
@@ -117,7 +117,7 @@ npm test
 ## 📂 Project Structure
 
 ```
-cluj-bus/
+neary/
 ├── src/                 # Source code
 │   ├── components/      # React components
 │   ├── services/        # API services

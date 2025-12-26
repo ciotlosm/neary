@@ -189,11 +189,21 @@ export const StationLayer: FC<StationLayerProps> = ({
                 
                 {/* Station type and location type */}
                 <div style={{ marginBottom: '6px' }}>
-                  <strong>Type:</strong> {getStationTypeLabel(stationType as any)}
+                  <strong>Type:</strong> {stationType === StationSymbolType.DEFAULT ? 'Bus Stop' : 
+                                        stationType === StationSymbolType.USER_LOCATION ? 'Your Location' :
+                                        stationType === StationSymbolType.TERMINUS ? 'Route Terminus' :
+                                        stationType === StationSymbolType.NEARBY ? 'Nearby Stop' : 'Bus Stop'}
                 </div>
                 
                 <div style={{ marginBottom: '6px' }}>
-                  <strong>Location:</strong> {station.location_type || 'Unknown'}
+                  <strong>Location:</strong> {
+                    station.location_type === 0 ? 'Stop/Platform' :
+                    station.location_type === 1 ? 'Station' :
+                    station.location_type === 2 ? 'Entrance/Exit' :
+                    station.location_type === 3 ? 'Generic Node' :
+                    station.location_type === 4 ? 'Boarding Area' :
+                    `Type ${station.location_type}`
+                  }
                 </div>
                 
                 {/* Stop code if available */}

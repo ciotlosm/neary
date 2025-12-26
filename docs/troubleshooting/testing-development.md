@@ -150,7 +150,7 @@ beforeEach(() => {
 http.get('/api/tranzy/v1/opendata/agency', () => {
   return HttpResponse.json([{
     agency_id: 1,
-    agency_name: 'CTP Cluj-Napoca',
+    agency_name: 'Local Transit Authority',
     agency_url: 'https://ctpcj.ro',
     agency_timezone: 'Europe/Bucharest',
     agency_lang: 'ro'
@@ -277,7 +277,7 @@ vi.mock('@/hooks/shared/cache/instance', () => ({
 const validVehicleArb = fc.record({
   vehicle_id: fc.string({ minLength: 1 }),
   trip_id: fc.string({ minLength: 1 }),
-  latitude: fc.float({ min: 46.7, max: 46.8 }), // Cluj bounds
+  latitude: fc.float({ min: 46.7, max: 46.8 }), // Example city bounds
   longitude: fc.float({ min: 23.5, max: 23.7 })
 });
 ```

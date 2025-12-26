@@ -52,7 +52,7 @@
 **Problem**: API returns empty arrays
 **Cause**: Wrong agency ID or no active vehicles
 **Solution**: 
-1. Verify agency ID is correct (cluj-napoca)
+1. Verify agency ID is correct (example: agency-id)
 2. Check during business hours
 3. Try different time of day
 
