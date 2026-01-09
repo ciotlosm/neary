@@ -3,6 +3,8 @@
  * Uses browser-native compression APIs to reduce storage size
  */
 
+import { readStreamChunks, combineChunks } from './streamUtils.ts';
+
 /**
  * Compress data using gzip compression
  * Uses the browser's native CompressionStream API (available in modern browsers)
@@ -39,26 +41,10 @@ export async function compressData(data: string): Promise<string> {
     writer.close();
 
     // Read compressed data
-    const chunks: Uint8Array[] = [];
-    let done = false;
-    
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
-      if (value) {
-        chunks.push(value);
-      }
-    }
+    const chunks = await readStreamChunks(reader);
 
     // Combine chunks and convert to base64 for storage
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-    
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    }
+    const combined = combineChunks(chunks);
 
     // Convert to base64 string for localStorage
     // Use chunked approach to avoid stack overflow with large arrays
@@ -123,26 +109,10 @@ export async function decompressData(compressedData: string): Promise<string> {
     writer.close();
 
     // Read decompressed data
-    const chunks: Uint8Array[] = [];
-    let done = false;
-    
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
-      if (value) {
-        chunks.push(value);
-      }
-    }
+    const chunks = await readStreamChunks(reader);
 
     // Combine chunks and convert back to string
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-    
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    }
+    const combined = combineChunks(chunks);
 
     // Convert back to string
     const decoder = new TextDecoder();
