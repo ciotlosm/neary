@@ -149,7 +149,7 @@ export const ManualRefreshButton: FC<ManualRefreshButtonProps> = ({
   const [freshnessStatus, setFreshnessStatus] = useState<DataFreshnessStatus>({
     status: 'stale',
     vehicleDataAge: Infinity,
-    generalDataAge: Infinity,
+    staticDataAge: Infinity,
     isRefreshing: false, // We won't use this anymore
     nextVehicleRefresh: 0
   });
