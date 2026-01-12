@@ -2,6 +2,48 @@
 
 ## Recent Updates (January 2025)
 
+### January 12, 2025 - Fixed Vehicle ID Consistency in Tooltip
+- **🐛 BUG FIX**: Fixed vehicle ID mismatch between card and tooltip (card showed 939, tooltip showed 429)
+- **🔧 SOLUTION**: Changed tooltip to use vehicle.label (user-facing number) instead of vehicle.id (internal ID)
+- **✅ RESULT**: Vehicle identification now consistent between card display and tooltip debugging info
+
+### January 12, 2025 - Fixed Calculation Method in Tooltip
+- **🐛 BUG FIX**: Fixed "Method: unknown" in vehicle tooltip by preserving calculationMethod from arrival calculations
+- **🔧 SOLUTION**: Added calculationMethod field to StationVehicle type and ensured it's passed through the data flow
+- **📊 RESULT**: Tooltip now shows actual calculation method (route_shape, stop_segments, etc.) for better debugging
+
+### January 12, 2025 - Enhanced Vehicle Tooltip Debugging
+- **🔧 FEATURE**: Added comprehensive tooltip to vehicle arrival times for troubleshooting 15-second updates
+- **📊 DETAILS**: Shows vehicle position, timing, refresh status, confidence, and prediction method
+- **🎯 USAGE**: Hover over any "In X minutes" or "Departed" chip to see detailed debug information
+
+### January 12, 2025 - Prediction Timer UI Updates Fixed
+- **🐛 BUG FIX**: Fixed prediction timers not updating in UI despite background calculations working
+- **🔄 SOLUTION**: Modified `useStationFilter` to re-filter when vehicle data changes, not just location changes
+- **⚡ RESULT**: Vehicle arrival times and timestamps now update every 15 seconds as intended
+
+### January 12, 2025 - Constants Consolidation & Organization
+- **🔧 CONSTANTS**: Consolidated hardcoded values into centralized constants files
+- **📁 ORGANIZATION**: Created `stringConstants.ts`, `colorConstants.ts`, and `testConstants.ts` for better organization
+- **⚡ PERFORMANCE**: Extracted calculation thresholds, time formatting, and cache duration constants
+- **🎨 COLORS**: Unified color definitions across map, transport types, and debug interfaces
+
+### January 11, 2025 - GPS Background Processing & Code Cleanup
+- **🔧 BACKGROUND PROCESSING**: GPS updates now happen in background without unnecessary UI re-renders
+- **📏 DISTANCE THRESHOLD**: Only re-filter stations when location changes by >500m (configurable)
+- **♻️ CODE REUSE**: Removed duplicate distance calculation, now uses existing `distanceUtils`
+- **⚡ PERFORMANCE**: GPS button updates location cache silently, components only re-render when results change
+
+### January 11, 2025 - Smart Map Viewport Enhancement
+- **🎯 FEATURE**: Map buttons now show comprehensive view including target station, vehicle, and next vehicle station
+- **🗺️ SMART ZOOM**: Default zoom, vehicle button, and station button automatically fit all relevant points in view
+- **⚡ CONTEXT**: Users see complete journey context instead of just single points
+
+### January 11, 2025 - Vehicle Display Order Fix
+- **🐛 BUG FIX**: Fixed vehicle ordering in station lists where "arriving in 1 minute" vehicles appeared after "departed" vehicles
+- **🎯 LOGIC**: Implemented status-priority grouping with trip diversity (at_stop → in_minutes → departed)
+- **🔧 DETECTION**: Fixed status detection to handle both "minute" (singular) and "minutes" (plural) correctly
+
 ### January 10, 2025 - Smooth Vehicle Animation & Prediction Updates
 - **🎯 FEATURE**: Added 30-second prediction updates independent of 60-second API refresh
 - **🎬 ANIMATION**: Vehicles now smoothly animate between positions on the map
