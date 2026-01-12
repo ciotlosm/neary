@@ -161,7 +161,7 @@ export const StationLayer: FC<StationLayerProps> = ({
           symbolType: stationType,
           customSize,
           isPulsing: isNextStation, // Pulse the next station
-          pulseColor: '#FFD700' // Bright gold/yellow for pulsing
+          pulseColor: '#3182CE' // Blue for pulsing (same as vehicle color)
         });
 
         return (

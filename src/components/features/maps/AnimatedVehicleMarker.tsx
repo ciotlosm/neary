@@ -17,7 +17,7 @@ import {
   shouldAnimateMovement,
   type AnimationState
 } from '../../../utils/maps/animationUtils';
-import { ANIMATION_CONFIG } from '../../../utils/maps/mapConstants';
+import { PREDICTION_UPDATE_CYCLE } from '../../../utils/core/constants';
 
 interface AnimatedVehicleMarkerProps {
   vehicle: EnhancedVehicleData;
@@ -60,7 +60,7 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
         startPosition: currentPosition, // Start from current animated position
         endPosition: newPosition,
         startTime: Date.now(),
-        duration: ANIMATION_CONFIG.VEHICLE_UPDATE_INTERVAL / 2 // Half the update interval for smooth movement
+        duration: PREDICTION_UPDATE_CYCLE / 2 // Half the prediction update interval for smooth movement
       };
 
       // Start animation loop
@@ -140,14 +140,14 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
       return 'No prediction data';
     }
     
-    const { predictionApplied, timestampAge, predictionMethod } = vehicle.predictionMetadata;
+    const { positionApplied, timestampAge, positionMethod } = vehicle.predictionMetadata;
     
-    if (!predictionApplied) {
+    if (!positionApplied) {
       return 'Using API position (prediction failed)';
     }
     
     const ageSeconds = Math.round(timestampAge / 1000);
-    return `Predicted position (${ageSeconds}s ahead, ${predictionMethod})`;
+    return `Predicted position (${ageSeconds}s ahead, ${positionMethod})`;
   };
 
   return (
@@ -205,7 +205,7 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
             paddingTop: '4px'
           }}>
             ID: {vehicle.id} | Current: {currentPosition.lat.toFixed(6)}, {currentPosition.lon.toFixed(6)}
-            {vehicle.predictionMetadata?.predictionApplied && (
+            {vehicle.predictionMetadata?.positionApplied && (
               <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
                 API: {vehicle.apiLatitude?.toFixed(6) ?? 'N/A'}, {vehicle.apiLongitude?.toFixed(6) ?? 'N/A'}
               </div>
@@ -226,7 +226,7 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
           )}
           
           {/* Prediction metadata for debugging */}
-          {vehicle.predictionMetadata?.predictionApplied && (
+          {vehicle.predictionMetadata?.positionApplied && (
             <div style={{ 
               fontSize: '11px', 
               color: '#666', 

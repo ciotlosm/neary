@@ -551,10 +551,10 @@ export const DebugLayer: FC<DebugLayerProps> = ({
         // Only show vehicles with prediction metadata
         if (!vehicle.predictionMetadata) return null;
 
-        const { predictionApplied, timestampAge } = vehicle.predictionMetadata;
+        const { positionApplied, timestampAge } = vehicle.predictionMetadata;
         
         // Skip vehicles without meaningful prediction data
-        if (!predictionApplied || timestampAge < 1000) return null; // Less than 1 second age
+        if (!positionApplied || timestampAge < 1000) return null; // Less than 1 second age
 
         const apiPosition = { lat: vehicle.apiLatitude, lon: vehicle.apiLongitude };
         const predictedPosition = { lat: vehicle.latitude, lon: vehicle.longitude };
@@ -597,7 +597,7 @@ export const DebugLayer: FC<DebugLayerProps> = ({
                   <div><strong>Movement Distance:</strong> {Math.round(predictionDistance)}m</div>
                   <div><strong>Stations Encountered:</strong> {vehicle.predictionMetadata.stationsEncountered}</div>
                   <div><strong>Total Dwell Time:</strong> {Math.round(vehicle.predictionMetadata.totalDwellTime / 1000)}s</div>
-                  <div><strong>Method:</strong> {vehicle.predictionMetadata.predictionMethod}</div>
+                  <div><strong>Method:</strong> {vehicle.predictionMetadata.positionMethod}</div>
                   <div style={{ 
                     fontSize: '11px', 
                     color: '#666', 
@@ -670,7 +670,7 @@ export const DebugLayer: FC<DebugLayerProps> = ({
                   </div>
                   <div><strong>Vehicle:</strong> {vehicle.label}</div>
                   <div><strong>Coordinates:</strong> {predictedPosition.lat.toFixed(6)}, {predictedPosition.lon.toFixed(6)}</div>
-                  <div><strong>Prediction Method:</strong> {vehicle.predictionMetadata.predictionMethod}</div>
+                  <div><strong>Prediction Method:</strong> {vehicle.predictionMetadata.positionMethod}</div>
                   <div><strong>Moved Distance:</strong> {Math.round(vehicle.predictionMetadata.predictedDistance)}m</div>
                   <div><strong>Time Elapsed:</strong> {Math.round(timestampAge / 1000)}s</div>
                   <div><strong>Stations Passed:</strong> {vehicle.predictionMetadata.stationsEncountered}</div>
