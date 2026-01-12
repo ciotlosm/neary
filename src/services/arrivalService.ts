@@ -20,16 +20,29 @@ export const arrivalService = {
   /**
    * Calculate arrival times for vehicles approaching a specific stop
    * Uses enhanced vehicles with position predictions for improved accuracy
+   * Uses proper store architecture with caching
    */
   async calculateArrivalsForStop(stopId: string): Promise<ArrivalTimeResult[]> {
     try {
-      // Get enhanced vehicles with predictions and other required data in parallel
-      const [vehicles, trips, stopTimes, stops] = await Promise.all([
-        this.getVehicles(), // Now returns enhanced vehicles by default
-        this.getTrips(),
-        this.getStopTimes(),
-        this.getStops()
+      // Load data through stores (respects caching and prevents duplicate requests)
+      const { useVehicleStore } = await import('../stores/vehicleStore');
+      const { useTripStore } = await import('../stores/tripStore');
+      const { useStopTimeStore } = await import('../stores/stopTimeStore');
+      const { useStationStore } = await import('../stores/stationStore');
+
+      // Load data through stores in parallel - stores handle caching and deduplication
+      await Promise.all([
+        useVehicleStore.getState().loadVehicles(),
+        useTripStore.getState().loadTrips(),
+        useStopTimeStore.getState().loadStopTimes(),
+        useStationStore.getState().loadStops()
       ]);
+
+      // Get cached data from stores
+      const vehicles = useVehicleStore.getState().vehicles;
+      const trips = useTripStore.getState().trips;
+      const stopTimes = useStopTimeStore.getState().stopTimes;
+      const stops = useStationStore.getState().stops;
 
       // Find target stop
       const targetStop = stops.find(s => s.stop_id === parseInt(stopId));
@@ -43,28 +56,5 @@ export const arrivalService = {
     } catch (error) {
       handleApiError(error, 'calculate arrivals for stop');
     }
-  },
-
-  /**
-   * Helper methods to fetch data from other services
-   */
-  async getVehicles(): Promise<EnhancedVehicleData[]> {
-    const { vehicleService } = await import('./vehicleService');
-    return vehicleService.getEnhancedVehicles();
-  },
-
-  async getTrips() {
-    const { tripService } = await import('./tripService');
-    return tripService.getTrips();
-  },
-
-  async getStopTimes() {
-    const { tripService } = await import('./tripService');
-    return tripService.getStopTimes();
-  },
-
-  async getStops() {
-    const { stationService } = await import('./stationService');
-    return stationService.getStops();
   }
 };

@@ -117,9 +117,11 @@ class AutomaticRefreshService {
    */
   private startPredictionUpdateTimer(): void {
     if (this.predictionUpdateTimer) {
+      console.log('[AutoRefresh] Prediction timer already running, skipping start');
       return; // Timer already running
     }
 
+    console.log(`[AutoRefresh] Starting prediction timer with ${this.config.predictionUpdateInterval}ms interval`);
     this.predictionUpdateTimer = setInterval(async () => {
       // Only update predictions if app is in foreground
       if (!this.isAppInForeground) {
@@ -127,6 +129,7 @@ class AutomaticRefreshService {
       }
 
       try {
+        console.log('[AutoRefresh] Triggering prediction update...');
         // Update predictions without fetching new API data
         await this.updatePredictionsOnly();
       } catch (error) {
@@ -140,6 +143,7 @@ class AutomaticRefreshService {
    */
   private stopPredictionUpdateTimer(): void {
     if (this.predictionUpdateTimer) {
+      console.log('[AutoRefresh] Stopping prediction timer');
       clearInterval(this.predictionUpdateTimer);
       this.predictionUpdateTimer = null;
     }
