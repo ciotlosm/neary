@@ -4,7 +4,7 @@
  */
 
 import type { FC } from 'react';
-import React, { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import type { Map as LeafletMap } from 'leaflet';
@@ -15,7 +15,7 @@ import { UserLocationLayer } from './UserLocationLayer';
 import { DebugLayer } from './DebugLayer';
 import { MapControls } from './MapControls';
 import { MapMode, VehicleColorStrategy } from '../../../types/map';
-import { projectPointToShape } from '../../../utils/arrival/distanceUtils';
+import { projectPointToShape, calculateDistanceAlongShape } from '../../../utils/arrival/distanceUtils';
 import { calculateDistance } from '../../../utils/location/distanceUtils';
 import { estimateVehicleProgressWithStops } from '../../../utils/arrival/vehicleProgressUtils';
 import { getTripStopSequence } from '../../../utils/arrival/tripUtils';
@@ -215,53 +215,48 @@ export const VehicleMapContent: FC<VehicleMapContentProps> = ({
           }
         }
       }
-
-      // Calculate projections and distance - this is what was missing!
+      
+      // Get vehicle projection for debug data
       const vehicleProjection = projectPointToShape(vehiclePosition, routeShape);
-      const stationProjection = projectPointToShape(targetStationPosition, routeShape);
       
-      // Calculate the actual route distance using existing logic
-      const distanceResult = {
-        method: 'route_shape',
-        confidence: 'high',
-        totalDistance: calculateDistance(vehiclePosition, targetStationPosition),
-        segments: Math.abs(stationProjection.segmentIndex - vehicleProjection.segmentIndex)
-      };
+      let nextStationPosition: { lat: number; lon: number } | undefined;
+      let nextStationProjection: any | undefined;
+      let nextStationInfo: { stop_id: number; stop_name: string; isTargetStation: boolean } | undefined;
       
-      // Get next station info if available
-      const vehicleProgress = estimateVehicleProgressWithStops(targetVehicle, routeShape, stations);
-      const nextStationInfo = vehicleProgress?.segmentBetweenStops?.nextStop ? {
-        stop_id: vehicleProgress.segmentBetweenStops.nextStop.stop_id,
-        stop_name: vehicleProgress.segmentBetweenStops.nextStop.stop_name,
-        isTargetStation: vehicleProgress.segmentBetweenStops.nextStop.stop_id === targetStation.stop_id
-      } : undefined;
+      if (nextStop) {
+        nextStationPosition = { lat: nextStop.stop_lat, lon: nextStop.stop_lon };
+        nextStationProjection = projectPointToShape(nextStationPosition, routeShape);
+        nextStationInfo = {
+          stop_id: nextStop.stop_id,
+          stop_name: nextStop.stop_name,
+          isTargetStation: nextStop.stop_id === targetStation.stop_id
+        };
+      }
       
-      const nextStationPosition = nextStationInfo ? {
-        lat: vehicleProgress.segmentBetweenStops.nextStop.stop_lat,
-        lon: vehicleProgress.segmentBetweenStops.nextStop.stop_lon
-      } : undefined;
-
+      const finalStationProjection = projectPointToShape(targetStationPosition, routeShape);
+      
+      const distanceResult = calculateDistanceAlongShape(
+        vehiclePosition, 
+        targetStationPosition, 
+        routeShape
+      );
+      
       return {
         vehiclePosition,
         targetStationPosition,
         nextStationPosition,
         vehicleProjection,
-        stationProjection,
-        nextStationProjection: nextStationPosition ? projectPointToShape(nextStationPosition, routeShape) : undefined,
+        stationProjection: finalStationProjection,
+        nextStationProjection,
         routeShape,
-        distanceCalculation: {
-          method: 'route_shape',
-          confidence: 'high',
-          totalDistance: directDistance,
-          segments: Math.abs(stationProjection.segmentIndex - vehicleProjection.segmentIndex)
-        },
+        distanceCalculation: distanceResult,
         nextStationInfo
       };
     } catch (error) {
       console.warn('Failed to create debug data:', error);
       return null;
     }
-  }, [debugMode, displayRouteShapes, filteredStations, targetVehicle, targetStationId, stations]);
+  }, [debugMode, displayRouteShapes, filteredStations, targetVehicle, targetStationId, stations, nextStop]);
 
   if (!targetVehicle) {
     return null;

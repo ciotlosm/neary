@@ -2,6 +2,10 @@
 
 ## Recent Updates (January 2025)
 
+### January 13, 2025 - Fixed Debug Route Segments Visualization
+- **🐛 BUG FIX**: Debug mode now shows grey route segments for distance calculations
+- **🔧 SOLUTION**: Fixed debug data construction by copying working logic from main branch and adding missing `calculateDistanceAlongShape` import
+
 ### January 13, 2025 - Fixed User Location Accuracy Circle Display
 - **🎯 BUG FIX**: User location accuracy circle now displays correctly on map
 - **🔧 SOLUTION**: Fixed type mismatch - VehicleMapContent now receives full GeolocationPosition with accuracy data
