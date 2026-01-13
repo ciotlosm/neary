@@ -50,24 +50,15 @@ export const vehicleService = {
       
       console.log(`[VehicleService] Enhancement data from stores: routeShapes=${routeShapes?.size || 0}, stopTimesByTrip=${stopTimesByTrip?.size || 0}, stops=${stops?.length || 0}`);
       
-      // Apply position predictions at service layer
-      const vehiclesWithPositionPredictions = enhanceVehicles(rawVehicles, {
+      // Apply position and speed predictions at service layer (always enabled)
+      const enhancedVehicles = enhanceVehicles(rawVehicles, {
         routeShapes,
         stopTimesByTrip,
-        stops,
-        includeSpeed: false
+        stops
       });
       
-      // Apply speed predictions after position predictions (Requirements 8.1, 8.2)
-      try {
-        const vehiclesWithSpeedPredictions = await this.applySpeedPredictions(vehiclesWithPositionPredictions, stops);
-        console.log(`[VehicleService] Speed predictions applied to ${vehiclesWithSpeedPredictions.length} vehicles`);
-        return vehiclesWithSpeedPredictions;
-      } catch (speedError) {
-        // Graceful fallback to position-only predictions (Requirements 8.3, 8.4)
-        console.warn('Speed prediction failed, continuing with position-only predictions:', speedError);
-        return vehiclesWithPositionPredictions;
-      }
+      console.log(`[VehicleService] Enhanced ${enhancedVehicles.length} vehicles with position and speed predictions`);
+      return enhancedVehicles;
     } catch (error) {
       // If enhancement fails, fall back to raw vehicles without predictions
       console.warn('Failed to enhance vehicles with predictions, falling back to raw data:', error);
@@ -78,13 +69,18 @@ export const vehicleService = {
         ...vehicle,
         apiLatitude: vehicle.latitude,
         apiLongitude: vehicle.longitude,
+        apiSpeed: vehicle.speed,
         predictionMetadata: {
           predictedDistance: 0,
           stationsEncountered: 0,
           totalDwellTime: 0,
           positionMethod: 'fallback' as const,
           positionApplied: false,
-          timestampAge: 0
+          timestampAge: 0,
+          predictedSpeed: vehicle.speed, // Use API speed as fallback
+          speedMethod: 'api_speed' as const,
+          speedConfidence: 'low' as const,
+          speedApplied: true
         }
       }));
     }
@@ -135,69 +131,6 @@ export const vehicleService = {
    */
   async getEnhancedVehicles(): Promise<EnhancedVehicleData[]> {
     return this.getVehicles();
-  },
-
-  /**
-   * Apply speed predictions to vehicles with position predictions already applied
-   * Implements performance requirements (8.1, 8.2) and error handling (8.3, 8.4, 8.5)
-   * @param vehicles Vehicles with position predictions applied
-   * @param stops Array of transit stops for station density calculation
-   * @returns Vehicles with both position and speed predictions applied
-   */
-  async applySpeedPredictions(
-    vehicles: EnhancedVehicleData[],
-    stops: any[]
-  ): Promise<EnhancedVehicleData[]> {
-    const startTime = performance.now();
-    
-    try {
-      // Validate configuration at runtime (Requirements 8.5)
-      if (!SpeedPredictionConfigValidator.validateAllParameters()) {
-        console.warn('Speed prediction configuration validation failed, skipping speed predictions');
-        return vehicles;
-      }
-      
-      // Skip speed predictions if no vehicles or stops available
-      if (vehicles.length === 0 || stops.length === 0) {
-        console.log('[VehicleService] Skipping speed predictions: no vehicles or stops available');
-        return vehicles;
-      }
-      
-      // Calculate station density center for location-based speed estimation
-      const stationDensityCenter = calculateStationDensityCenter(stops);
-      
-      console.log(`[VehicleService] Applying speed predictions to ${vehicles.length} vehicles using station density center:`, stationDensityCenter);
-      
-      // Apply speed predictions with performance monitoring (Requirements 8.1, 8.2)
-      const enhancedVehicles = enhanceVehicles(vehicles, {
-        stops,
-        includeSpeed: true
-      });
-      
-      // Performance monitoring and logging (Requirements 8.1, 8.2)
-      const calculationTime = performance.now() - startTime;
-      console.log(`[VehicleService] Speed predictions completed in ${calculationTime.toFixed(2)}ms for ${vehicles.length} vehicles`);
-      
-      // Log performance warning if calculation takes too long (Requirements 8.1)
-      if (calculationTime > 100) { // Warning threshold higher than individual calculation timeout
-        console.warn(`[VehicleService] Speed prediction calculation took ${calculationTime.toFixed(2)}ms, consider optimization`);
-      }
-      
-      return enhancedVehicles;
-    } catch (error) {
-      // Graceful error handling with detailed logging (Requirements 8.3, 8.4, 8.5)
-      const calculationTime = performance.now() - startTime;
-      console.error('[VehicleService] Speed prediction error:', {
-        error: error instanceof Error ? error.message : String(error),
-        vehicleCount: vehicles.length,
-        stopCount: stops.length,
-        calculationTimeMs: calculationTime,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Return vehicles without speed predictions (graceful degradation)
-      return vehicles;
-    }
   },
 
   /**

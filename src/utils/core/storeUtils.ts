@@ -120,7 +120,8 @@ export function createRefreshMethod<T>(
       setState({ 
         [dataKey]: data,
         error: null, 
-        lastUpdated: Date.now() 
+        lastUpdated: Date.now(),
+        lastApiFetch: Date.now()  // Track API fetch time separately
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : `Failed to refresh ${storeName}`;
@@ -145,14 +146,14 @@ export function createRefreshMethod<T>(
   };
 }
 
-/**
- * Creates a data freshness checker
- * @param defaultMaxAge - Default maximum age in milliseconds
- */
-export function createFreshnessChecker(defaultMaxAge: number) {
-  return (getState: () => any, maxAgeMs: number = defaultMaxAge): boolean => {
-    const { lastUpdated } = getState();
-    if (!lastUpdated) return false;
-    return (Date.now() - lastUpdated) < maxAgeMs;
-  };
-}
+  /**
+   * Creates a data freshness checker
+   * @param defaultMaxAge - Default maximum age in milliseconds
+   */
+  export function createFreshnessChecker(defaultMaxAge: number) {
+    return (getState: () => any, maxAgeMs: number = defaultMaxAge): boolean => {
+      const { lastApiFetch } = getState();
+      if (!lastApiFetch) return false;
+      return (Date.now() - lastApiFetch) < maxAgeMs;
+    };
+  }

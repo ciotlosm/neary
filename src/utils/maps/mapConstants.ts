@@ -4,7 +4,8 @@
  * Includes default settings, tile providers, and performance limits
  */
 
-import type { Coordinates, MapPerformanceConfig } from '../../types/interactiveMap';
+import type { Coordinates } from '../../utils/location/distanceUtils';
+import type { MapPerformanceConfig } from '../../types/map/mapState';
 import { APP_COLORS } from '../core/colorConstants';
 
 // ============================================================================

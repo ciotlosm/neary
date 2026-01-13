@@ -23,7 +23,7 @@ import {
   getApiStatusText,
   getApiRecommendations
 } from '../../../utils/status/apiStatusHelpers';
-import { formatTimeAgo } from '../../../utils/vehicle/vehicleFormatUtils';
+import { formatRelativeTime } from '../../../utils/time/timestampFormatUtils';
 
 interface GpsState {
   status: 'available' | 'unavailable' | 'disabled';
@@ -83,7 +83,7 @@ export const StatusDetailDialog: FC<StatusDetailDialogProps> = ({
           {lastUpdated && (
             <>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Last Updated:</strong> {formatTimeAgo(lastUpdated)} ({new Date(lastUpdated).toLocaleString()})
+                <strong>Last Updated:</strong> {formatRelativeTime(lastUpdated)} ({new Date(lastUpdated).toLocaleString()})
               </Typography>
             </>
           )}

@@ -3,6 +3,25 @@
  * Re-exports all map-related types for convenient importing
  */
 
+// Import required types for the main props interface
+import type { Coordinates } from '../../utils/location/distanceUtils';
+import type { 
+  TranzyRouteResponse, 
+  TranzyStopResponse, 
+  TranzyTripResponse, 
+  TranzyStopTimeResponse 
+} from '../rawTranzyApi';
+import type { RouteShape } from '../arrivalTime';
+import type { EnhancedVehicleData } from '../../utils/vehicle/vehicleEnhancementUtils';
+import type { 
+  MapPerformanceConfig, 
+  MapLoadingState 
+} from './mapState';
+import type { MapColorScheme } from './mapColors';
+import type { DebugVisualizationData } from './mapLayers';
+import { MapMode } from './mapState';
+import { VehicleColorStrategy } from './mapColors';
+
 // Map state and configuration
 export type {
   MapState,
@@ -83,14 +102,3 @@ export interface InteractiveTransitMapProps {
   onStationClick?: (station: TranzyStopResponse) => void;
   onRouteClick?: (route: TranzyRouteResponse) => void;
 }
-
-// Import required types for the main props interface
-import type { Coordinates } from '../../utils/location/distanceUtils';
-import type { 
-  TranzyRouteResponse, 
-  TranzyStopResponse, 
-  TranzyTripResponse, 
-  TranzyStopTimeResponse 
-} from '../rawTranzyApi';
-import type { RouteShape } from '../arrivalTime';
-import type { EnhancedVehicleData } from '../../utils/vehicle/vehicleEnhancementUtils';

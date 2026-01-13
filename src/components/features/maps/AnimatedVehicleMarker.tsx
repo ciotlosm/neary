@@ -10,6 +10,7 @@ import type { EnhancedVehicleData } from '../../../utils/vehicle/vehicleEnhancem
 import type { TranzyRouteResponse } from '../../../types/rawTranzyApi';
 import { createVehicleIcon } from '../../../utils/maps/iconUtils';
 import { formatTimestamp } from '../../../utils/vehicle/vehicleFormatUtils';
+import { formatAbsoluteTime } from '../../../utils/time/timestampFormatUtils';
 import {
   interpolateCoordinates,
   calculateAnimationProgress,
@@ -125,7 +126,9 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
 
   // Get vehicle status text
   const getVehicleStatus = (): string => {
-    if (vehicle.speed === 0) {
+    if (vehicle.predictionMetadata?.isAtStation) {
+      return 'At station';
+    } else if (vehicle.speed === 0) {
       return 'Stopped';
     } else if (vehicle.speed < 5) {
       return 'Moving slowly';
@@ -148,6 +151,23 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
     
     const ageSeconds = Math.round(timestampAge / 1000);
     return `Predicted position (${ageSeconds}s ahead, ${positionMethod})`;
+  };
+
+  // Get speed prediction details for tooltip
+  const getSpeedPredictionDetails = (): string => {
+    if (!vehicle.predictionMetadata) {
+      return 'No speed prediction data';
+    }
+    
+    const { speedMethod, speedConfidence, predictedSpeed } = vehicle.predictionMetadata;
+    const apiSpeed = vehicle.apiSpeed;
+    
+    // Show different speed if predicted differs from API
+    if (speedMethod !== 'api_speed' && apiSpeed !== predictedSpeed) {
+      return `${speedMethod} (${speedConfidence} confidence) - API: ${Number(apiSpeed).toFixed(2)} km/h`;
+    } else {
+      return `${speedMethod} (${speedConfidence} confidence)`;
+    }
   };
 
   return (
@@ -180,11 +200,16 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
           </div>
           
           <div style={{ marginBottom: '4px' }}>
-            <strong>Speed:</strong> {vehicle.speed} km/h
+            <strong>Speed:</strong> {Number(vehicle.speed).toFixed(2)} km/h
+            {vehicle.predictionMetadata && (
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                {getSpeedPredictionDetails()}
+              </div>
+            )}
           </div>
           
           <div style={{ marginBottom: '4px' }}>
-            <strong>Last Update:</strong> {formatTimestamp(vehicle.timestamp)}
+            <strong>Last Update:</strong> {formatAbsoluteTime(new Date(vehicle.timestamp).getTime()).replace('at ', '')}
           </div>
           
           <div style={{ marginBottom: '4px' }}>
@@ -237,6 +262,21 @@ export const AnimatedVehicleMarker: FC<AnimatedVehicleMarkerProps> = ({
               Moved: {Math.round(vehicle.predictionMetadata.predictedDistance)}m | 
               Stations: {vehicle.predictionMetadata.stationsEncountered} | 
               Dwell: {Math.round(vehicle.predictionMetadata.totalDwellTime / 1000)}s
+            </div>
+          )}
+          
+          {/* Speed prediction metadata for debugging */}
+          {vehicle.predictionMetadata && process.env.NODE_ENV === 'development' && (
+            <div style={{ 
+              fontSize: '10px', 
+              color: '#888', 
+              marginTop: '4px',
+              borderTop: '1px solid #eee',
+              paddingTop: '2px'
+            }}>
+              Speed Method: {vehicle.predictionMetadata.speedMethod} | 
+              Confidence: {vehicle.predictionMetadata.speedConfidence}
+              {vehicle.predictionMetadata.isAtStation && ' | At Station'}
             </div>
           )}
           

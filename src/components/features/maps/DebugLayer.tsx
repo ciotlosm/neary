@@ -509,7 +509,7 @@ export const DebugLayer: FC<DebugLayerProps> = ({
         icon={createDistanceLabelIcon(
           `${directDistance.toFixed(0)}m`, 
           'direct', 
-          distanceCalculation?.confidence || 'unknown'
+          distanceCalculation?.confidence as 'high' | 'medium' | 'low' || 'low'
         )}
       />
 

@@ -4,7 +4,7 @@
  * Used by map controls to adjust view based on mode
  */
 
-import type { Coordinates } from '../../types/interactiveMap';
+import type { Coordinates } from '../../utils/location/distanceUtils';
 import type { RouteShape } from '../../types/arrivalTime';
 import type { TranzyStopResponse } from '../../types/rawTranzyApi';
 import { MAP_DEFAULTS } from './mapConstants';

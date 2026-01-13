@@ -19,6 +19,9 @@ interface VehicleStore {
   // Performance optimization: track last update time
   lastUpdated: number | null;
   
+  // Separate API fetch timestamp for debugging (when lastUpdated gets overridden by predictions)
+  lastApiFetch: number | null;
+  
   // Actions
   loadVehicles: () => Promise<void>;
   refreshData: () => Promise<void>;
@@ -49,6 +52,7 @@ export const useVehicleStore = create<VehicleStore>()(
       loading: false,
       error: null,
       lastUpdated: null,
+      lastApiFetch: null,
       
       // Actions
       loadVehicles: async () => {
@@ -58,7 +62,7 @@ export const useVehicleStore = create<VehicleStore>()(
           return;
         }
         
-        // Check if cached data is fresh
+        // Check if cached data is fresh using API fetch timestamp
         if (currentState.vehicles.length > 0 && currentState.isDataFresh()) {
           return; // Use cached data
         }
@@ -70,11 +74,13 @@ export const useVehicleStore = create<VehicleStore>()(
           const { vehicleService } = await import('../services/vehicleService');
           const vehicles = await vehicleService.getVehicles(); // Service returns enhanced vehicles
           
+          const now = Date.now();
           set({ 
             vehicles, 
             loading: false, 
             error: null, 
-            lastUpdated: Date.now() 
+            lastUpdated: now,      // For component subscriptions
+            lastApiFetch: now      // For API freshness checks
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to load vehicles';
@@ -169,10 +175,12 @@ export const useVehicleStore = create<VehicleStore>()(
             stops
           });
           
-          // Update store with new predictions (keep same lastUpdated time)
+          // Update store with new predictions and update lastUpdated for component subscriptions
           set({ 
             vehicles: updatedVehicles,
-            error: null
+            error: null,
+            lastUpdated: Date.now() // Components subscribe to this for prediction updates
+            // NOTE: lastApiFetch is NOT updated - this is not an API call
           });
           
           console.log(`[VehicleStore] Updated predictions for ${updatedVehicles.length} vehicles using cached data at ${new Date().toLocaleTimeString()}`);
@@ -191,7 +199,8 @@ export const useVehicleStore = create<VehicleStore>()(
       clearVehicles: () => set({ 
         vehicles: [], 
         error: null, 
-        lastUpdated: null 
+        lastUpdated: null,
+        lastApiFetch: null
       }),
       clearError: () => set({ error: null }),
       
@@ -205,6 +214,7 @@ export const useVehicleStore = create<VehicleStore>()(
       partialize: (state) => ({
         vehicles: state.vehicles,
         lastUpdated: state.lastUpdated,
+        lastApiFetch: state.lastApiFetch,
         error: state.error
       }),
     }

@@ -33,7 +33,7 @@ function isValidCoordinate(coords: Coordinates): boolean {
 
 export interface SpeedPrediction {
   speed: number; // km/h
-  method: 'api_speed' | 'nearby_average' | 'location_based' | 'static_fallback';
+  method: 'api_speed' | 'nearby_average' | 'location_based' | 'stopped_at_station' | 'static_fallback';
   confidence: 'high' | 'medium' | 'low' | 'very_low';
   metadata?: {
     apiSpeed?: number;

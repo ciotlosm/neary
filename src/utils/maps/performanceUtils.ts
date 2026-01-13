@@ -7,7 +7,8 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import type { TranzyVehicleResponse, TranzyStopResponse } from '../../types/rawTranzyApi';
 import type { EnhancedVehicleData } from '../vehicle/vehicleEnhancementUtils';
-import type { Coordinates, MapPerformanceConfig } from '../../types/interactiveMap';
+import type { Coordinates } from '../../utils/location/distanceUtils';
+import type { MapPerformanceConfig } from '../../types/map/mapState';
 import { throttle } from '../core/performanceUtils';
 
 // ============================================================================

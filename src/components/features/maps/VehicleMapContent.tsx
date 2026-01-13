@@ -16,9 +16,9 @@ import { DebugLayer } from './DebugLayer';
 import { MapControls } from './MapControls';
 import { MapMode, VehicleColorStrategy } from '../../../types/map';
 import { projectPointToShape, calculateDistanceAlongShape } from '../../../utils/arrival/distanceUtils';
-import { calculateDistance } from '../../../utils/location/distanceUtils';
 import { estimateVehicleProgressWithStops } from '../../../utils/arrival/vehicleProgressUtils';
 import { getTripStopSequence } from '../../../utils/arrival/tripUtils';
+import { useVehicleStore } from '../../../stores/vehicleStore';
 import type { RouteShape } from '../../../types/arrivalTime';
 import type { DebugVisualizationData } from '../../../types/map/mapLayers';
 import { DEFAULT_MAP_COLORS, MAP_DEFAULTS } from '../../../types/map';
@@ -118,9 +118,14 @@ export const VehicleMapContent: FC<VehicleMapContentProps> = ({
   onUserLocationToggle,
   onDebugToggle
 }) => {
-  // Find the target vehicle and trip
+  // Subscribe to vehicle updates (includes both API fetches and prediction updates)
+  const lastUpdated = useVehicleStore(state => state.lastUpdated);
+  const storeVehicles = useVehicleStore(state => state.vehicles);
+
+  // Find the target vehicle from store (has latest predictions) or fallback to props
   const targetStationVehicle = vehicles.find(sv => sv.vehicle.id === vehicleId);
-  const targetVehicle = targetStationVehicle?.vehicle || null;
+  const targetVehicleFromStore = storeVehicles.find(v => v.id === vehicleId);
+  const targetVehicle = targetVehicleFromStore || targetStationVehicle?.vehicle || null;
   const vehicleTrip = targetVehicle ? trips.find(trip => trip.trip_id === targetVehicle.trip_id) : null;
 
   // Filter data for this specific vehicle
@@ -167,7 +172,7 @@ export const VehicleMapContent: FC<VehicleMapContentProps> = ({
     }
     
     return null;
-  }, [targetVehicle, stopTimes, stations]);
+  }, [targetVehicle, stopTimes, stations, lastUpdated]);
 
   // Create debug data using REAL distance calculations
   const debugData: DebugVisualizationData | null = useMemo(() => {

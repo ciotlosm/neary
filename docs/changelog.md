@@ -2,6 +2,37 @@
 
 ## Recent Updates (January 2025)
 
+### January 13, 2025 - Enhanced Speed Display and Prediction Details
+- **🎯 SPEED PRECISION**: Speed now displays with 2 decimal places for better accuracy
+- **📊 TOOLTIP ENHANCEMENT**: Arrival chip tooltips show speed prediction algorithm and confidence level
+- **🔧 MAP MARKERS**: Vehicle map tooltips include detailed speed prediction information
+
+### January 13, 2025 - Implemented Comprehensive Speed Prediction Architecture
+- **🚀 SPEED PREDICTION**: Always-on speed prediction with station detection - vehicles show predicted speed, not API speed
+- **🛑 STATION DETECTION**: Vehicles at stations show "Stopped" (speed = 0) instead of "arriving in 0 minutes"
+- **📊 SPEED LAYERS**: API speed → Predicted speed → Algorithm used (api_speed, nearby_average, location_based, stopped_at_station, static_fallback)
+- **🎯 UI ENHANCEMENT**: Vehicle cards show predicted speed, tooltips show both predicted and API speed for debugging
+- **🔧 ARCHITECTURE**: Removed `includeSpeed` parameter - speed prediction always enabled with proper fallbacks
+
+### January 13, 2025 - Fixed Critical Refresh Issue: Separated API and Prediction Timestamps
+- **🚨 CRITICAL FIX**: Manual/automatic refresh now works correctly - API calls are made when data is actually stale
+- **🔧 SOLUTION**: Added `lastApiFetch` timestamp separate from `lastUpdated` - refresh services use `lastApiFetch` for staleness detection, components use `lastUpdated` for subscriptions
+- **📦 ARCHITECTURE**: Enhanced vehicle predictions no longer interfere with API refresh logic
+
+### January 13, 2025 - Implemented Unified Timestamp Architecture
+- **⏰ ARCHITECTURE**: Implemented 4-timestamp system for consistent time handling across the app
+- **🔧 TIMESTAMPS**: API timestamp (vehicle.timestamp), fetch timestamp (lastUpdated), NOW timestamp (Date.now()), prediction timestamp (predictionTimestamp)
+- **📦 UTILITIES**: Created unified timestamp formatting with 3 formats: relative time ("2 minutes ago"), arrival time ("in 5 minutes"), absolute time ("at 14:32")
+- **🔄 SUBSCRIPTIONS**: Components now use proper timestamp subscriptions - vehicles use prediction updates, others use fetch timestamps
+
+### January 13, 2025 - Fixed Next Station Updates with Prediction Changes
+- **🐛 BUG FIX**: Next station now updates correctly when vehicle predictions change every 15 seconds
+- **🔧 SOLUTION**: Added `lastPredictionUpdate` timestamp to vehicle store and made next station calculation reactive to prediction updates
+
+### January 13, 2025 - Improved Map Marker Icons
+- **🎨 UI IMPROVEMENT**: Vehicle markers now use square icons instead of round ones for better visibility
+- **📍 LOCATION FIX**: User location marker now uses proper Material Design location pin icon instead of custom teardrop shape
+
 ### January 13, 2025 - Fixed Debug Route Segments Visualization
 - **🐛 BUG FIX**: Debug mode now shows grey route segments for distance calculations
 - **🔧 SOLUTION**: Fixed debug data construction by copying working logic from main branch and adding missing `calculateDistanceAlongShape` import

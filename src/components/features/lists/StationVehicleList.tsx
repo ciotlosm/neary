@@ -15,6 +15,7 @@ import {
   LocationOn as TargetStationIcon, Favorite as FavoriteIcon
 } from '@mui/icons-material';
 import { formatTimestamp, formatSpeed, getAccessibilityFeatures, formatArrivalTime } from '../../../utils/vehicle/vehicleFormatUtils';
+import { formatAbsoluteTime, formatRelativeTime } from '../../../utils/time/timestampFormatUtils';
 import { sortStationVehiclesByArrival } from '../../../utils/station/stationVehicleUtils';
 import { groupVehiclesForDisplay } from '../../../utils/station/vehicleGroupingUtils';
 import { VEHICLE_DISPLAY } from '../../../utils/core/constants';
@@ -290,30 +291,23 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
           <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
             <TimeIcon fontSize="small" color="action" />
             <Box sx={{ textAlign: 'right' }}>
-              <Typography 
-                variant="caption" 
-                color="text.secondary"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  whiteSpace: 'nowrap',
-                  display: 'block'
-                }}
+              <Tooltip 
+                title={vehicleRefreshTimestamp ? `Fetched ${formatRelativeTime(vehicleRefreshTimestamp)}` : ''}
+                arrow
               >
-                {formatTimestamp(vehicle.timestamp)}
-              </Typography>
-              {vehicleRefreshTimestamp && (
                 <Typography 
                   variant="caption" 
                   color="text.secondary"
                   sx={{ 
                     fontSize: { xs: '0.7rem', sm: '0.75rem' },
                     whiteSpace: 'nowrap',
-                    display: 'block'
+                    display: 'block',
+                    cursor: vehicleRefreshTimestamp ? 'help' : 'default'
                   }}
                 >
-                  {formatTimestamp(new Date(vehicleRefreshTimestamp).toISOString())}
+                  {formatTimestamp(vehicle.timestamp)}
                 </Typography>
-              )}
+              </Tooltip>
             </Box>
           </Box>
         </Stack>
@@ -402,7 +396,7 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
                 
                 // Vehicle position details
                 vehicleId: vehicle.label || vehicle.id, // Use label first (user-facing number), fallback to ID
-                vehicleSpeed: vehicle.speed ? `${vehicle.speed} km/h` : 'stopped',
+                vehicleSpeed: vehicle.speed ? `${Number(vehicle.speed).toFixed(2)} km/h` : 'stopped',
                 vehiclePosition: `${vehicle.latitude?.toFixed(6)}, ${vehicle.longitude?.toFixed(6)}`,
                 
                 // Prediction calculation details
@@ -443,26 +437,39 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
               const shouldShowTooltip = true;
               
               if (shouldShowTooltip) {
-                // Create comprehensive tooltip content
+                // Create simplified tooltip content
                 let tooltipContent = '';
                 
-                // Primary info (always shown)
+                // Essential vehicle info
                 tooltipContent += `🚌 Vehicle ${enhancedDebugInfo.vehicleId}\n`;
                 tooltipContent += `📍 ${enhancedDebugInfo.vehiclePosition}\n`;
-                tooltipContent += `⚡ ${enhancedDebugInfo.vehicleSpeed}\n`;
-                tooltipContent += `⏰ ${enhancedDebugInfo.arrivalText}\n\n`;
+                tooltipContent += `⚡ ${enhancedDebugInfo.vehicleSpeed}`;
                 
-                // Timing details for troubleshooting
-                tooltipContent += `🕐 Current: ${enhancedDebugInfo.currentTime}\n`;
+                // Show API speed if different from predicted speed
+                if (vehicle.apiSpeed !== vehicle.speed) {
+                  tooltipContent += ` (API: ${Number(vehicle.apiSpeed).toFixed(2)} km/h)`;
+                }
+                tooltipContent += `\n⏰ ${enhancedDebugInfo.arrivalText}\n\n`;
+                
+                // Vehicle data age
                 tooltipContent += `📡 Vehicle Data: ${enhancedDebugInfo.vehicleAge}\n`;
-                tooltipContent += `🔄 Last Refresh: ${enhancedDebugInfo.lastRefresh}\n`;
-                tooltipContent += `🎯 Est. Arrival: ${enhancedDebugInfo.estimatedArrival}\n`;
-                tooltipContent += `⏱️ Est. Minutes: ${enhancedDebugInfo.estimatedMinutes}\n\n`;
+                tooltipContent += `🎯 Precise ETA: ${enhancedDebugInfo.estimatedMinutes}\n\n`;
                 
-                // Prediction details
+                // Prediction methods and confidence
                 tooltipContent += `📊 Confidence: ${enhancedDebugInfo.confidence}\n`;
                 tooltipContent += `🔧 Method: ${enhancedDebugInfo.method}\n`;
-                tooltipContent += `📋 Status: ${enhancedDebugInfo.status}\n`;
+                
+                // Position prediction info
+                if (vehicle.predictionMetadata?.positionMethod && vehicle.predictionMetadata?.positionApplied) {
+                  const positionConfidence = vehicle.predictionMetadata.timestampAge < 60000 ? 'high' : 
+                                            vehicle.predictionMetadata.timestampAge < 120000 ? 'medium' : 'low';
+                  tooltipContent += `📍 Position: ${vehicle.predictionMetadata.positionMethod} (${positionConfidence})\n`;
+                }
+                
+                // Speed prediction info
+                if (vehicle.predictionMetadata?.speedMethod) {
+                  tooltipContent += `🏃 Speed: ${vehicle.predictionMetadata.speedMethod} (${vehicle.predictionMetadata.speedConfidence})\n`;
+                }
                 
                 // Add low confidence debug info if available
                 if (lowConfidenceDebugInfo) {

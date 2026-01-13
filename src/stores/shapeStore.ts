@@ -25,6 +25,9 @@ interface ShapeStore {
   // Performance optimization: track last update time
   lastUpdated: number | null;
   
+  // Separate API fetch timestamp for freshness checks
+  lastApiFetch: number | null;
+  
   // Actions
   loadShapes: () => Promise<void>;
   getShape: (shapeId: string) => RouteShape | undefined;
@@ -79,6 +82,7 @@ export const useShapeStore = create<ShapeStore>()(
   loading: false,
   error: null,
   lastUpdated: null,
+  lastApiFetch: null,
   
   // Actions
   loadShapes: async () => {
@@ -112,7 +116,8 @@ export const useShapeStore = create<ShapeStore>()(
     set({
       shapes: new Map<string, RouteShape>(),
       error: null,
-      lastUpdated: null
+      lastUpdated: null,
+      lastApiFetch: null
     });
   },
   
