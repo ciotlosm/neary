@@ -5,8 +5,8 @@
 import axios from 'axios';
 import type { TranzyVehicleResponse } from '../types/rawTranzyApi.ts';
 import type { EnhancedVehicleData } from '../utils/vehicle/vehicleEnhancementUtils.ts';
-import { enhanceVehiclesWithPredictions, enhanceVehiclesWithSpeedPredictions } from '../utils/vehicle/vehicleEnhancementUtils.ts';
-import { SpeedPredictor } from '../utils/vehicle/speedPredictionUtils.ts';
+import { enhanceVehicles } from '../utils/vehicle/vehicleEnhancementUtils.ts';
+import { calculateStationDensityCenter } from '../utils/vehicle/stationDensityUtils.ts';
 import { handleApiError, apiStatusTracker } from './error';
 import { getApiConfig } from '../context/appContext';
 import { API_CONFIG, SpeedPredictionConfigValidator } from '../utils/core/constants';
@@ -51,7 +51,12 @@ export const vehicleService = {
       console.log(`[VehicleService] Enhancement data from stores: routeShapes=${routeShapes?.size || 0}, stopTimesByTrip=${stopTimesByTrip?.size || 0}, stops=${stops?.length || 0}`);
       
       // Apply position predictions at service layer
-      const vehiclesWithPositionPredictions = enhanceVehiclesWithPredictions(rawVehicles, routeShapes, stopTimesByTrip, stops);
+      const vehiclesWithPositionPredictions = enhanceVehicles(rawVehicles, {
+        routeShapes,
+        stopTimesByTrip,
+        stops,
+        includeSpeed: false
+      });
       
       // Apply speed predictions after position predictions (Requirements 8.1, 8.2)
       try {
@@ -159,14 +164,15 @@ export const vehicleService = {
       }
       
       // Calculate station density center for location-based speed estimation
-      const speedPredictor = new SpeedPredictor();
-      const { apiKey, agencyId } = getApiConfig();
-      const stationDensityCenter = speedPredictor.getStationDensityCenter(stops, agencyId.toString());
+      const stationDensityCenter = calculateStationDensityCenter(stops);
       
       console.log(`[VehicleService] Applying speed predictions to ${vehicles.length} vehicles using station density center:`, stationDensityCenter);
       
       // Apply speed predictions with performance monitoring (Requirements 8.1, 8.2)
-      const enhancedVehicles = enhanceVehiclesWithSpeedPredictions(vehicles, stationDensityCenter);
+      const enhancedVehicles = enhanceVehicles(vehicles, {
+        stops,
+        includeSpeed: true
+      });
       
       // Performance monitoring and logging (Requirements 8.1, 8.2)
       const calculationTime = performance.now() - startTime;

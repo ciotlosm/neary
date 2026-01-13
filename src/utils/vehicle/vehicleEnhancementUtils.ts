@@ -1,10 +1,11 @@
 /**
- * Vehicle Data Enhancement Utilities
- * Extends vehicle data with position predictions while preserving original API coordinates
+ * Vehicle Enhancement Utilities (Simplified)
+ * Consolidates 6 enhancement functions into 2 simple ones
  */
 
 import { predictVehiclePosition } from './positionPredictionUtils';
-import { SpeedPredictor, type SpeedPredictionResult } from './speedPredictionUtils';
+import { predictVehicleSpeed } from './speedCalculationUtils';
+import { calculateStationDensityCenter } from './stationDensityUtils';
 import type { 
   TranzyVehicleResponse, 
   TranzyStopResponse, 
@@ -14,11 +15,11 @@ import type {
 import type { Coordinates } from '../location/distanceUtils';
 
 // ============================================================================
-// Enhanced Vehicle Data Interface
+// Enhanced Vehicle Data Interface (Simplified)
 // ============================================================================
 
 export interface EnhancedVehicleData extends TranzyVehicleResponse {
-  // Override coordinates with predicted values (transparent to consumers)
+  // Override coordinates with predicted values
   latitude: number;  // Predicted latitude (or original if no prediction)
   longitude: number; // Predicted longitude (or original if no prediction)
   
@@ -26,127 +27,155 @@ export interface EnhancedVehicleData extends TranzyVehicleResponse {
   apiLatitude: number;
   apiLongitude: number;
   
-  // UNIFIED prediction metadata combining position and speed predictions
+  // Simplified prediction metadata
   predictionMetadata?: {
-    // Position prediction data
-    predictedDistance: number; // meters moved from position prediction
+    // Position prediction
+    predictedDistance: number;
     stationsEncountered: number;
-    totalDwellTime: number; // milliseconds
+    totalDwellTime: number;
     positionMethod: 'route_shape' | 'fallback';
     positionApplied: boolean;
-    timestampAge: number; // milliseconds
+    timestampAge: number;
     
-    // Speed prediction data
-    predictedSpeed?: number; // km/h - main speed result
-    speedMethod?: 'api_speed' | 'nearby_average' | 'location_based' | 'static_fallback';
-    speedConfidence?: 'high' | 'medium' | 'low' | 'very_low';
+    // Speed prediction (optional)
+    predictedSpeed?: number;
+    speedMethod?: string;
+    speedConfidence?: string;
     speedApplied?: boolean;
-    apiSpeed?: number; // original API speed value
-    nearbyVehicleCount?: number;
-    nearbyAverageSpeed?: number;
-    distanceToCenter?: number; // meters from station density center
-    locationBasedSpeed?: number; // calculated location-based speed
-    speedCalculationTimeMs?: number; // performance tracking
   };
 }
 
 // ============================================================================
-// Vehicle Enhancement Functions
+// Enhancement Options Interface
+// ============================================================================
+
+export interface EnhancementOptions {
+  // Position prediction options
+  routeShape?: RouteShape;
+  stopTimes?: TranzyStopTimeResponse[];
+  stops?: TranzyStopResponse[];
+  
+  // Speed prediction options
+  includeSpeed?: boolean;
+  nearbyVehicles?: TranzyVehicleResponse[];
+  stationDensityCenter?: Coordinates;
+}
+
+// ============================================================================
+// Consolidated Enhancement Functions (2 instead of 6)
 // ============================================================================
 
 /**
- * Enhance a single vehicle with position prediction
- * Preserves original API coordinates and adds predicted position
- * Enhanced to support dynamic speed prediction integration (Requirements 5.1, 5.3)
+ * Enhance a single vehicle with predictions
+ * Replaces: enhanceVehicleWithPrediction, enhanceVehicleWithSpeedPrediction, enhanceVehicleWithFullPrediction
  */
-export function enhanceVehicleWithPrediction(
+export function enhanceVehicle(
   vehicle: TranzyVehicleResponse,
-  routeShape?: RouteShape,
-  stopTimes?: TranzyStopTimeResponse[],
-  stops?: TranzyStopResponse[],
-  existingEnhancement?: { predictionMetadata?: { predictedSpeed?: number } }
+  options: EnhancementOptions = {}
 ): EnhancedVehicleData {
   // Preserve original API coordinates
   const apiLatitude = vehicle.latitude;
   const apiLongitude = vehicle.longitude;
   
-  // Calculate predicted position with enhanced speed support (Requirements 5.1, 5.3)
-  const predictionResult = predictVehiclePosition(
-    vehicle, 
-    routeShape, 
-    stopTimes, 
-    stops, 
-    existingEnhancement
+  // 1. Apply position prediction
+  const positionResult = predictVehiclePosition(
+    vehicle,
+    options.routeShape,
+    options.stopTimes,
+    options.stops
   );
   
-  // Create enhanced vehicle data
+  // Create base enhanced vehicle
   const enhancedVehicle: EnhancedVehicleData = {
     ...vehicle,
-    // Preserve original API coordinates
     apiLatitude,
     apiLongitude,
-    // Use predicted coordinates for calculations
-    latitude: predictionResult.predictedPosition.lat,
-    longitude: predictionResult.predictedPosition.lon,
-    // Add unified prediction metadata
+    latitude: positionResult.predictedPosition.lat,
+    longitude: positionResult.predictedPosition.lon,
     predictionMetadata: {
-      // Position prediction data
-      predictedDistance: predictionResult.metadata.predictedDistance,
-      stationsEncountered: predictionResult.metadata.stationsEncountered,
-      totalDwellTime: predictionResult.metadata.totalDwellTime,
-      positionMethod: predictionResult.metadata.method,
-      positionApplied: predictionResult.metadata.success,
-      timestampAge: predictionResult.metadata.timestampAge,
-      
-      // Speed prediction data (will be populated by speed prediction functions)
-      predictedSpeed: undefined,
-      speedMethod: undefined,
-      speedConfidence: undefined,
-      speedApplied: false,
-      apiSpeed: vehicle.speed || undefined,
-      nearbyVehicleCount: undefined,
-      nearbyAverageSpeed: undefined,
-      distanceToCenter: undefined,
-      locationBasedSpeed: undefined,
-      speedCalculationTimeMs: undefined
+      predictedDistance: positionResult.metadata.predictedDistance,
+      stationsEncountered: positionResult.metadata.stationsEncountered,
+      totalDwellTime: positionResult.metadata.totalDwellTime,
+      positionMethod: positionResult.metadata.method,
+      positionApplied: positionResult.metadata.success,
+      timestampAge: positionResult.metadata.timestampAge
     }
   };
+  
+  // 2. Apply speed prediction if requested
+  if (options.includeSpeed && options.nearbyVehicles && options.stationDensityCenter) {
+    const speedResult = predictVehicleSpeed(
+      vehicle,
+      options.nearbyVehicles,
+      options.stationDensityCenter
+    );
+    
+    // Add speed prediction to metadata
+    enhancedVehicle.predictionMetadata = {
+      ...enhancedVehicle.predictionMetadata!,
+      predictedSpeed: speedResult.speed,
+      speedMethod: speedResult.method,
+      speedConfidence: speedResult.confidence,
+      speedApplied: true
+    };
+  }
   
   return enhancedVehicle;
 }
 
 /**
- * Enhance multiple vehicles with position predictions
- * Applies prediction to each vehicle individually
+ * Enhance multiple vehicles with predictions
+ * Replaces: enhanceVehiclesWithPredictions, enhanceVehiclesWithSpeedPredictions, enhanceVehiclesWithFullPredictions
  */
-export function enhanceVehiclesWithPredictions(
+export function enhanceVehicles(
   vehicles: TranzyVehicleResponse[],
-  routeShapes?: Map<string, RouteShape>,
-  stopTimesByTrip?: Map<string, TranzyStopTimeResponse[]>,
-  stops?: TranzyStopResponse[]
+  options: {
+    routeShapes?: Map<string, RouteShape>;
+    stopTimesByTrip?: Map<string, TranzyStopTimeResponse[]>;
+    stops?: TranzyStopResponse[];
+    includeSpeed?: boolean;
+  } = {}
 ): EnhancedVehicleData[] {
+  // Calculate station density center once if speed prediction is enabled
+  let stationDensityCenter: Coordinates | undefined;
+  if (options.includeSpeed && options.stops) {
+    stationDensityCenter = calculateStationDensityCenter(options.stops);
+  }
+  
   return vehicles.map(vehicle => {
-    // Get route shape for this vehicle's trip
+    // Get route shape for this vehicle
     let routeShape: RouteShape | undefined;
-    if (routeShapes && vehicle.trip_id) {
-      // Try to find route shape by trip_id or route_id
-      routeShape = routeShapes.get(vehicle.trip_id) || 
-                   (vehicle.route_id ? routeShapes.get(vehicle.route_id.toString()) : undefined);
+    if (options.routeShapes && vehicle.trip_id) {
+      routeShape = options.routeShapes.get(vehicle.trip_id) || 
+                   (vehicle.route_id ? options.routeShapes.get(vehicle.route_id.toString()) : undefined);
     }
     
-    // Get stop times for this vehicle's trip
+    // Get stop times for this vehicle
     let stopTimes: TranzyStopTimeResponse[] | undefined;
-    if (stopTimesByTrip && vehicle.trip_id) {
-      stopTimes = stopTimesByTrip.get(vehicle.trip_id);
+    if (options.stopTimesByTrip && vehicle.trip_id) {
+      stopTimes = options.stopTimesByTrip.get(vehicle.trip_id);
     }
     
-    return enhanceVehicleWithPrediction(vehicle, routeShape, stopTimes, stops);
+    // Build enhancement options
+    const enhancementOptions: EnhancementOptions = {
+      routeShape,
+      stopTimes,
+      stops: options.stops,
+      includeSpeed: options.includeSpeed,
+      nearbyVehicles: options.includeSpeed ? vehicles : undefined,
+      stationDensityCenter
+    };
+    
+    return enhanceVehicle(vehicle, enhancementOptions);
   });
 }
 
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
 /**
- * Check if a vehicle has position prediction applied
- * Utility function for conditional logic based on prediction status
+ * Check if a vehicle has prediction applied
  */
 export function hasPredictionApplied(vehicle: EnhancedVehicleData): boolean {
   return vehicle.predictionMetadata?.positionApplied === true;
@@ -154,7 +183,6 @@ export function hasPredictionApplied(vehicle: EnhancedVehicleData): boolean {
 
 /**
  * Get original API coordinates from enhanced vehicle
- * Utility function for debug visualization and fallback scenarios
  */
 export function getOriginalCoordinates(vehicle: EnhancedVehicleData): { lat: number; lon: number } {
   return {
@@ -164,307 +192,43 @@ export function getOriginalCoordinates(vehicle: EnhancedVehicleData): { lat: num
 }
 
 /**
- * Enhance a single vehicle with speed prediction
- * Merges speed prediction data into existing predictionMetadata
- * @param vehicle Enhanced vehicle (already has position prediction)
- * @param nearbyVehicles Array of nearby vehicles for speed averaging
- * @param stationDensityCenter Geographic center of station density
- * @returns Enhanced vehicle with speed prediction data merged
+ * Get prediction summary for debugging
  */
-export function enhanceVehicleWithSpeedPrediction(
-  vehicle: EnhancedVehicleData,
-  nearbyVehicles: TranzyVehicleResponse[],
-  stationDensityCenter: Coordinates
-): EnhancedVehicleData {
-  const speedPredictor = new SpeedPredictor();
-  
-  // Convert enhanced vehicle back to TranzyVehicleResponse for speed prediction
-  const vehicleForPrediction: TranzyVehicleResponse = {
-    ...vehicle,
-    // Use original API coordinates for speed prediction calculations
-    latitude: vehicle.apiLatitude,
-    longitude: vehicle.apiLongitude
-  };
-  
-  // Get speed prediction result
-  const speedPredictionData = speedPredictor.predictSpeed(
-    vehicleForPrediction,
-    nearbyVehicles,
-    stationDensityCenter
-  );
-  
-  // Merge speed prediction data into existing predictionMetadata
-  return {
-    ...vehicle,
-    predictionMetadata: {
-      ...vehicle.predictionMetadata,
-      // Merge speed prediction fields
-      predictedSpeed: speedPredictionData.predictedSpeed,
-      speedMethod: speedPredictionData.speedMethod,
-      speedConfidence: speedPredictionData.speedConfidence,
-      speedApplied: speedPredictionData.speedApplied,
-      apiSpeed: speedPredictionData.apiSpeed,
-      nearbyVehicleCount: speedPredictionData.nearbyVehicleCount,
-      nearbyAverageSpeed: speedPredictionData.nearbyAverageSpeed,
-      distanceToCenter: speedPredictionData.distanceToCenter,
-      locationBasedSpeed: speedPredictionData.locationBasedSpeed,
-      speedCalculationTimeMs: speedPredictionData.speedCalculationTimeMs
-    }
-  };
-}
-
-/**
- * Enhance multiple vehicles with speed predictions
- * Applies speed prediction to each vehicle using shared station density center
- * @param vehicles Array of enhanced vehicles (already have position predictions)
- * @param stationDensityCenter Geographic center of station density
- * @returns Array of enhanced vehicles with speed prediction data merged
- */
-export function enhanceVehiclesWithSpeedPredictions(
-  vehicles: EnhancedVehicleData[],
-  stationDensityCenter: Coordinates
-): EnhancedVehicleData[] {
-  // Convert enhanced vehicles to TranzyVehicleResponse array for nearby vehicle analysis
-  const vehiclesForPrediction: TranzyVehicleResponse[] = vehicles.map(vehicle => ({
-    ...vehicle,
-    // Use original API coordinates for speed prediction calculations
-    latitude: vehicle.apiLatitude,
-    longitude: vehicle.apiLongitude
-  }));
-  
-  // Apply speed prediction to each vehicle
-  return vehicles.map(vehicle => 
-    enhanceVehicleWithSpeedPrediction(vehicle, vehiclesForPrediction, stationDensityCenter)
-  );
-}
-
-/**
- * Check if a vehicle has speed prediction applied
- * Utility function for conditional logic based on speed prediction status
- */
-export function hasSpeedPredictionApplied(vehicle: EnhancedVehicleData): boolean {
-  return vehicle.predictionMetadata?.speedApplied === true;
-}
-
-/**
- * Enhance a single vehicle with both speed and position predictions
- * Applies speed prediction first, then uses it for enhanced position prediction
- * This is the recommended function for full dynamic prediction integration (Requirements 5.1, 5.3, 5.4)
- */
-export function enhanceVehicleWithFullPrediction(
-  vehicle: TranzyVehicleResponse,
-  nearbyVehicles: TranzyVehicleResponse[],
-  stationDensityCenter: Coordinates,
-  routeShape?: RouteShape,
-  stopTimes?: TranzyStopTimeResponse[],
-  stops?: TranzyStopResponse[]
-): EnhancedVehicleData {
-  // Step 1: Apply speed prediction first
-  const speedPredictor = new SpeedPredictor();
-  const speedPredictionData = speedPredictor.predictSpeed(
-    vehicle,
-    nearbyVehicles,
-    stationDensityCenter
-  );
-  
-  // Step 2: Create temporary enhanced vehicle with speed prediction for position calculation
-  const vehicleWithSpeed = {
-    predictionMetadata: {
-      predictedSpeed: speedPredictionData.predictedSpeed,
-      speedMethod: speedPredictionData.speedMethod,
-      speedConfidence: speedPredictionData.speedConfidence
-    }
-  };
-  
-  // Step 3: Apply position prediction using the predicted speed (Requirements 5.1, 5.3)
-  const enhancedVehicle = enhanceVehicleWithPrediction(
-    vehicle,
-    routeShape,
-    stopTimes,
-    stops,
-    vehicleWithSpeed
-  );
-  
-  // Step 4: Merge complete speed prediction data into final result
-  return {
-    ...enhancedVehicle,
-    predictionMetadata: {
-      ...enhancedVehicle.predictionMetadata,
-      // Merge complete speed prediction fields
-      predictedSpeed: speedPredictionData.predictedSpeed,
-      speedMethod: speedPredictionData.speedMethod,
-      speedConfidence: speedPredictionData.speedConfidence,
-      speedApplied: speedPredictionData.speedApplied,
-      apiSpeed: speedPredictionData.apiSpeed,
-      nearbyVehicleCount: speedPredictionData.nearbyVehicleCount,
-      nearbyAverageSpeed: speedPredictionData.nearbyAverageSpeed,
-      distanceToCenter: speedPredictionData.distanceToCenter,
-      locationBasedSpeed: speedPredictionData.locationBasedSpeed,
-      speedCalculationTimeMs: speedPredictionData.speedCalculationTimeMs
-    }
-  };
-}
-
-/**
- * Enhance multiple vehicles with full prediction (speed + position)
- * Applies both speed and position predictions in the correct order
- * This is the recommended function for batch processing with full dynamic prediction
- */
-export function enhanceVehiclesWithFullPredictions(
-  vehicles: TranzyVehicleResponse[],
-  stationDensityCenter: Coordinates,
-  routeShapes?: Map<string, RouteShape>,
-  stopTimesByTrip?: Map<string, TranzyStopTimeResponse[]>,
-  stops?: TranzyStopResponse[]
-): EnhancedVehicleData[] {
-  return vehicles.map(vehicle => {
-    // Get route shape for this vehicle's trip
-    let routeShape: RouteShape | undefined;
-    if (routeShapes && vehicle.trip_id) {
-      // Try to find route shape by trip_id or route_id
-      routeShape = routeShapes.get(vehicle.trip_id) || 
-                   (vehicle.route_id ? routeShapes.get(vehicle.route_id.toString()) : undefined);
-    }
-    
-    // Get stop times for this vehicle's trip
-    let stopTimes: TranzyStopTimeResponse[] | undefined;
-    if (stopTimesByTrip && vehicle.trip_id) {
-      stopTimes = stopTimesByTrip.get(vehicle.trip_id);
-    }
-    
-    return enhanceVehicleWithFullPrediction(
-      vehicle,
-      vehicles, // Use all vehicles as nearby vehicles for speed prediction
-      stationDensityCenter,
-      routeShape,
-      stopTimes,
-      stops
-    );
-  });
-}
-
-/**
- * Get speed prediction summary for debugging and monitoring
- * Provides aggregate statistics about speed prediction performance
- */
-export function getSpeedPredictionSummary(vehicles: EnhancedVehicleData[]): {
-  totalVehicles: number;
-  speedPredictionsApplied: number;
-  speedPredictionRate: number;
-  speedMethodBreakdown: Record<string, number>;
-  averageSpeedConfidence: number;
-} {
-  const totalVehicles = vehicles.length;
-  let speedPredictionsApplied = 0;
-  const speedMethodCounts: Record<string, number> = {};
-  let totalSpeedConfidence = 0;
-  let speedConfidenceCount = 0;
-  
-  for (const vehicle of vehicles) {
-    if (vehicle.predictionMetadata?.speedApplied) {
-      speedPredictionsApplied++;
-      
-      const { speedMethod, speedConfidence } = vehicle.predictionMetadata;
-      
-      if (speedMethod) {
-        speedMethodCounts[speedMethod] = (speedMethodCounts[speedMethod] || 0) + 1;
-      }
-      
-      if (speedConfidence) {
-        const confidenceValue = speedConfidence === 'high' ? 1 : 
-                               speedConfidence === 'medium' ? 0.75 : 
-                               speedConfidence === 'low' ? 0.5 : 0.25;
-        totalSpeedConfidence += confidenceValue;
-        speedConfidenceCount++;
-      }
-    }
-  }
-  
-  return {
-    totalVehicles,
-    speedPredictionsApplied,
-    speedPredictionRate: totalVehicles > 0 ? speedPredictionsApplied / totalVehicles : 0,
-    speedMethodBreakdown: speedMethodCounts,
-    averageSpeedConfidence: speedConfidenceCount > 0 ? totalSpeedConfidence / speedConfidenceCount : 0
-  };
-}
 export function getPredictionSummary(vehicles: EnhancedVehicleData[]): {
   totalVehicles: number;
   positionPredictionsApplied: number;
-  positionPredictionRate: number;
   speedPredictionsApplied: number;
-  speedPredictionRate: number;
   averageTimestampAge: number;
   averagePredictedDistance: number;
-  positionMethodBreakdown: Record<string, number>;
-  speedMethodBreakdown: Record<string, number>;
-  averageSpeedConfidence: number;
 } {
   const totalVehicles = vehicles.length;
   let positionPredictionsApplied = 0;
   let speedPredictionsApplied = 0;
   let totalTimestampAge = 0;
   let totalPredictedDistance = 0;
-  const positionMethodCounts: Record<string, number> = {};
-  const speedMethodCounts: Record<string, number> = {};
-  let totalSpeedConfidence = 0;
-  let speedConfidenceCount = 0;
   
   for (const vehicle of vehicles) {
     if (vehicle.predictionMetadata) {
-      const { 
-        positionApplied, 
-        timestampAge, 
-        predictedDistance, 
-        positionMethod,
-        speedApplied,
-        speedMethod,
-        speedConfidence
-      } = vehicle.predictionMetadata;
+      const { positionApplied, speedApplied, timestampAge, predictedDistance } = vehicle.predictionMetadata;
       
-      // Position prediction stats
       if (positionApplied) {
         positionPredictionsApplied++;
         totalPredictedDistance += predictedDistance;
       }
       
-      // Speed prediction stats
       if (speedApplied) {
         speedPredictionsApplied++;
       }
       
       totalTimestampAge += timestampAge;
-      
-      // Method breakdowns
-      if (positionMethod) {
-        positionMethodCounts[positionMethod] = (positionMethodCounts[positionMethod] || 0) + 1;
-      }
-      
-      if (speedMethod) {
-        speedMethodCounts[speedMethod] = (speedMethodCounts[speedMethod] || 0) + 1;
-      }
-      
-      // Speed confidence stats
-      if (speedConfidence) {
-        const confidenceValue = speedConfidence === 'high' ? 1 : 
-                               speedConfidence === 'medium' ? 0.75 : 
-                               speedConfidence === 'low' ? 0.5 : 0.25;
-        totalSpeedConfidence += confidenceValue;
-        speedConfidenceCount++;
-      }
     }
   }
   
   return {
     totalVehicles,
     positionPredictionsApplied,
-    positionPredictionRate: totalVehicles > 0 ? positionPredictionsApplied / totalVehicles : 0,
     speedPredictionsApplied,
-    speedPredictionRate: totalVehicles > 0 ? speedPredictionsApplied / totalVehicles : 0,
     averageTimestampAge: totalVehicles > 0 ? totalTimestampAge / totalVehicles : 0,
-    averagePredictedDistance: positionPredictionsApplied > 0 ? totalPredictedDistance / positionPredictionsApplied : 0,
-    positionMethodBreakdown: positionMethodCounts,
-    speedMethodBreakdown: speedMethodCounts,
-    averageSpeedConfidence: speedConfidenceCount > 0 ? totalSpeedConfidence / speedConfidenceCount : 0
+    averagePredictedDistance: positionPredictionsApplied > 0 ? totalPredictedDistance / positionPredictionsApplied : 0
   };
 }

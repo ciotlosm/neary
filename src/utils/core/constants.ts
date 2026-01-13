@@ -152,23 +152,30 @@ export const TIME_THRESHOLDS = {
 export const SPEED_PREDICTION_CONFIG = {
   // Speed validation
   SPEED_THRESHOLD: 5, // km/h - below this is considered stationary
+  FALLBACK_SPEED: 25, // km/h - static fallback speed
+  MIN_REASONABLE_SPEED: 1, // km/h - minimum valid speed
+  MAX_REASONABLE_SPEED: 120, // km/h - maximum valid speed
   
   // Nearby vehicle analysis
-  NEARBY_RADIUS: 1000, // meters
+  NEARBY_VEHICLE_RADIUS: 1000, // meters - radius for finding nearby vehicles
   MIN_NEARBY_VEHICLES: 2, // minimum for averaging
+  MAX_NEARBY_VEHICLES: 50, // limit for performance
   
   // Location-based speed calculation
+  MAX_DISTANCE_FROM_CENTER: 20000, // meters - beyond this, use fallback
+  MIN_LOCATION_SPEED: 15, // km/h - minimum city center speed
+  MAX_LOCATION_SPEED: 45, // km/h - maximum suburban speed
+  
+  // Legacy compatibility
+  NEARBY_RADIUS: 1000, // meters (alias for NEARBY_VEHICLE_RADIUS)
   LOCATION_SPEED: {
     BASE_SPEED: 25, // km/h - suburban/highway speed
     DENSITY_FACTOR: 0.3, // how much city center affects speed
     MAX_DISTANCE: 20000, // meters - beyond this, use base speed
   },
   
-  // Update frequencies (reuse existing PREDICTION_UPDATE_CYCLE)
+  // Update frequencies
   DENSITY_CACHE_DURATION: 3600000, // ms - 1 hour cache for station density
-  
-  // Performance limits
-  MAX_NEARBY_VEHICLES: 50, // limit for performance
   CALCULATION_TIMEOUT: 50, // ms - max time for speed calculation
 } as const;
 

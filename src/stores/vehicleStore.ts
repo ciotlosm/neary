@@ -162,13 +162,12 @@ export const useVehicleStore = create<VehicleStore>()(
           const stops = stationStore.stops;
           
           // Re-enhance with current timestamp using cached data
-          const { enhanceVehiclesWithPredictions } = await import('../utils/vehicle/vehicleEnhancementUtils');
-          const updatedVehicles = enhanceVehiclesWithPredictions(
-            originalVehicles,
+          const { enhanceVehicles } = await import('../utils/vehicle/vehicleEnhancementUtils');
+          const updatedVehicles = enhanceVehicles(originalVehicles, {
             routeShapes,
             stopTimesByTrip,
             stops
-          );
+          });
           
           // Update store with new predictions (keep same lastUpdated time)
           set({ 
