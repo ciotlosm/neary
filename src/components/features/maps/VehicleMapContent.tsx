@@ -221,7 +221,12 @@ export const VehicleMapContent: FC<VehicleMapContentProps> = ({
       const stationProjection = projectPointToShape(targetStationPosition, routeShape);
       
       // Calculate the actual route distance using existing logic
-      const directDistance = calculateDistance(vehiclePosition, targetStationPosition);
+      const distanceResult = {
+        method: 'route_shape',
+        confidence: 'high',
+        totalDistance: calculateDistance(vehiclePosition, targetStationPosition),
+        segments: Math.abs(stationProjection.segmentIndex - vehicleProjection.segmentIndex)
+      };
       
       // Get next station info if available
       const vehicleProgress = estimateVehicleProgressWithStops(targetVehicle, routeShape, stations);
