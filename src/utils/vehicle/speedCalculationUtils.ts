@@ -8,6 +8,26 @@ import { SPEED_PREDICTION_CONFIG } from '../core/constants';
 import type { TranzyVehicleResponse } from '../../types/rawTranzyApi';
 
 // ============================================================================
+// Coordinate Validation
+// ============================================================================
+
+/**
+ * Validate that coordinates are within valid ranges
+ */
+function isValidCoordinate(coords: Coordinates): boolean {
+  return (
+    typeof coords.lat === 'number' &&
+    typeof coords.lon === 'number' &&
+    !isNaN(coords.lat) &&
+    !isNaN(coords.lon) &&
+    coords.lat >= -90 &&
+    coords.lat <= 90 &&
+    coords.lon >= -180 &&
+    coords.lon <= 180
+  );
+}
+
+// ============================================================================
 // Core Interfaces (Simplified)
 // ============================================================================
 
@@ -90,18 +110,31 @@ function calculateNearbyAverageSpeed(
   nearbyVehicles: TranzyVehicleResponse[]
 ): { speed: number; confidence: 'high' | 'medium' | 'low'; count: number } {
   const vehiclePosition = { lat: vehicle.latitude, lon: vehicle.longitude };
+  
+  // Validate vehicle coordinates
+  if (!isValidCoordinate(vehiclePosition)) {
+    return { speed: 0, confidence: 'low', count: 0 };
+  }
+  
   const validSpeeds: number[] = [];
 
   for (const nearby of nearbyVehicles) {
     if (nearby.id === vehicle.id || !nearby.speed || nearby.speed <= 0) continue;
 
-    const distance = calculateDistance(
-      vehiclePosition,
-      { lat: nearby.latitude, lon: nearby.longitude }
-    );
+    const nearbyPosition = { lat: nearby.latitude, lon: nearby.longitude };
+    
+    // Validate nearby vehicle coordinates
+    if (!isValidCoordinate(nearbyPosition)) continue;
 
-    if (distance <= SPEED_PREDICTION_CONFIG.NEARBY_VEHICLE_RADIUS) {
-      validSpeeds.push(nearby.speed);
+    try {
+      const distance = calculateDistance(vehiclePosition, nearbyPosition);
+
+      if (distance <= SPEED_PREDICTION_CONFIG.NEARBY_VEHICLE_RADIUS) {
+        validSpeeds.push(nearby.speed);
+      }
+    } catch (error) {
+      // Skip this vehicle if distance calculation fails
+      continue;
     }
   }
 
@@ -128,7 +161,18 @@ function calculateLocationBasedSpeed(
   stationDensityCenter: Coordinates
 ): { speed: number; confidence: 'high' | 'medium' | 'low'; distanceToCenter: number } {
   const vehiclePosition = { lat: vehicle.latitude, lon: vehicle.longitude };
-  const distanceToCenter = calculateDistance(vehiclePosition, stationDensityCenter);
+  
+  // Validate coordinates
+  if (!isValidCoordinate(vehiclePosition) || !isValidCoordinate(stationDensityCenter)) {
+    return { speed: 0, confidence: 'low', distanceToCenter: 0 };
+  }
+  
+  let distanceToCenter: number;
+  try {
+    distanceToCenter = calculateDistance(vehiclePosition, stationDensityCenter);
+  } catch (error) {
+    return { speed: 0, confidence: 'low', distanceToCenter: 0 };
+  }
 
   // Speed decreases as distance from center increases
   const maxDistance = SPEED_PREDICTION_CONFIG.MAX_DISTANCE_FROM_CENTER;
