@@ -21,6 +21,7 @@ export const StationView: FC = () => {
   // Use selectors to prevent unnecessary re-renders
   const stops = useStationStore(state => state.stops);
   const stationLoading = useStationStore(state => state.loading);
+  const vehicles = useVehicleStore(state => state.vehicles);
   const vehicleLoading = useVehicleStore(state => state.loading);
   const vehicleLastUpdated = useVehicleStore(state => state.lastUpdated);
   const apiKey = useConfigStore(state => state.apiKey);

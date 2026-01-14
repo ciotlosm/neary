@@ -181,33 +181,10 @@ export function useStationFilter(): StationFilterResult {
         // Use cached filtered stations immediately
         setFilteredStations(cachedStations);
         
-        // If location hasn't changed and we have results, skip re-filtering
-        // But still update vehicles in background
+        // If location hasn't changed and we have results, skip re-filtering entirely
+        // Vehicles will be updated by the next automatic refresh cycle
         if (!hasLocationChanged && !hasNoResults && lastFilterPosition !== null) {
-          // Just update vehicles without full re-filter
-          setProcessing(true);
-          try {
-            // Re-filter to update vehicle data
-            const result = await filterStations(
-              stops,
-              currentPosition!,
-              stopTimes,
-              vehicles,
-              allRoutes,
-              1,
-              SECONDARY_STATION_THRESHOLD,
-              trips
-            );
-            setFilteredStations(result);
-            // Update cache
-            if (cacheKey) {
-              setCachedStations(cacheKey, result);
-            }
-          } catch (error) {
-            console.error('Error updating vehicles:', error);
-          } finally {
-            setProcessing(false);
-          }
+          setProcessing(false);
           return;
         }
       }
