@@ -111,8 +111,18 @@ export const useLocationStore = create<LocationStore>()(
             ? await locationService.getCurrentPositionWithRetry(accuracyConfig, maxAttempts ? { maxAttempts } : undefined)
             : await locationService.getCurrentPosition(accuracyConfig);
           
+          // Only update if position actually changed (avoid unnecessary re-renders)
           const previousPosition = state.currentPosition;
-          set({ currentPosition: position, previousPosition, lastUpdated: Date.now(), permissionState: 'granted', loading: false, error: null, disabled: false });
+          const hasPositionChanged = !previousPosition || 
+            previousPosition.coords.latitude !== position.coords.latitude ||
+            previousPosition.coords.longitude !== position.coords.longitude;
+          
+          if (hasPositionChanged) {
+            set({ currentPosition: position, previousPosition, lastUpdated: Date.now(), permissionState: 'granted', loading: false, error: null, disabled: false });
+          } else {
+            // Position unchanged - just update timestamp and loading state
+            set({ lastUpdated: Date.now(), permissionState: 'granted', loading: false, error: null, disabled: false });
+          }
         } catch (error) {
           get().handleLocationError(error);
         }

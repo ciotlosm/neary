@@ -39,17 +39,34 @@ interface StationFilterResult {
 }
 
 export function useStationFilter(): StationFilterResult {
-  const { currentPosition, loading: locationLoading, error: locationError } = useLocationStore();
-  const { stops, loading: stationLoading, error: stationError } = useStationStore();
-  const { stopTimes, loading: stopTimeLoading, error: stopTimeError, loadStopTimes } = useStopTimeStore();
-  const { trips, loading: tripLoading, error: tripError, loadTrips } = useTripStore();
-  const { vehicles, loading: vehicleLoading, error: vehicleError, loadVehicles } = useVehicleStore();
-  const { 
-    routes: allRoutes, 
-    loading: routeLoading, 
-    error: routeError,
-    loadRoutes 
-  } = useRouteStore();
+  // Use selectors to prevent re-renders when unrelated store properties change
+  const currentPosition = useLocationStore(state => state.currentPosition);
+  const locationLoading = useLocationStore(state => state.loading);
+  const locationError = useLocationStore(state => state.error);
+  
+  const stops = useStationStore(state => state.stops);
+  const stationLoading = useStationStore(state => state.loading);
+  const stationError = useStationStore(state => state.error);
+  
+  const stopTimes = useStopTimeStore(state => state.stopTimes);
+  const stopTimeLoading = useStopTimeStore(state => state.loading);
+  const stopTimeError = useStopTimeStore(state => state.error);
+  const loadStopTimes = useStopTimeStore(state => state.loadStopTimes);
+  
+  const trips = useTripStore(state => state.trips);
+  const tripLoading = useTripStore(state => state.loading);
+  const tripError = useTripStore(state => state.error);
+  const loadTrips = useTripStore(state => state.loadTrips);
+  
+  const vehicles = useVehicleStore(state => state.vehicles);
+  const vehicleLoading = useVehicleStore(state => state.loading);
+  const vehicleError = useVehicleStore(state => state.error);
+  const loadVehicles = useVehicleStore(state => state.loadVehicles);
+  
+  const allRoutes = useRouteStore(state => state.routes);
+  const routeLoading = useRouteStore(state => state.loading);
+  const routeError = useRouteStore(state => state.error);
+  const loadRoutes = useRouteStore(state => state.loadRoutes);
   
   // Auto-load stop times, vehicles, and routes when hook is used
   useEffect(() => {
@@ -114,6 +131,10 @@ export function useStationFilter(): StationFilterResult {
   const [filteredStations, setFilteredStations] = useState<FilteredStation[]>(initialFilteredStations);
   const [lastFilterPosition, setLastFilterPosition] = useState<GeolocationPosition | null>(null);
   const [processing, setProcessing] = useState(false);
+  
+  // Extract coordinates to use as dependencies (prevents re-runs when position object reference changes but coords are same)
+  const currentLat = currentPosition?.coords.latitude;
+  const currentLon = currentPosition?.coords.longitude;
   
   // Helper function to check if location change is significant enough to re-filter
   const shouldRefilter = useCallback((newPosition: GeolocationPosition | null, lastPosition: GeolocationPosition | null): boolean => {
@@ -233,7 +254,7 @@ export function useStationFilter(): StationFilterResult {
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [stops, stopTimes, trips, vehicles, allRoutes, currentPosition, shouldRefilter, lastFilterPosition, filteredStations.length, tripError]);
+  }, [stops, stopTimes, trips, vehicles, allRoutes, currentLat, currentLon, shouldRefilter, lastFilterPosition, filteredStations.length, tripError]);
   
   const retryFiltering = useCallback(() => {
     // Force re-filtering by clearing last position
