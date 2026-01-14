@@ -240,11 +240,10 @@ export function useStationFilter(): StationFilterResult {
   
   return {
     filteredStations,
-    // Only show loading for initial data loads when cache is empty
-    // Don't show loading during background refreshes when we already have data
-    // Removed vehicleLoading - let vehicles load in background while showing cached stations
+    // Only show loading for initial data loads when we have no data
+    // Don't show loading during background refreshes when we already have cached data
     loading: (
-      locationLoading || 
+      (locationLoading && filteredStations.length === 0) || 
       (stationLoading && stops.length === 0) || 
       (tripLoading && trips.length === 0) || 
       (stopTimeLoading && stopTimes.length === 0) ||
