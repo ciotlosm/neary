@@ -11,7 +11,7 @@ import { Navigation } from './components/layout/Navigation';
 import { StationView } from './components/features/views/StationView';
 import { RouteView } from './components/features/views/RouteView';
 import { SettingsView } from './components/features/views/SettingsView';
-import { ApiKeySetupView } from './components/features/views/ApiKeySetupView';
+import { SetupView } from './components/features/views/SetupView';
 import { ThemeProvider } from './components/theme/ThemeProvider';
 import { useAutoLocation } from './hooks/useAutoLocation';
 import { setupAppContext } from './context/contextInitializer';
@@ -84,8 +84,8 @@ function App() {
     // No API key → Setup view
     if (!apiKey) return -1;
     
-    // Has API key but no agency → Settings
-    if (!agency_id) return 2;
+    // Has API key but no agency → Setup view (not Settings)
+    if (!agency_id) return -1;
     
     // Fully configured → Stations
     return 0;
@@ -142,17 +142,12 @@ function App() {
     switch (currentView) {
       case -1:
         return (
-          <ApiKeySetupView
+          <SetupView
             initialApiKey={apiKey || undefined}
-            isUpdate={!!apiKey}
-            onSuccess={() => {
-              // After API key validation
-              const { agency_id: currentAgencyId } = useConfigStore.getState();
-              if (!currentAgencyId) {
-                setCurrentView(2); // Go to settings for agency selection
-              } else {
-                setCurrentView(0); // Go to stations if agency already configured
-              }
+            initialAgencyId={agency_id || undefined}
+            onComplete={() => {
+              // After successful setup, navigate to main app
+              setCurrentView(0);
             }}
           />
         );
@@ -161,7 +156,7 @@ function App() {
       case 1:
         return <RouteView onNavigateToSettings={() => setCurrentView(2)} />;
       case 2:
-        return <SettingsView onNavigateToApiKeySetup={() => setCurrentView(-1)} />;
+        return <SettingsView onNavigateToSetup={() => setCurrentView(-1)} />;
       default:
         return <StationView />;
     }
