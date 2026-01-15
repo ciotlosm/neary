@@ -27,7 +27,7 @@ export const StationView: FC<StationViewProps> = ({ onNavigateToSettings }) => {
   const stationLoading = useStationStore(state => state.loading);
   const vehicles = useVehicleStore(state => state.vehicles);
   const vehicleLoading = useVehicleStore(state => state.loading);
-  const vehicleLastUpdated = useVehicleStore(state => state.lastUpdated);
+  const vehicleLastUpdated = useVehicleStore(state => state.lastApiFetch);
   const apiKey = useConfigStore(state => state.apiKey);
   const agency_id = useConfigStore(state => state.agency_id);
   
