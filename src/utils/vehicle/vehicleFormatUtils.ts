@@ -62,7 +62,7 @@ export function formatExactTime(timestamp: number): string {
  * @returns Formatted speed string or 'Stopped' if speed is 0
  */
 export function formatSpeed(speed: number): string {
-  return speed > 0 ? `${Number(speed).toFixed(2)} km/h` : 'Stopped';
+  return speed > 0 ? `${Math.round(speed)} km/h` : 'Stopped';
 }
 
 /**
