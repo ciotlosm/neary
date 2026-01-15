@@ -135,11 +135,15 @@ describe('Store Refresh Functionality', () => {
       expect(typeof store.lastUpdated).toBe('number'); // Should be initialized with current time
     });
 
-    it('should use array instead of Set for simple serialization', () => {
+    it('should use per-agency favorites structure', () => {
       const store = useFavoritesStore.getState();
       
-      // Should be an array, not a Set
-      expect(Array.isArray(store.favoriteRouteIds)).toBe(true);
+      // Should be an object mapping agency IDs to arrays
+      expect(typeof store.favoritesByAgency).toBe('object');
+      expect(store.favoritesByAgency).not.toBeNull();
+      
+      // Set agency context for testing
+      store.setCurrentAgency(123);
       
       // Test basic functionality
       store.addFavorite('route1');

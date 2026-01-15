@@ -53,6 +53,11 @@ const handleConfigChange = (state: ReturnType<typeof useConfigStore.getState>): 
     if (config) {
       // Update context with new configuration
       updateAppContext(config);
+      
+      // Update favorites store with current agency
+      import('../stores/favoritesStore').then(({ useFavoritesStore }) => {
+        useFavoritesStore.getState().setCurrentAgency(config.agencyId);
+      });
     }
     // Note: We don't reset context when config becomes incomplete
     // This allows the app to continue working with the last valid config

@@ -1,5 +1,5 @@
-// FavoritesStore - Clean state management for favorite routes
-// Simple array-based storage with shared utilities for consistency
+// FavoritesStore - Clean state management for favorite routes per agency
+// Stores favorites separately for each agency to maintain context when switching
 // Graceful handling of localStorage failures with in-memory fallback
 
 import { create } from 'zustand';
@@ -8,13 +8,17 @@ import { createFreshnessChecker } from '../utils/core/storeUtils';
 import { IN_MEMORY_CACHE_DURATIONS } from '../utils/core/constants';
 
 interface FavoritesStore {
-  // Core state - Simple array for easy serialization
-  favoriteRouteIds: string[];
+  // Core state - Map of agency_id to favorite route IDs
+  favoritesByAgency: Record<string, string[]>;
+  
+  // Current agency context (set externally when agency changes)
+  currentAgencyId: string | null;
   
   // Performance optimization: track last update time
   lastUpdated: number | null;
   
   // Actions
+  setCurrentAgency: (agencyId: number | null) => void;
   addFavorite: (routeId: string) => void;
   removeFavorite: (routeId: string) => void;
   toggleFavorite: (routeId: string) => void;
@@ -40,29 +44,54 @@ const freshnessChecker = createFreshnessChecker(IN_MEMORY_CACHE_DURATIONS.FAVORI
 export const useFavoritesStore = create<FavoritesStore>()(
   persist(
     (set, get) => ({
-      // Core state
-      favoriteRouteIds: [],
+      // Core state - per-agency favorites
+      favoritesByAgency: {},
+      currentAgencyId: null,
       lastUpdated: Date.now(), // Initialize with current time
+      
+      // Set current agency context
+      setCurrentAgency: (agencyId: number | null) => {
+        set({ currentAgencyId: agencyId ? String(agencyId) : null });
+      },
       
       // Actions
       addFavorite: (routeId: string) => {
+        const { currentAgencyId } = get();
+        const agencyKey = currentAgencyId || 'default';
+        
         set((state) => {
+          const currentFavorites = state.favoritesByAgency[agencyKey] || [];
+          
           // Avoid duplicates
-          if (state.favoriteRouteIds.includes(routeId)) {
+          if (currentFavorites.includes(routeId)) {
             return state;
           }
+          
           return { 
-            favoriteRouteIds: [...state.favoriteRouteIds, routeId],
+            favoritesByAgency: {
+              ...state.favoritesByAgency,
+              [agencyKey]: [...currentFavorites, routeId]
+            },
             lastUpdated: Date.now()
           };
         });
       },
       
       removeFavorite: (routeId: string) => {
-        set((state) => ({
-          favoriteRouteIds: state.favoriteRouteIds.filter(id => id !== routeId),
-          lastUpdated: Date.now()
-        }));
+        const { currentAgencyId } = get();
+        const agencyKey = currentAgencyId || 'default';
+        
+        set((state) => {
+          const currentFavorites = state.favoritesByAgency[agencyKey] || [];
+          
+          return {
+            favoritesByAgency: {
+              ...state.favoritesByAgency,
+              [agencyKey]: currentFavorites.filter(id => id !== routeId)
+            },
+            lastUpdated: Date.now()
+          };
+        });
       },
       
       toggleFavorite: (routeId: string) => {
@@ -75,15 +104,23 @@ export const useFavoritesStore = create<FavoritesStore>()(
       },
       
       isFavorite: (routeId: string) => {
-        const { favoriteRouteIds } = get();
-        return favoriteRouteIds.includes(routeId);
+        const { currentAgencyId, favoritesByAgency } = get();
+        const agencyKey = currentAgencyId || 'default';
+        const currentFavorites = favoritesByAgency[agencyKey] || [];
+        return currentFavorites.includes(routeId);
       },
       
       clearFavorites: () => {
-        set({ 
-          favoriteRouteIds: [],
+        const { currentAgencyId } = get();
+        const agencyKey = currentAgencyId || 'default';
+        
+        set((state) => ({
+          favoritesByAgency: {
+            ...state.favoritesByAgency,
+            [agencyKey]: []
+          },
           lastUpdated: Date.now()
-        });
+        }));
       },
       
       refreshData: async () => {
@@ -94,13 +131,17 @@ export const useFavoritesStore = create<FavoritesStore>()(
       
       // Utilities
       getFavoriteCount: () => {
-        const { favoriteRouteIds } = get();
-        return favoriteRouteIds.length;
+        const { currentAgencyId, favoritesByAgency } = get();
+        const agencyKey = currentAgencyId || 'default';
+        const currentFavorites = favoritesByAgency[agencyKey] || [];
+        return currentFavorites.length;
       },
       
       getFavoriteRouteIds: () => {
-        const { favoriteRouteIds } = get();
-        return [...favoriteRouteIds]; // Return copy to prevent mutations
+        const { currentAgencyId, favoritesByAgency } = get();
+        const agencyKey = currentAgencyId || 'default';
+        const currentFavorites = favoritesByAgency[agencyKey] || [];
+        return [...currentFavorites]; // Return copy to prevent mutations
       },
       
       // Performance helper: check if data is fresh
@@ -123,7 +164,8 @@ export const useFavoritesStore = create<FavoritesStore>()(
       name: 'favorites-store',
       // Simple storage - no custom serialization needed
       partialize: (state) => ({
-        favoriteRouteIds: state.favoriteRouteIds,
+        favoritesByAgency: state.favoritesByAgency,
+        currentAgencyId: state.currentAgencyId,
         lastUpdated: state.lastUpdated,
       }),
     }

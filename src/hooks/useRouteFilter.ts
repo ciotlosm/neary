@@ -36,7 +36,8 @@ export function useRouteFilter(
   filterState: RouteFilterState
 ): UseRouteFilterReturn {
   // Access favorites store for route enhancement
-  const favoriteRouteIds = useFavoritesStore((state) => state.favoriteRouteIds);
+  const getFavoriteRouteIds = useFavoritesStore((state) => state.getFavoriteRouteIds);
+  const favoriteRouteIds = getFavoriteRouteIds();
 
   // Memoize route enhancement - recompute when routes or favorites change
   const enhancedRoutes = useMemo(() => {

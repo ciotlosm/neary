@@ -53,6 +53,11 @@ export const useConfigStore = create<ConfigStore>()(
       
       setAgency: (agency_id: number) => {
         set({ agency_id, error: null, success: null });
+        
+        // Update favorites store with new agency context
+        import('./favoritesStore').then(({ useFavoritesStore }) => {
+          useFavoritesStore.getState().setCurrentAgency(agency_id);
+        });
       },
       
       validateApiKey: async (apiKey: string) => {
@@ -72,6 +77,11 @@ export const useConfigStore = create<ConfigStore>()(
             agency_id: null, // Clear agency when API key changes
             loading: false,
             success: 'API key validated successfully'
+          });
+          
+          // Update favorites store to clear agency context
+          import('./favoritesStore').then(({ useFavoritesStore }) => {
+            useFavoritesStore.getState().setCurrentAgency(null);
           });
           
           // Load agencies into agency store
@@ -123,6 +133,11 @@ export const useConfigStore = create<ConfigStore>()(
             agency_id: agencyId,
             loading: false, 
             success: 'Configuration validated and saved successfully'
+          });
+          
+          // Update favorites store with new agency context
+          import('./favoritesStore').then(({ useFavoritesStore }) => {
+            useFavoritesStore.getState().setCurrentAgency(agencyId);
           });
         } catch (error) {
           let errorMessage = 'Failed to validate configuration';
