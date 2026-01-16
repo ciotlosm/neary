@@ -562,7 +562,6 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
       {/* Data Age Toast */}
       <Snackbar
         open={dataToastOpen}
-        autoHideDuration={4000}
         onClose={() => setDataToastOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
@@ -615,7 +614,6 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         return (
           <Snackbar
             open={arrivalToastOpen}
-            autoHideDuration={4000}
             onClose={() => setArrivalToastOpen(false)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >

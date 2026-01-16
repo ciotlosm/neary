@@ -67,7 +67,6 @@ export const VehicleDropOffChip: FC<VehicleDropOffChipProps> = ({
       
       <Snackbar
         open={toastOpen}
-        autoHideDuration={4000}
         onClose={handleToastClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

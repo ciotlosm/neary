@@ -1,11 +1,11 @@
 import type { FC } from 'react';
 import { useEffect, useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, Snackbar, Alert } from '@mui/material';
 import { GpsStatusIcon } from './GpsStatusIcon';
 import { ApiStatusIcon } from './ApiStatusIcon';
-import { StatusDetailDialog } from './StatusDetailDialog';
 import { useLocationStore } from '../../../stores/locationStore';
 import { useStatusStore } from '../../../stores/statusStore';
+import { getGpsToastMessage, getApiToastMessage } from '../../../utils/status/statusToastHelpers';
 
 interface StatusIndicatorProps {
   className?: string;
@@ -16,9 +16,10 @@ export const StatusIndicator: FC<StatusIndicatorProps> = ({
   className,
   showGpsDetails = false // Default to false - only show details in settings
 }) => {
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<'gps' | 'api'>('gps');
+  // Toast state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'warning' | 'error' | 'info'>('info');
 
   // Connect to LocationStore for GPS status
   const {
@@ -38,28 +39,34 @@ export const StatusIndicator: FC<StatusIndicatorProps> = ({
     setNetworkStatus
   } = useStatusStore();
 
-  // Handle GPS icon click - always request location, optionally show details
+  // Handle GPS icon click - always request location, optionally show toast
   const handleGpsClick = () => {
     // Always request fresh location (no caching, browser handles fallback)
     requestLocation();
     
-    // Only show detailed popup in settings view
+    // Only show toast in settings view
     if (showGpsDetails) {
-      setDialogType('gps');
-      setDialogOpen(true);
+      const { message, severity } = getGpsToastMessage(
+        currentPosition ? 'available' : 'unavailable',
+        locationAccuracy,
+        permissionState
+      );
+      setToastMessage(message);
+      setToastSeverity(severity);
+      setToastOpen(true);
     }
   };
 
-  // Handle API icon click - show detailed connection info
+  // Handle API icon click - show toast with connection info
   const handleApiClick = () => {
-    setDialogType('api');
-    setDialogOpen(true);
-  };
-
-  // Handle dialog close with proper focus management
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-    // Let the dialog handle focus restoration naturally
+    const { message, severity } = getApiToastMessage(
+      apiStatus,
+      networkOnline,
+      responseTime
+    );
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
   };
 
   // Listen to browser online/offline events for immediate network status updates
@@ -108,23 +115,21 @@ export const StatusIndicator: FC<StatusIndicatorProps> = ({
         />
       </Box>
 
-      <StatusDetailDialog
-        open={dialogOpen}
-        onClose={handleDialogClose}
-        type={dialogType}
-        gpsState={{
-          status: currentPosition ? 'available' : 'unavailable',
-          accuracy: locationAccuracy,
-          permissionState,
-          lastUpdated
-        }}
-        apiState={{
-          status: apiStatus,
-          networkOnline,
-          lastCheck: lastApiCheck,
-          responseTime
-        }}
-      />
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={4000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setToastOpen(false)} 
+          severity={toastSeverity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
