@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Header } from './Header';
-import { destroyDataFreshnessMonitor } from '../../utils/core/dataFreshnessMonitor';
+import { destroyDataFreshnessMonitor } from '../../utils/core/apiFreshnessMonitor';
 
 // Mock the stores with proper Zustand structure
 vi.mock('../../stores/vehicleStore', () => {

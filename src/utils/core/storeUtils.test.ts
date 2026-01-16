@@ -29,11 +29,12 @@ describe('storeUtils', () => {
       expect(mockServiceImport).toHaveBeenCalled();
       expect(mockService.testService.getData).toHaveBeenCalled();
       
-      // Should update state with data
+      // Should update state with data and both timestamps
       expect(mockSetState).toHaveBeenCalledWith({
         data: ['data1', 'data2'],
         error: null,
-        lastUpdated: expect.any(Number)
+        lastUpdated: expect.any(Number),
+        lastApiFetch: expect.any(Number)
       });
     });
 
@@ -75,7 +76,7 @@ describe('storeUtils', () => {
       const freshnessChecker = createFreshnessChecker(60000); // 1 minute
       
       // Mock state with recent timestamp
-      const mockGetState = vi.fn(() => ({ lastUpdated: Date.now() - 30000 })); // 30 seconds ago
+      const mockGetState = vi.fn(() => ({ lastApiFetch: Date.now() - 30000 })); // 30 seconds ago
       
       expect(freshnessChecker(mockGetState)).toBe(true);
     });
@@ -84,7 +85,7 @@ describe('storeUtils', () => {
       const freshnessChecker = createFreshnessChecker(60000); // Default 1 minute
       
       // Mock state with old timestamp
-      const mockGetState = vi.fn(() => ({ lastUpdated: Date.now() - 120000 })); // 2 minutes ago
+      const mockGetState = vi.fn(() => ({ lastApiFetch: Date.now() - 120000 })); // 2 minutes ago
       
       // Should be stale with default (1 minute)
       expect(freshnessChecker(mockGetState)).toBe(false);

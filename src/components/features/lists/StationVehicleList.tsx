@@ -201,53 +201,19 @@ interface VehicleCardProps {
   allStationVehicles: StationVehicle[]; // Keep this for the map dialog
 }
 
-// Data Age Icon Component - displays freshness indicator
+// Data Age Icon Component - displays GPS freshness indicator
 interface DataAgeIconProps {
-  status: 'current' | 'aging' | 'stale';
+  status: 'healthy' | 'stale' | 'very-stale';
 }
 
 const DataAgeIcon: FC<DataAgeIconProps> = ({ status }) => {
-  if (status === 'current') {
+  if (status === 'healthy') {
     return <AccessTimeIcon fontSize="small" sx={{ color: 'success.main' }} />;
-  } else if (status === 'aging') {
+  } else if (status === 'stale') {
     return <WarningIcon fontSize="small" sx={{ color: 'warning.main' }} />;
   } else {
     return <ErrorIcon fontSize="small" sx={{ color: 'error.main' }} />;
   }
-};
-
-// Data Popup Content Component - displays detailed timestamp information
-interface DataPopupContentProps {
-  vehicleTimestamp: string;
-  fetchTimestamp: number;
-  gpsAge: number;
-  fetchAge: number;
-  tip: string;
-}
-
-const DataPopupContent: FC<DataPopupContentProps> = ({ 
-  vehicleTimestamp, 
-  fetchTimestamp, 
-  gpsAge, 
-  fetchAge, 
-  tip 
-}) => {
-  // Parse vehicle timestamp to get milliseconds
-  const vehicleTime = new Date(vehicleTimestamp).getTime();
-  
-  return (
-    <Box sx={{ p: 1 }}>
-      <Typography variant="body2">
-        Vehicle GPS: {formatAbsoluteTime(vehicleTime)} ({formatDetailedRelativeTime(gpsAge)})
-      </Typography>
-      <Typography variant="body2">
-        Last API fetch: {formatAbsoluteTime(fetchTimestamp)} ({formatDetailedRelativeTime(fetchAge)})
-      </Typography>
-      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-        💡 {tip}
-      </Typography>
-    </Box>
-  );
 };
 
 const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalTime, station, vehicleRefreshTimestamp, allStationVehicles }) => {
@@ -365,32 +331,20 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
             </Box>
           </Box>
           
-          {/* Timestamp with data age indicator - compact */}
-          <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
-            {/* Data age indicator icon */}
+          {/* GPS data age indicator - icon only */}
+          <Box 
+            display="flex" 
+            alignItems="center" 
+            sx={{ 
+              flexShrink: 0,
+              cursor: 'pointer',
+              minWidth: '44px',
+              minHeight: '44px',
+              justifyContent: 'center'
+            }}
+            onClick={() => setDataToastOpen(true)}
+          >
             {dataAgeResult && <DataAgeIcon status={dataAgeResult.status} />}
-            
-            {/* Timestamp with data toast */}
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography 
-                variant="caption" 
-                color="text.secondary"
-                onClick={() => setDataToastOpen(true)}
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  cursor: 'pointer',
-                  minWidth: '44px',
-                  minHeight: '44px',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  px: 0.5
-                }}
-              >
-                {formatTimestamp(vehicle.timestamp)}
-              </Typography>
-            </Box>
           </Box>
         </Stack>
 

@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { RouteShape } from '../types/arrivalTime.ts';
-import { IN_MEMORY_CACHE_DURATIONS, CALCULATION_TOLERANCES } from '../utils/core/constants.ts';
+import { API_CACHE_DURATION, CALCULATION_TOLERANCES } from '../utils/core/constants.ts';
 import { compressData, decompressData, getCompressionRatio, formatSize } from '../utils/core/compressionUtils.ts';
 import { 
   createRefreshMethod, 
@@ -72,7 +72,7 @@ const refreshMethod = createRefreshMethod(
   }
 );
 
-const freshnessChecker = createFreshnessChecker(IN_MEMORY_CACHE_DURATIONS.STATIC_DATA);
+const freshnessChecker = createFreshnessChecker(API_CACHE_DURATION.STATIC_DATA);
 
 export const useShapeStore = create<ShapeStore>()(
   persist(
@@ -122,7 +122,7 @@ export const useShapeStore = create<ShapeStore>()(
   },
   
   // Utilities
-  isDataFresh: (maxAgeMs = IN_MEMORY_CACHE_DURATIONS.STATIC_DATA) => {
+  isDataFresh: (maxAgeMs = API_CACHE_DURATION.STATIC_DATA) => {
     return freshnessChecker(get, maxAgeMs);
   },
   
@@ -134,7 +134,7 @@ export const useShapeStore = create<ShapeStore>()(
   isDataExpired: () => {
     const { lastUpdated } = get();
     if (!lastUpdated) return true;
-    return (Date.now() - lastUpdated) >= IN_MEMORY_CACHE_DURATIONS.STATIC_DATA;
+    return (Date.now() - lastUpdated) >= API_CACHE_DURATION.STATIC_DATA;
   },
   
   // Local storage integration methods (handled by persist middleware)

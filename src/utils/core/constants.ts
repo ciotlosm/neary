@@ -21,8 +21,8 @@ export const AUTO_REFRESH_CYCLE = 120 * 1000; // 2 minutes
 // Prediction update cycle configuration (independent of API refresh)
 export const PREDICTION_UPDATE_CYCLE = 15 * 1000; // 15 seconds
 
-// In-memory cache durations (when to fetch new data)
-export const IN_MEMORY_CACHE_DURATIONS = {
+// API cache durations (when to fetch new data from API)
+export const API_CACHE_DURATION = {
   // Vehicle data - cache duration 
   VEHICLES: 60 * 1000, // 1 minute
   
@@ -33,8 +33,8 @@ export const IN_MEMORY_CACHE_DURATIONS = {
   FAVORITES: 24 * 60 * 60 * 1000, // 24 hours
 } as const;
 
-// UI staleness thresholds (for display purposes only)
-export const STALENESS_THRESHOLDS = {
+// API data staleness thresholds (for display purposes only)
+export const API_DATA_STALENESS_THRESHOLDS = {
   // Vehicle data shows as stale after 5 minutes
   VEHICLES: 5 * 60 * 1000, // 5 minutes
   
@@ -45,14 +45,43 @@ export const STALENESS_THRESHOLDS = {
 /**
  * GPS Data Age Indicator Configuration
  * Independent from cache freshness system - these control user-facing indicators
- * showing how old vehicle GPS timestamps are (Requirements 1.1, 1.2, 1.3, 1.4)
+ * showing how old vehicle GPS timestamps are
  */
 export const GPS_DATA_AGE_THRESHOLDS = {
-  // GPS timestamp age threshold for "current" status (green indicator)
-  CURRENT_THRESHOLD: 2 * 60 * 1000, // 2 minutes
+  // GPS timestamp age threshold for "healthy" status (green indicator)
+  HEALTHY: 3 * 60 * 1000, // 3 minutes
   
-  // GPS timestamp age threshold for "stale" status (red indicator when fetch is fresh)
-  STALE_THRESHOLD: 5 * 60 * 1000, // 5 minutes
+  // GPS timestamp age threshold for "stale" status (yellow indicator)
+  STALE: 5 * 60 * 1000, // 5 minutes
+  
+  // Anything above STALE is "very stale" (red indicator)
+} as const;
+
+/**
+ * API Fetch Freshness Thresholds (in milliseconds)
+ * Controls refresh button color states based on API fetch time
+ * Provides more granular UI feedback than staleness thresholds
+ */
+export const API_FETCH_FRESHNESS_THRESHOLDS = {
+  // Green: API fetch age under 1 minute
+  FRESH: 60 * 1000, // 1 minute
+  
+  // Yellow: API fetch age between 1-3 minutes
+  WARNING: 180 * 1000, // 3 minutes
+  
+  // Red: API fetch age over 3 minutes (implicit, anything above WARNING)
+} as const;
+
+/**
+ * Refresh Button Animation Durations (in milliseconds)
+ * Different speeds for cache checks vs API calls
+ */
+export const REFRESH_ANIMATION_DURATIONS = {
+  // Fast animation for cache checks
+  CACHE_CHECK: 500, // 0.5 seconds per rotation
+  
+  // Normal animation for API calls (Material-UI default)
+  API_CALL: 1400, // 1.4 seconds per rotation
 } as const;
 
 /**

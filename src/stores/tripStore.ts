@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TranzyTripResponse } from '../types/rawTranzyApi';
-import { IN_MEMORY_CACHE_DURATIONS } from '../utils/core/constants';
+import { API_CACHE_DURATION } from '../utils/core/constants';
 import { createRefreshMethod, createFreshnessChecker } from '../utils/core/storeUtils';
 
 interface TripStore {
@@ -46,7 +46,7 @@ const refreshMethod = createRefreshMethod(
   () => import('../services/tripService'),
   'getTrips'
 );
-const freshnessChecker = createFreshnessChecker(IN_MEMORY_CACHE_DURATIONS.STATIC_DATA);
+const freshnessChecker = createFreshnessChecker(API_CACHE_DURATION.STATIC_DATA);
 
 export const useTripStore = create<TripStore>()(
   persist(
@@ -100,7 +100,7 @@ export const useTripStore = create<TripStore>()(
       clearError: () => set({ error: null }),
       
       // Performance helper: check if data is fresh (default 24 hours for general data)
-      isDataFresh: (maxAgeMs = IN_MEMORY_CACHE_DURATIONS.STATIC_DATA) => {
+      isDataFresh: (maxAgeMs = API_CACHE_DURATION.STATIC_DATA) => {
         return freshnessChecker(get, maxAgeMs);
       },
 

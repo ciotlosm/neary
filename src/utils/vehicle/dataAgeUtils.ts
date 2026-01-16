@@ -5,11 +5,10 @@
 
 import { GPS_DATA_AGE_THRESHOLDS, AUTO_REFRESH_CYCLE } from '../core/constants';
 
-export type DataAgeStatus = 'current' | 'aging' | 'stale';
+export type DataAgeStatus = 'healthy' | 'stale' | 'very-stale';
 
 export interface DataAgeResult {
   status: DataAgeStatus;
-  icon: 'green-clock' | 'yellow-warning' | 'red-error';
   gpsAge: number; // milliseconds
   fetchAge: number; // milliseconds
   tip: string;
@@ -18,18 +17,17 @@ export interface DataAgeResult {
 /**
  * Calculate the age and status of vehicle GPS data
  * 
- * Logic:
+ * Logic (simplified to only consider GPS timestamp age):
  * 1. Calculate GPS age: currentTime - vehicleTimestamp
- * 2. Calculate fetch age: currentTime - fetchTimestamp
- * 3. Check if GPS newer than fetch → Red (invalid timestamp)
- * 4. Check if GPS < 2 min → Green (current)
- * 5. Check if GPS > 5 min AND fetch < AUTO_REFRESH_CYCLE → Red (stale GPS, fresh fetch)
- * 6. Otherwise → Yellow (aging)
+ * 2. Calculate fetch age: currentTime - fetchTimestamp (for toast display)
+ * 3. Check if GPS < 3 min → Green (healthy)
+ * 4. Check if GPS < 5 min → Yellow (stale)
+ * 5. Otherwise → Red (very stale)
  * 
  * @param vehicleTimestamp - ISO timestamp string from vehicle GPS
  * @param fetchTimestamp - Unix timestamp (ms) when API data was fetched
  * @param currentTime - Current time in ms (defaults to Date.now())
- * @returns DataAgeResult with status, icon, ages, and contextual tip
+ * @returns DataAgeResult with status, ages, and contextual tip
  */
 export function calculateDataAge(
   vehicleTimestamp: string,
@@ -44,8 +42,7 @@ export function calculateDataAge(
     // Check if timestamp is invalid (NaN) or in the future
     if (isNaN(vehicleTime) || vehicleTime > currentTime) {
       return {
-        status: 'stale',
-        icon: 'red-error',
+        status: 'very-stale',
         gpsAge: 0,
         fetchAge: currentTime - fetchTimestamp,
         tip: 'Invalid GPS timestamp detected. Vehicle data may be unreliable.',
@@ -53,8 +50,7 @@ export function calculateDataAge(
     }
   } catch (error) {
     return {
-      status: 'stale',
-      icon: 'red-error',
+      status: 'very-stale',
       gpsAge: 0,
       fetchAge: currentTime - fetchTimestamp,
       tip: 'Unable to parse GPS timestamp. Vehicle data may be unreliable.',
@@ -65,49 +61,30 @@ export function calculateDataAge(
   const gpsAge = currentTime - vehicleTime;
   const fetchAge = currentTime - fetchTimestamp;
 
-  // Check if GPS timestamp is newer than fetch timestamp (invalid state)
-  if (vehicleTime > fetchTimestamp) {
+  // Determine status based solely on GPS age
+  if (gpsAge < GPS_DATA_AGE_THRESHOLDS.HEALTHY) {
+    return {
+      status: 'healthy',
+      gpsAge,
+      fetchAge,
+      tip: 'Vehicle GPS data is fresh and reliable.',
+    };
+  }
+
+  if (gpsAge < GPS_DATA_AGE_THRESHOLDS.STALE) {
     return {
       status: 'stale',
-      icon: 'red-error',
       gpsAge,
       fetchAge,
-      tip: 'GPS timestamp is newer than API fetch. This indicates a data synchronization issue.',
+      tip: 'Vehicle GPS data is aging. Position may be slightly outdated.',
     };
   }
 
-  // Check if GPS data is current (< 2 minutes old)
-  if (gpsAge < GPS_DATA_AGE_THRESHOLDS.CURRENT_THRESHOLD) {
-    return {
-      status: 'current',
-      icon: 'green-clock',
-      gpsAge,
-      fetchAge,
-      tip: 'Vehicle data is fresh and reliable.',
-    };
-  }
-
-  // Check if GPS data is stale (> 5 minutes) AND fetch is fresh (< AUTO_REFRESH_CYCLE)
-  if (gpsAge > GPS_DATA_AGE_THRESHOLDS.STALE_THRESHOLD && fetchAge < AUTO_REFRESH_CYCLE) {
-    return {
-      status: 'stale',
-      icon: 'red-error',
-      gpsAge,
-      fetchAge,
-      tip: 'Vehicle GPS sensor may be broken. Data was recently fetched but GPS timestamp is old.',
-    };
-  }
-
-  // Otherwise, data is aging - provide context-aware tip
-  const tip = fetchAge < AUTO_REFRESH_CYCLE
-    ? 'Vehicle data is aging. Data was recently fetched, so refreshing won\'t help right now.'
-    : 'Vehicle data is getting old. Try pressing the manual refresh button to get fresh data.';
-  
+  // GPS age > 5 minutes
   return {
-    status: 'aging',
-    icon: 'yellow-warning',
+    status: 'very-stale',
     gpsAge,
     fetchAge,
-    tip,
+    tip: 'Vehicle GPS data is very old. Position may be significantly outdated.',
   };
 }

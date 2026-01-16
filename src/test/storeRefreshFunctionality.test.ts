@@ -40,12 +40,12 @@ describe('Store Refresh Functionality', () => {
       // Initially should not be fresh (no data)
       expect(store.isDataFresh()).toBe(false);
       
-      // Simulate setting lastUpdated to now
-      useVehicleStore.setState({ lastUpdated: Date.now() });
+      // Simulate setting lastApiFetch to now
+      useVehicleStore.setState({ lastApiFetch: Date.now() });
       expect(store.isDataFresh()).toBe(true);
       
       // Simulate old data
-      useVehicleStore.setState({ lastUpdated: Date.now() - 10 * 60 * 1000 }); // 10 minutes ago
+      useVehicleStore.setState({ lastApiFetch: Date.now() - 10 * 60 * 1000 }); // 10 minutes ago
       expect(store.isDataFresh()).toBe(false);
     });
   });
@@ -68,12 +68,12 @@ describe('Store Refresh Functionality', () => {
       // Initially should not be fresh (no data)
       expect(store.isDataFresh()).toBe(false);
       
-      // Simulate setting lastUpdated to now
-      useStationStore.setState({ lastUpdated: Date.now() });
+      // Simulate setting lastApiFetch to now
+      useStationStore.setState({ lastApiFetch: Date.now() });
       expect(store.isDataFresh()).toBe(true);
       
       // Simulate old data (25 hours ago - should be stale for general data)
-      useStationStore.setState({ lastUpdated: Date.now() - 25 * 60 * 60 * 1000 });
+      useStationStore.setState({ lastApiFetch: Date.now() - 25 * 60 * 60 * 1000 });
       expect(store.isDataFresh()).toBe(false);
     });
   });

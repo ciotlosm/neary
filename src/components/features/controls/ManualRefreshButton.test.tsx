@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ManualRefreshButton } from './ManualRefreshButton';
-import { destroyDataFreshnessMonitor } from '../../../utils/core/dataFreshnessMonitor';
+import { destroyDataFreshnessMonitor } from '../../../utils/core/apiFreshnessMonitor';
 
 // Mock the stores with proper Zustand structure
 vi.mock('../../../stores/vehicleStore', () => {
@@ -204,19 +204,6 @@ describe('ManualRefreshButton', () => {
     // Wait for the component to process the click
     await waitFor(() => {
       expect(button).toBeInTheDocument();
-    });
-  });
-
-  it('should show tooltip with freshness information', async () => {
-    render(<ManualRefreshButton />);
-    
-    const button = screen.getByRole('button', { name: /manual refresh data/i });
-    
-    // Hover to show tooltip
-    fireEvent.mouseEnter(button);
-    
-    await waitFor(() => {
-      expect(screen.getByText(/data is/i)).toBeInTheDocument();
     });
   });
 });

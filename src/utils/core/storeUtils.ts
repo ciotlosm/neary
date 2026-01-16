@@ -93,6 +93,8 @@ export function createRefreshMethod<T>(
     const useRetry = options?.useRetry ?? true; // Default: true
     const allowCachedDataOnError = options?.allowCachedDataOnError ?? true; // Default: true
     
+    console.log(`[Store] ${storeName}: Starting API fetch...`);
+    
     try {
       const refreshOperation = async () => {
         // Import service dynamically to avoid circular dependencies
@@ -116,6 +118,8 @@ export function createRefreshMethod<T>(
         ? await retryWithBackoff(refreshOperation, `${storeName} refresh`, options?.retryConfig)
         : await refreshOperation();
       
+      console.log(`[Store] ${storeName}: API fetch completed at ${new Date().toLocaleTimeString()}`);
+      
       // Update data without affecting loading state (background refresh)
       setState({ 
         [dataKey]: data,
@@ -125,6 +129,8 @@ export function createRefreshMethod<T>(
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : `Failed to refresh ${storeName}`;
+      
+      console.error(`[Store] ${storeName}: API fetch failed - ${errorMessage}`);
       
       // Handle errors gracefully if we have cached data (default behavior)
       if (allowCachedDataOnError && currentState[dataKey] && 

@@ -66,17 +66,6 @@ export function predictVehiclePosition(
   // Parse timestamp and calculate age
   const timestampAge = calculateTimestampAge(vehicle.timestamp);
   
-  // Only log for debugging in development, much less frequently
-  if (process.env.NODE_ENV === 'development') {
-    if (!globalThis._predictionLogCounter) globalThis._predictionLogCounter = 0;
-    globalThis._predictionLogCounter++;
-    
-    // Log only every 100th prediction to reduce noise
-    if (globalThis._predictionLogCounter % 100 === 0) {
-      console.log(`[Prediction] Processed ${globalThis._predictionLogCounter} predictions. Latest: Vehicle ${vehicle.id}, age=${timestampAge}ms`);
-    }
-  }
-  
   // If timestamp age is zero or negative, return original coordinates
   if (timestampAge <= 0) {
     return {

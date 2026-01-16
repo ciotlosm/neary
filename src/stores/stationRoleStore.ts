@@ -13,7 +13,7 @@ import type { StationRole, TripStationRoles, RouteStationRoles } from '../utils/
 import { calculateRolesForTrip, aggregateRolesToRoute } from '../utils/station/stationRoleUtils';
 import { useTripStore } from './tripStore';
 import { useStopTimeStore } from './stopTimeStore';
-import { IN_MEMORY_CACHE_DURATIONS } from '../utils/core/constants';
+import { API_CACHE_DURATION } from '../utils/core/constants';
 
 /**
  * Station role store interface
@@ -39,7 +39,7 @@ interface StationRoleStore {
 /**
  * Default TTL for station role cache (24 hours, same as STATIC_DATA)
  */
-const DEFAULT_CACHE_TTL = IN_MEMORY_CACHE_DURATIONS.STATIC_DATA;
+const DEFAULT_CACHE_TTL = API_CACHE_DURATION.STATIC_DATA;
 
 /**
  * Station role store with persistence

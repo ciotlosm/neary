@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createFreshnessChecker } from '../utils/core/storeUtils';
-import { IN_MEMORY_CACHE_DURATIONS } from '../utils/core/constants';
+import { API_CACHE_DURATION } from '../utils/core/constants';
 
 interface FavoritesStore {
   // Core state - Map of agency_id to favorite route IDs
@@ -39,7 +39,7 @@ interface FavoritesStore {
 }
 
 // Create shared utilities for this store
-const freshnessChecker = createFreshnessChecker(IN_MEMORY_CACHE_DURATIONS.FAVORITES);
+const freshnessChecker = createFreshnessChecker(API_CACHE_DURATION.FAVORITES);
 
 export const useFavoritesStore = create<FavoritesStore>()(
   persist(
@@ -184,7 +184,7 @@ export const useFavoritesStore = create<FavoritesStore>()(
       },
       
       // Performance helper: check if data is fresh
-      isDataFresh: (maxAgeMs = IN_MEMORY_CACHE_DURATIONS.FAVORITES) => {
+      isDataFresh: (maxAgeMs = API_CACHE_DURATION.FAVORITES) => {
         return freshnessChecker(get, maxAgeMs);
       },
       
