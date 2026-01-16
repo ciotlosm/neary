@@ -2,7 +2,7 @@
 // Provides reactive state management for refresh operations and network status
 
 import { useState, useCallback, useEffect } from 'react';
-import { type RefreshResult, type RefreshOptions } from '../services/manualRefreshService';
+import { type RefreshResult } from '../services/manualRefreshService';
 import { useStatusStore } from '../stores/statusStore';
 import { manualRefreshService } from '../services/manualRefreshService';
 
@@ -13,7 +13,7 @@ interface UseManualRefreshReturn {
   lastRefreshResult: RefreshResult | null;
   
   // Actions - simplified to single refresh method
-  refresh: (options?: RefreshOptions) => Promise<RefreshResult>;
+  refresh: () => Promise<RefreshResult>;
   
   // Status helpers
   canRefresh: boolean;
@@ -35,8 +35,8 @@ export function useManualRefresh(): UseManualRefreshReturn {
   const canRefresh = isNetworkAvailable && !isRefreshing;
 
   // Single refresh method - stores handle their own freshness logic
-  const refresh = useCallback(async (options?: RefreshOptions): Promise<RefreshResult> => {
-    const result = await manualRefreshService.refreshData(options);
+  const refresh = useCallback(async (): Promise<RefreshResult> => {
+    const result = await manualRefreshService.refreshData();
     setLastRefreshResult(result);
     return result;
   }, []);
