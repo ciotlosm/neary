@@ -1,4 +1,6 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { StatusIndicator } from './StatusIndicator';
 import { useLocationStore } from '../../../stores/locationStore';
 import { useStatusStore } from '../../../stores/statusStore';
