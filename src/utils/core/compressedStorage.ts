@@ -22,7 +22,7 @@
 // to in-memory-only state rather than breaking the app.
 
 import type { StateStorage } from 'zustand/middleware';
-import { compressData, decompressData } from './compressionUtils';
+import { compressData, decompressData } from './compressionUtils.ts';
 
 /**
  * Creates a {@link StateStorage} backed by localStorage with transparent gzip
