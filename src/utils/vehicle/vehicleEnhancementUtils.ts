@@ -22,6 +22,15 @@ export interface EnhancedVehicleData extends TranzyVehicleResponse {
   // Override coordinates with predicted values
   latitude: number;  // Predicted latitude (or original if no prediction)
   longitude: number; // Predicted longitude (or original if no prediction)
+
+  // Schedule-only (synthetic) vehicle flags. Set when this entry represents a
+  // SCHEDULED departure with no live GPS yet (Req 6, 12) — synthesized at the
+  // route's start station so it renders through the normal vehicle card/map.
+  // Absent/false for all real GPS vehicles, so existing behavior is unchanged.
+  /** True when this is a synthesized scheduled departure (no live GPS). */
+  isScheduled?: boolean;
+  /** Minutes from now until the scheduled departure (only when isScheduled). */
+  scheduledDepartureMinutes?: number;
   
   // Override speed with predicted value
   speed: number;     // Predicted speed (or original if no prediction)

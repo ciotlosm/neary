@@ -33,9 +33,8 @@ import { useRouteStore } from '../../../stores/routeStore';
 import { useScheduleStore } from '../../../stores/scheduleStore';
 import { VehicleMapDialog } from '../maps/VehicleMapDialog';
 import { VehicleDropOffChip } from '../controls/VehicleDropOffChip';
-import { ScheduledDepartureRow } from './ScheduledDepartureRow';
-import { buildTripRouteMap } from '../../../utils/schedule/scheduleVehicleIntegration';
-import { getNextScheduledDeparture } from '../../../utils/schedule/nextScheduledDepartureUtils';
+import { ScheduledDepartureChip } from '../controls/ScheduledDepartureChip';
+import { formatMinutesUntil } from '../../../utils/schedule/nextScheduledDepartureUtils';
 import type { StationVehicle } from '../../../types/stationFilter';
 import { useFavoritesStore } from '../../../stores/favoritesStore';
 
@@ -57,42 +56,6 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
   // State for expansion functionality
   const [showingAll, setShowingAll] = useState(false);
 
-  // Schedule data for next scheduled departures at a route's start station
-  const { scheduleData } = useScheduleStore();
-  const { trips } = useTripStore();
-  const { routes } = useRouteStore();
-
-  const tripRouteMap = useMemo(() => buildTripRouteMap(trips), [trips]);
-
-  // Compute the next scheduled departure for each route that starts at this
-  // station (direction-aware via the util). When schedule data is null or no
-  // route starts here, this is empty and nothing extra renders.
-  const scheduledDepartures = useMemo(() => {
-    const result: Array<{ key: number; routeShortName: string; headsign: string; minutesUntil: number }> = [];
-    const now = new Date();
-
-    for (const routeId of routeIds ?? []) {
-      // Respect the active route filter.
-      if (selectedRouteId && routeId !== selectedRouteId) continue;
-
-      const dep = getNextScheduledDeparture({
-        scheduleData,
-        tripRouteMap,
-        stopId: station.stop_id,
-        routeId,
-        now,
-      });
-      if (!dep) continue;
-
-      const routeShortName = routes.find(r => r.route_id === routeId)?.route_short_name ?? String(routeId);
-      const headsign = trips.find(t => t.trip_id === dep.tripId)?.trip_headsign ?? '';
-
-      result.push({ key: routeId, routeShortName, headsign, minutesUntil: dep.minutesUntil });
-    }
-
-    return result.sort((a, b) => a.minutesUntil - b.minutesUntil);
-  }, [scheduleData, tripRouteMap, station, routeIds, selectedRouteId, routes, trips]);
-  
   // Apply route filtering with departed vehicle limiting (must be before any returns)
   const filteredVehicles = useMemo(() => {
     if (!selectedRouteId) {
@@ -139,23 +102,6 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
   // Don't render when collapsed (performance optimization)
   if (!expanded) return null;
 
-  // Scheduled-departure rows for routes that START at this station. Rendered
-  // after the live GPS vehicle list (and alongside the empty states) so the
-  // next scheduled departure is always visible at a start station. Empty when
-  // schedule data is null or no route starts here -> nothing extra renders.
-  const scheduledSection = scheduledDepartures.length > 0 ? (
-    <Stack spacing={1} divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}>
-      {scheduledDepartures.map((dep) => (
-        <ScheduledDepartureRow
-          key={dep.key}
-          routeShortName={dep.routeShortName}
-          headsign={dep.headsign}
-          minutesUntil={dep.minutesUntil}
-        />
-      ))}
-    </Stack>
-  ) : null;
-
   // Show loading indicator when vehicles are being loaded
   if (vehicleLoading && vehicles.length === 0) {
     return (
@@ -168,14 +114,13 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
     );
   }
 
-  // Empty state - no vehicles found (still surface scheduled departures if any)
+  // Empty state - no vehicles found
   if (vehicles.length === 0) {
     return (
       <Stack spacing={2} sx={{ pt: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ px: 2, fontStyle: 'italic' }}>
           No active vehicles serving this station
         </Typography>
-        {scheduledSection}
       </Stack>
     );
   }
@@ -187,7 +132,6 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
         <Typography variant="body2" color="text.secondary" sx={{ px: 2, fontStyle: 'italic' }}>
           No active vehicles for this route
         </Typography>
-        {scheduledSection}
       </Stack>
     );
   }
@@ -250,9 +194,6 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
           />
         </Box>
       )}
-
-      {/* Next scheduled departures for routes that start at this station */}
-      {scheduledSection}
     </Stack>
   );
 });
@@ -302,9 +243,16 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
   const { stopTimes } = useStopTimeStore();
   const { trips } = useTripStore();
   const { stops } = useStationStore();
-  
-  // Check if current station is the end station for this vehicle's trip
-  const isDropOffOnly = vehicle.trip_id && station?.stop_id
+  const { scheduleData } = useScheduleStore();
+
+  // Scheduled (synthetic) vehicle: no live GPS, positioned at its start station
+  // (future) or interpolated along the route (ghost). Rendered through this same
+  // card so it looks/behaves like a normal vehicle (Req 6, 12).
+  const isScheduled = vehicle.isScheduled === true;
+
+  // Check if current station is the end station for this vehicle's trip.
+  // Scheduled vehicles are departures (never drop-off only).
+  const isDropOffOnly = !isScheduled && vehicle.trip_id && station?.stop_id
     ? isStationEndForTrip(station.stop_id, vehicle.trip_id, stopTimes)
     : false;
   
@@ -312,41 +260,50 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
   const { vehicles: allVehicles } = useVehicleStore();
   const { routes } = useRouteStore();
   
-  // Get actual stops for this vehicle's trip
-  const tripStopTimes = getTripStopSequence(vehicle, stopTimes);
-  
-  // Convert stop times to stop data with names and actual status using existing utility
-  const tripStops = tripStopTimes.map((stopTime) => {
-    const stopData = stops.find(stop => stop.stop_id === stopTime.stop_id);
-    
-    // Use existing utility to determine if this stop is passed, current, or upcoming
-    const stopRelation = determineTargetStopRelation(vehicle, stopData || { stop_id: stopTime.stop_id } as any, trips, stopTimes, stops);
-    
-    // Convert the relation to our status format
-    let status: 'passed' | 'current' | 'upcoming';
-    if (stopRelation === 'passed') {
-      status = 'passed';
-    } else if (stopRelation === 'not_in_trip') {
-      status = 'upcoming'; // Fallback
-    } else {
-      // For 'upcoming', we need to determine if it's the next stop (current) or future
-      // Simple heuristic: if it's the first upcoming stop in sequence, mark as current
-      const upcomingStops = tripStopTimes.filter(st => {
-        const tempStopData = stops.find(s => s.stop_id === st.stop_id);
-        if (!tempStopData) return false;
-        const relation = determineTargetStopRelation(vehicle, tempStopData, trips, stopTimes, stops);
-        return relation === 'upcoming';
-      });
-      status = upcomingStops[0]?.stop_id === stopTime.stop_id ? 'current' : 'upcoming';
-    }
-    
-    return {
-      name: stopData?.stop_name || `Stop ${stopTime.stop_id}`,
-      stopId: stopTime.stop_id,
-      sequence: stopTime.stop_sequence,
-      status
-    };
-  });
+  // Get actual stops for this vehicle's trip. Live vehicles use the Tranzy
+  // stop-time store; scheduled vehicles use the GTFS schedule payload (their
+  // trip is not in the partial Tranzy set).
+  const tripStops = isScheduled
+    ? (scheduleData?.stopTimes?.[vehicle.trip_id ?? ''] ?? [])
+        .slice()
+        .sort((a, b) => a.q - b.q)
+        .map((st) => ({
+          name: stops.find((s) => s.stop_id === st.s)?.stop_name || `Stop ${st.s}`,
+          stopId: st.s,
+          sequence: st.q,
+          status: 'upcoming' as const,
+        }))
+    : getTripStopSequenceStops();
+
+  // Live-vehicle stop status computation (extracted so the scheduled branch
+  // above stays simple).
+  function getTripStopSequenceStops() {
+    const tripStopTimes = getTripStopSequence(vehicle, stopTimes);
+    return tripStopTimes.map((stopTime) => {
+      const stopData = stops.find(stop => stop.stop_id === stopTime.stop_id);
+      const stopRelation = determineTargetStopRelation(vehicle, stopData || { stop_id: stopTime.stop_id } as any, trips, stopTimes, stops);
+      let status: 'passed' | 'current' | 'upcoming';
+      if (stopRelation === 'passed') {
+        status = 'passed';
+      } else if (stopRelation === 'not_in_trip') {
+        status = 'upcoming';
+      } else {
+        const upcomingStops = tripStopTimes.filter(st => {
+          const tempStopData = stops.find(s => s.stop_id === st.stop_id);
+          if (!tempStopData) return false;
+          const relation = determineTargetStopRelation(vehicle, tempStopData, trips, stopTimes, stops);
+          return relation === 'upcoming';
+        });
+        status = upcomingStops[0]?.stop_id === stopTime.stop_id ? 'current' : 'upcoming';
+      }
+      return {
+        name: stopData?.stop_name || `Stop ${stopTime.stop_id}`,
+        stopId: stopTime.stop_id,
+        sequence: stopTime.stop_sequence,
+        status
+      };
+    });
+  }
 
   const routeShortName = route?.route_short_name || vehicle.route_id?.toString() || '?';
   const headsign = trip?.trip_headsign || 'Unknown Destination';
@@ -422,16 +379,18 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
           spacing={{ xs: 1.5, sm: 2 }} 
           sx={{ mb: 1.5, flexWrap: 'wrap' }}
         >
-              <Chip 
-                label={`${vehicle.label}`} 
-                size="small" 
-                variant="outlined"
-                sx={{ 
-                  fontSize: '0.7rem',
-                  height: { xs: 20, sm: 24 },
-                  flexShrink: 0
-                }}
-              />
+          {vehicle.label ? (
+            <Chip
+              label={`${vehicle.label}`}
+              size="small"
+              variant="outlined"
+              sx={{
+                fontSize: '0.7rem',
+                height: { xs: 20, sm: 24 },
+                flexShrink: 0
+              }}
+            />
+          ) : null}
           {/* Speed */}
           <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
             <SpeedIcon fontSize="small" color="action" />
@@ -482,7 +441,26 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         </Stack>
 
         {/* Arrival time information */}
-        {arrivalTime && (
+        {arrivalTime && isScheduled && (
+          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1.5 }}>
+            <Chip
+              icon={<ArrivalIcon />}
+              label={formatMinutesUntil(vehicle.scheduledDepartureMinutes ?? arrivalTime.estimatedMinutes)}
+              color="info"
+              variant="filled"
+              size="small"
+              sx={{
+                fontWeight: 'medium',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                '& .MuiChip-icon': { color: 'inherit' },
+              }}
+            />
+            <ScheduledDepartureChip />
+          </Box>
+        )}
+
+        {/* Arrival time information */}
+        {arrivalTime && !isScheduled && (
           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1.5 }}>
             {(() => {
               // Format time difference without "ago" suffix
@@ -622,7 +600,7 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         vehicles={allStationVehicles}
         routes={routes}
         stations={stops}
-        trips={trips}
+        trips={isScheduled && trip ? [...trips, trip] : trips}
         stopTimes={stopTimes}
       />
       
