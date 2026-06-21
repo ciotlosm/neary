@@ -34,6 +34,7 @@ import { useScheduleStore } from '../../../stores/scheduleStore';
 import { VehicleMapDialog } from '../maps/VehicleMapDialog';
 import { VehicleDropOffChip } from '../controls/VehicleDropOffChip';
 import { ScheduledDepartureChip } from '../controls/ScheduledDepartureChip';
+import { ScheduleBoardDialog } from '../schedule/ScheduleBoardDialog';
 import type { StationVehicle } from '../../../types/stationFilter';
 import { useFavoritesStore } from '../../../stores/favoritesStore';
 
@@ -397,7 +398,9 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
             }}
             onClick={() => setDataToastOpen(true)}
           >
-            {dataAgeResult && <DataAgeIcon status={dataAgeResult.status} />}
+            {isScheduled
+              ? <AccessTimeIcon fontSize="small" sx={{ color: 'info.main' }} />
+              : (dataAgeResult && <DataAgeIcon status={dataAgeResult.status} />)}
           </Box>
         </Stack>
 
@@ -660,17 +663,13 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         stopTimes={mapStopTimes}
       />
 
-      {/* Schedule view placeholder (today / tomorrow) */}
-      <Snackbar
+      {/* Today / Tomorrow scheduled departure board */}
+      <ScheduleBoardDialog
         open={scheduleView !== null}
-        autoHideDuration={3000}
+        initialMode={scheduleView ?? 'today'}
+        station={station}
         onClose={() => setScheduleView(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setScheduleView(null)} severity="info" variant="filled" sx={{ width: '100%' }}>
-          {scheduleView === 'today' ? "Today's schedule" : "Tomorrow's morning schedule"} view is coming soon.
-        </Alert>
-      </Snackbar>
+      />
       
       {/* Data Age Toast */}
       <Snackbar
@@ -684,7 +683,24 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
           variant="filled"
           sx={{ width: '100%' }}
         >
-          {dataAgeResult ? (
+          {isScheduled ? (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                Scheduled vehicle (no live GPS)
+              </Typography>
+              {vehicle.isGhost ? (
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  Position is estimated from the timetable, based on the last scheduled
+                  stop at {formatAbsoluteTime(new Date(vehicle.timestamp).getTime())}.
+                </Typography>
+              ) : (
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  Shown at its start station until its scheduled departure. Once a real
+                  GPS vehicle appears for this run, it replaces this entry.
+                </Typography>
+              )}
+            </>
+          ) : dataAgeResult ? (
             <>
               <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 Data Freshness
