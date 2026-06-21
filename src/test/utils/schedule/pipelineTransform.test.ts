@@ -108,6 +108,11 @@ T1,05:08:00,05:08:00,4522,1`;
     expect(payload.tripServiceMap).toEqual({ T1: 'Mon-Fri', T2: 'Weekend' });
   });
 
+  it('builds tripRouteMap (trip→route) from trips.txt route_id', () => {
+    const payload = transformToPayload(files(), fixedNow);
+    expect(payload.tripRouteMap).toEqual({ T1: 24, T2: 24 });
+  });
+
   it('stamps an ISO version timestamp', () => {
     const payload = transformToPayload(files(), fixedNow);
     expect(payload.version).toBe('2025-01-15T03:00:00.000Z');

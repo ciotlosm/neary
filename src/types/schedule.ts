@@ -29,6 +29,13 @@ export interface SchedulePayload {
   calendarExceptions: CalendarException[];
   /** Mapping of trip_id to service_id */
   tripServiceMap: Record<string, string>;
+  /**
+   * Mapping of trip_id to route_id (authoritative, from GTFS trips.txt).
+   * Optional for backward compatibility with older payloads/fixtures; the
+   * pipeline always populates it so scheduled-departure route association does
+   * not depend on the partial Tranzy `/trips` set.
+   */
+  tripRouteMap?: Record<string, number>;
 }
 
 /**
@@ -72,6 +79,8 @@ export interface TripScheduleRef {
   t: number;
   /** service_id (from trips.txt). */
   s: string;
+  /** route_id (from trips.txt). Optional for backward compatibility. */
+  r?: number;
 }
 
 /**

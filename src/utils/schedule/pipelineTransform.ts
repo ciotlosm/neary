@@ -177,6 +177,7 @@ export function transformToPayload(
     ? buildCalendarExceptions(calendarDatesCsv)
     : [];
   const tripServiceMap = buildTripServiceMap(csvFiles[GTFS_FILENAMES.trips]);
+  const tripRouteMap = buildTripRouteMap(csvFiles[GTFS_FILENAMES.trips]);
 
   return {
     version: now.toISOString(),
@@ -184,6 +185,7 @@ export function transformToPayload(
     calendar,
     calendarExceptions,
     tripServiceMap,
+    tripRouteMap,
   };
 }
 
@@ -295,6 +297,28 @@ function buildTripServiceMap(csv: string): Record<string, string> {
     const serviceId = row['service_id'];
     if (!tripId || !serviceId) continue;
     map[tripId] = serviceId;
+  }
+
+  return map;
+}
+
+/**
+ * Build the `tripRouteMap` (trip_id → route_id) from trips.txt.
+ *
+ * This is the AUTHORITATIVE trip→route association from the GTFS feed. The
+ * client relies on it (not the partial Tranzy `/trips` set, which only returns
+ * currently-relevant trips) to associate scheduled trips with their route.
+ */
+function buildTripRouteMap(csv: string): Record<string, number> {
+  const { rows } = parseCsv(csv);
+  const map: Record<string, number> = {};
+
+  for (const row of rows) {
+    const tripId = row['trip_id'];
+    const routeRaw = row['route_id']?.trim();
+    if (!tripId || !routeRaw) continue;
+    const routeId = Number(routeRaw);
+    if (Number.isFinite(routeId)) map[tripId] = routeId;
   }
 
   return map;

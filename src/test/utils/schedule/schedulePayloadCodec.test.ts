@@ -49,11 +49,25 @@ describe('schedulePayloadCodec', () => {
   });
 
   it('round-trips expand(compactify(x)) === x', () => {
-    const p = payload(
-      { A: stopsFrom(300), B: stopsFrom(360), D: [{ s: 5, q: 0, a: 600, d: 601 }] },
-      { A: 'LV', B: 'LV', D: 'D' },
-    );
+    const p: SchedulePayload = {
+      ...payload(
+        { A: stopsFrom(300), B: stopsFrom(360), D: [{ s: 5, q: 0, a: 600, d: 601 }] },
+        { A: 'LV', B: 'LV', D: 'D' },
+      ),
+      tripRouteMap: { A: 42, B: 42, D: 7 },
+    };
     expect(expandSchedule(compactifySchedule(p))).toEqual(p);
+  });
+
+  it('carries trip→route through compactify/expand', () => {
+    const p: SchedulePayload = {
+      ...payload({ A: stopsFrom(300), C: stopsFrom(420) }, { A: 'LV', C: 'S' }),
+      tripRouteMap: { A: 42, C: 7 },
+    };
+    const compact = compactifySchedule(p);
+    expect(compact.trips.A.r).toBe(42);
+    expect(compact.trips.C.r).toBe(7);
+    expect(expandSchedule(compact).tripRouteMap).toEqual({ A: 42, C: 7 });
   });
 
   it('keeps distinct patterns separate', () => {

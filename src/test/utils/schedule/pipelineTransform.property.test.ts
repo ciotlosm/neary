@@ -246,6 +246,13 @@ describe('Property 1: Pipeline transformation completeness', () => {
           expectedMap[trip.tripId] = trip.serviceId;
         }
         expect(payload.tripServiceMap).toEqual(expectedMap);
+
+        // (6) tripRouteMap maps every trip to its route.
+        const expectedRouteMap: Record<string, number> = {};
+        for (const trip of model.trips) {
+          expectedRouteMap[trip.tripId] = trip.routeId;
+        }
+        expect(payload.tripRouteMap).toEqual(expectedRouteMap);
       }),
       { numRuns: 200 },
     );

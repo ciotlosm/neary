@@ -109,7 +109,16 @@ export function getNextScheduledDeparture(
 
   if (!scheduleData) return null;
 
-  const candidates = collectStartCandidates(scheduleData, tripRouteMap, stopId, routeId);
+  // Prefer the authoritative trip→route map embedded in the schedule payload
+  // (from GTFS trips.txt). Fall back to the caller-supplied map (e.g. from the
+  // Tranzy trip store) only when the payload lacks it — note Tranzy's `/trips`
+  // is a partial set, so it cannot resolve most scheduled trips.
+  const routeMap =
+    scheduleData.tripRouteMap && Object.keys(scheduleData.tripRouteMap).length > 0
+      ? scheduleData.tripRouteMap
+      : tripRouteMap;
+
+  const candidates = collectStartCandidates(scheduleData, routeMap, stopId, routeId);
   if (candidates.length === 0) return null;
 
   const nowMinutes = minutesSinceMidnight(now);

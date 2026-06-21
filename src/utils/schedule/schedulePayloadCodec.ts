@@ -79,6 +79,7 @@ export function compactifySchedule(payload: SchedulePayload): CompactSchedulePay
       p: index,
       t: base,
       s: payload.tripServiceMap[tripId] ?? '',
+      r: payload.tripRouteMap?.[tripId],
     };
   }
 
@@ -98,6 +99,7 @@ export function compactifySchedule(payload: SchedulePayload): CompactSchedulePay
 export function expandSchedule(compact: CompactSchedulePayload): SchedulePayload {
   const stopTimes: Record<string, ScheduleStopTime[]> = {};
   const tripServiceMap: Record<string, string> = {};
+  const tripRouteMap: Record<string, number> = {};
 
   for (const [tripId, ref] of Object.entries(compact.trips)) {
     const pattern = compact.patterns[ref.p];
@@ -109,6 +111,7 @@ export function expandSchedule(compact: CompactSchedulePayload): SchedulePayload
       d: ps.d + ref.t,
     }));
     tripServiceMap[tripId] = ref.s;
+    if (ref.r !== undefined) tripRouteMap[tripId] = ref.r;
   }
 
   return {
@@ -117,6 +120,7 @@ export function expandSchedule(compact: CompactSchedulePayload): SchedulePayload
     calendar: compact.calendar,
     calendarExceptions: compact.calendarExceptions,
     tripServiceMap,
+    tripRouteMap,
   };
 }
 
