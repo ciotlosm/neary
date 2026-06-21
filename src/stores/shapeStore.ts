@@ -5,10 +5,10 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { RouteShape } from '../types/arrivalTime.ts';
-import { API_CACHE_DURATION, CALCULATION_TOLERANCES } from '../utils/core/constants.ts';
-import { compressData, decompressData, getCompressionRatio, formatSize } from '../utils/core/compressionUtils.ts';
+import { API_CACHE_DURATION } from '../utils/core/constants.ts';
+import { createCompressedStorage } from '../utils/core/compressedStorage.ts';
 import { 
   createRefreshMethod, 
   createFreshnessChecker 
@@ -149,133 +149,32 @@ export const useShapeStore = create<ShapeStore>()(
 {
   name: 'shape-store',
   
-  // Custom storage with compression for 5MB+ shape data
-  storage: {
-    getItem: (name: string) => {
-      try {
-        const item = localStorage.getItem(name);
-        if (!item) return null;
-        
-        // Check if data is compressed
-        if (item.startsWith('gzip:')) {
-          // Return placeholder for async decompression during hydration
-          return { 
-            state: { 
-              shapes: new Map(),
-              loading: false,
-              error: null,
-              lastUpdated: null,
-              _compressed: item // Store for async decompression
-            }
-          };
-        } else {
-          // Uncompressed data (legacy or fallback)
-          const parsed = JSON.parse(item);
-          
-          // Transform Array back to Map
-          if (parsed.state?.shapes && Array.isArray(parsed.state.shapes)) {
-            parsed.state.shapes = new Map(parsed.state.shapes);
-          }
-          
-          return parsed;
-        }
-      } catch (error) {
-        console.warn('Failed to load shapes from localStorage:', error);
-        return null;
-      }
-    },
-    
-    setItem: (name: string, value: any) => {
-      try {
-        // Transform Map to Array for JSON serialization
-        const serializable = {
-          ...value,
-          state: {
-            ...value.state,
-            shapes: Array.from(value.state.shapes)
-          }
-        };
-        
-        const jsonString = JSON.stringify(serializable);
-        const originalSize = new TextEncoder().encode(jsonString).length;
-        
-        // Compress asynchronously for 5MB+ data
-        compressData(jsonString).then(compressed => {
-          try {
-            const compressedSize = new TextEncoder().encode(compressed).length;
-            
-            // Log compression stats in development
-            if (process.env.NODE_ENV === 'development') {
-              const ratio = getCompressionRatio(jsonString, compressed);
-              const isCompressed = compressed.startsWith('gzip:');
-              
-              if (isCompressed && ratio > CALCULATION_TOLERANCES.COMPRESSION_RATIO_THRESHOLD) {
-                console.log(`📦 Shape data compressed: ${formatSize(originalSize)} → ${formatSize(compressedSize)} (${ratio.toFixed(1)}x reduction)`);
-              }
-            }
-            
-            localStorage.setItem(name, compressed);
-          } catch (storageError) {
-            console.warn('Failed to store compressed shapes:', storageError);
-            // Fallback: try storing uncompressed
-            try {
-              localStorage.setItem(name, jsonString);
-            } catch (fallbackError) {
-              console.warn('Failed to store shapes even uncompressed:', fallbackError);
-            }
-          }
-        }).catch(compressionError => {
-          console.warn('Compression failed, storing uncompressed:', compressionError);
-          try {
-            localStorage.setItem(name, jsonString);
-          } catch (storageError) {
-            console.warn('Failed to store shapes:', storageError);
-          }
-        });
-        
-      } catch (error) {
-        console.warn('Failed to prepare shapes for storage:', error);
-      }
-    },
-    
-    removeItem: (name: string) => {
-      try {
-        localStorage.removeItem(name);
-      } catch (error) {
-        console.warn('Failed to remove shapes from localStorage:', error);
-      }
-    },
+  // Persist to localStorage with gzip compression via the shared adapter
+  // (issue #29). The shapes Map is serialized to entries in `partialize` and
+  // reconstructed in `merge`; the adapter transparently (de)compresses and
+  // reads legacy uncompressed/`gzip:`-prefixed values.
+  storage: createJSONStorage(() => createCompressedStorage('[ShapeStore]')),
+
+  partialize: (state) => ({
+    shapes: Array.from(state.shapes.entries()),
+    lastUpdated: state.lastUpdated,
+    lastApiFetch: state.lastApiFetch,
+  }),
+
+  merge: (persistedState, currentState) => {
+    const persisted = persistedState as
+      | Partial<{
+          shapes: Array<[string, RouteShape]>;
+          lastUpdated: number | null;
+          lastApiFetch: number | null;
+        }>
+      | undefined;
+    return {
+      ...currentState,
+      shapes: persisted?.shapes ? new Map(persisted.shapes) : currentState.shapes,
+      lastUpdated: persisted?.lastUpdated ?? null,
+      lastApiFetch: persisted?.lastApiFetch ?? null,
+    };
   },
-  
-  // Handle async decompression during hydration
-  onRehydrateStorage: () => (state) => {
-    if (state && (state as any)._compressed) {
-      // Decompress data asynchronously
-      decompressData((state as any)._compressed).then(decompressed => {
-        try {
-          const parsed = JSON.parse(decompressed);
-          if (parsed.state?.shapes && Array.isArray(parsed.state.shapes)) {
-            const shapesMap = new Map(parsed.state.shapes);
-            
-            // Update store with decompressed data
-            useShapeStore.setState({
-              shapes: shapesMap,
-              lastUpdated: parsed.state.lastUpdated || null,
-              error: parsed.state.error || null,
-              _compressed: undefined
-            } as any);
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`✅ Decompressed ${shapesMap.size} shapes from cache`);
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to decompress cached shapes:', error);
-        }
-      }).catch(error => {
-        console.warn('Decompression failed:', error);
-      });
-    }
-  }
 }
 ));

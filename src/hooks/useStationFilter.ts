@@ -11,6 +11,7 @@ import { useStopTimeStore } from '../stores/stopTimeStore';
 import { useTripStore } from '../stores/tripStore';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useRouteStore } from '../stores/routeStore';
+import { useScheduleStore } from '../stores/scheduleStore';
 import { useStationCacheStore } from '../stores/stationCacheStore';
 import { calculateDistance } from '../utils/location/distanceUtils';
 import { LOCATION_CONFIG } from '../utils/core/constants';
@@ -22,6 +23,7 @@ import {
 import {
   filterStations
 } from '../utils/station/stationFilterStrategies';
+import { buildTripRouteMap } from '../utils/schedule/scheduleVehicleIntegration';
 import { SECONDARY_STATION_THRESHOLD } from '../types/stationFilter';
 import type { FilteredStation } from '../types/stationFilter';
 
@@ -67,6 +69,13 @@ export function useStationFilter(): StationFilterResult {
   const routeLoading = useRouteStore(state => state.loading);
   const routeError = useRouteStore(state => state.error);
   const loadRoutes = useRouteStore(state => state.loadRoutes);
+
+  // Schedule data for synthesized scheduled departures (Req 6, 12). Optional —
+  // when absent the filter runs in pure GPS-only mode.
+  const scheduleData = useScheduleStore(state => state.scheduleData);
+  const activeServiceIds = useScheduleStore(state => state.activeServiceIds);
+  const loadSchedule = useScheduleStore(state => state.loadSchedule);
+  const ensureActiveServicesForToday = useScheduleStore(state => state.ensureActiveServicesForToday);
   
   // Auto-load stop times, vehicles, and routes when hook is used
   useEffect(() => {
@@ -100,10 +109,13 @@ export function useStationFilter(): StationFilterResult {
       if (allRoutes.length === 0 && !routeLoading && !routeError) {
         loadRoutes();
       }
+
+      // Load schedule data (additive; safe no-op when already fresh/cached).
+      loadSchedule();
     };
     
     loadData();
-  }, [stopTimes.length, trips.length, stopTimeLoading, tripLoading, stopTimeError, tripError, loadStopTimes, loadTrips, vehicles.length, vehicleLoading, vehicleError, loadVehicles, allRoutes.length, routeLoading, routeError, loadRoutes]);
+  }, [stopTimes.length, trips.length, stopTimeLoading, tripLoading, stopTimeError, tripError, loadStopTimes, loadTrips, vehicles.length, vehicleLoading, vehicleError, loadVehicles, allRoutes.length, routeLoading, routeError, loadRoutes, loadSchedule]);
   
   // Use Zustand store for cache (persists across unmounts)
   const { get: getCachedStations, set: setCachedStations } = useStationCacheStore();
@@ -192,6 +204,9 @@ export function useStationFilter(): StationFilterResult {
         if (!currentPosition) {
           result = []; // No location available for proximity filtering
         } else {
+          // Ensure active services reflect the current day before synthesizing
+          // scheduled departures (handles midnight crossings).
+          ensureActiveServicesForToday();
           // Show all stations within proximity of the closest station (unlimited results)
           result = await filterStations(
             stops,
@@ -201,7 +216,13 @@ export function useStationFilter(): StationFilterResult {
             allRoutes,
             1, // Enable proximity filtering
             SECONDARY_STATION_THRESHOLD,
-            trips
+            trips,
+            {
+              scheduleData,
+              tripRouteMap: buildTripRouteMap(trips),
+              activeServiceIds,
+              tranzyTrips: trips,
+            }
           );
         }
         
@@ -226,7 +247,7 @@ export function useStationFilter(): StationFilterResult {
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [stops, stopTimes, trips, vehicles, allRoutes, currentLat, currentLon, shouldRefilter, lastFilterPosition, filteredStations.length, tripError]);
+  }, [stops, stopTimes, trips, vehicles, allRoutes, scheduleData, activeServiceIds, ensureActiveServicesForToday, currentLat, currentLon, shouldRefilter, lastFilterPosition, filteredStations.length, tripError]);
   
   const retryFiltering = useCallback(() => {
     // Force re-filtering by clearing last position

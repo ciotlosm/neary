@@ -7,7 +7,7 @@ import { memo, useState, useMemo } from 'react';
 import { 
   Card, CardContent, Typography, Chip, Stack, Box, Avatar, IconButton,
   Collapse, List, ListItem, ListItemText, Tooltip, CircularProgress, ClickAwayListener,
-  Snackbar, Alert
+  Snackbar, Alert, Button
 } from '@mui/material';
 import { 
   AccessibleForward as WheelchairIcon,
@@ -30,8 +30,11 @@ import { useStopTimeStore } from '../../../stores/stopTimeStore';
 import { useStationStore } from '../../../stores/stationStore';
 import { useVehicleStore } from '../../../stores/vehicleStore';
 import { useRouteStore } from '../../../stores/routeStore';
+import { useScheduleStore } from '../../../stores/scheduleStore';
 import { VehicleMapDialog } from '../maps/VehicleMapDialog';
 import { VehicleDropOffChip } from '../controls/VehicleDropOffChip';
+import { ScheduledDepartureChip } from '../controls/ScheduledDepartureChip';
+import { ScheduleBoardDialog } from '../schedule/ScheduleBoardDialog';
 import type { StationVehicle } from '../../../types/stationFilter';
 import { useFavoritesStore } from '../../../stores/favoritesStore';
 
@@ -46,12 +49,13 @@ interface StationVehicleListProps {
   selectedRouteId?: number | null; // NEW: route filter
   vehicleRefreshTimestamp?: number | null; // Timestamp when vehicle data was last refreshed
   vehicleLoading?: boolean; // NEW: vehicle loading state for showing loading indicator
+  routeIds?: number[]; // NEW: route ids serving this station (for scheduled departures)
 }
 
-export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles, expanded, station, stationRouteCount, selectedRouteId, vehicleRefreshTimestamp, vehicleLoading }) => {
+export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles, expanded, station, stationRouteCount, selectedRouteId, vehicleRefreshTimestamp, vehicleLoading, routeIds }) => {
   // State for expansion functionality
   const [showingAll, setShowingAll] = useState(false);
-  
+
   // Apply route filtering with departed vehicle limiting (must be before any returns)
   const filteredVehicles = useMemo(() => {
     if (!selectedRouteId) {
@@ -113,18 +117,22 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
   // Empty state - no vehicles found
   if (vehicles.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ p: 2, fontStyle: 'italic' }}>
-        No active vehicles serving this station
-      </Typography>
+      <Stack spacing={2} sx={{ pt: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2, fontStyle: 'italic' }}>
+          No active vehicles serving this station
+        </Typography>
+      </Stack>
     );
   }
 
   // Handle empty state when route filter is active but no vehicles match
   if (selectedRouteId && filteredVehicles.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ p: 2, fontStyle: 'italic' }}>
-        No active vehicles for this route
-      </Typography>
+      <Stack spacing={2} sx={{ pt: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2, fontStyle: 'italic' }}>
+          No active vehicles for this route
+        </Typography>
+      </Stack>
     );
   }
 
@@ -221,6 +229,8 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
   const [dataToastOpen, setDataToastOpen] = useState(false);
   const [arrivalToastOpen, setArrivalToastOpen] = useState(false);
+  // Placeholder for the upcoming today/tomorrow schedule views.
+  const [scheduleView, setScheduleView] = useState<null | 'today' | 'tomorrow'>(null);
   
   // Calculate data age for freshness indicator
   const dataAgeResult = vehicleRefreshTimestamp 
@@ -235,54 +245,98 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
   const { stopTimes } = useStopTimeStore();
   const { trips } = useTripStore();
   const { stops } = useStationStore();
-  
-  // Check if current station is the end station for this vehicle's trip
-  const isDropOffOnly = vehicle.trip_id && station?.stop_id
-    ? isStationEndForTrip(station.stop_id, vehicle.trip_id, stopTimes)
-    : false;
+  const { scheduleData } = useScheduleStore();
+
+  // Scheduled (synthetic) vehicle: no live GPS, positioned at its start station
+  // (future) or interpolated along the route (ghost). Rendered through this same
+  // card so it looks/behaves like a normal vehicle (Req 6, 12).
+  const isScheduled = vehicle.isScheduled === true;
+  // A future scheduled departure waits at its start station; a ghost has
+  // departed and is moving. Future ones swap the GPS detail row (speed/id/
+  // accessibility) for schedule-view buttons.
+  const isFutureScheduled = isScheduled && vehicle.isGhost !== true;
+
+  // Check if current station is the end station for this vehicle's trip.
+  // Live vehicles use the Tranzy stop-time store; scheduled vehicles use their
+  // GTFS stop list (their trip isn't in the Tranzy set). A scheduled vehicle
+  // arriving at its terminus (e.g. an inbound ghost) IS drop-off only.
+  const isDropOffOnly = (() => {
+    if (!station?.stop_id || !vehicle.trip_id) return false;
+    if (isScheduled) {
+      const sts = scheduleData?.stopTimes?.[vehicle.trip_id];
+      if (!sts || sts.length === 0) return false;
+      const last = sts.reduce((a, b) => (b.q > a.q ? b : a));
+      return last.s === station.stop_id;
+    }
+    return isStationEndForTrip(station.stop_id, vehicle.trip_id, stopTimes);
+  })();
   
   // Get all data needed for the map dialog
   const { vehicles: allVehicles } = useVehicleStore();
   const { routes } = useRouteStore();
   
-  // Get actual stops for this vehicle's trip
-  const tripStopTimes = getTripStopSequence(vehicle, stopTimes);
-  
-  // Convert stop times to stop data with names and actual status using existing utility
-  const tripStops = tripStopTimes.map((stopTime) => {
-    const stopData = stops.find(stop => stop.stop_id === stopTime.stop_id);
-    
-    // Use existing utility to determine if this stop is passed, current, or upcoming
-    const stopRelation = determineTargetStopRelation(vehicle, stopData || { stop_id: stopTime.stop_id } as any, trips, stopTimes, stops);
-    
-    // Convert the relation to our status format
-    let status: 'passed' | 'current' | 'upcoming';
-    if (stopRelation === 'passed') {
-      status = 'passed';
-    } else if (stopRelation === 'not_in_trip') {
-      status = 'upcoming'; // Fallback
-    } else {
-      // For 'upcoming', we need to determine if it's the next stop (current) or future
-      // Simple heuristic: if it's the first upcoming stop in sequence, mark as current
-      const upcomingStops = tripStopTimes.filter(st => {
-        const tempStopData = stops.find(s => s.stop_id === st.stop_id);
-        if (!tempStopData) return false;
-        const relation = determineTargetStopRelation(vehicle, tempStopData, trips, stopTimes, stops);
-        return relation === 'upcoming';
-      });
-      status = upcomingStops[0]?.stop_id === stopTime.stop_id ? 'current' : 'upcoming';
-    }
-    
-    return {
-      name: stopData?.stop_name || `Stop ${stopTime.stop_id}`,
-      stopId: stopTime.stop_id,
-      sequence: stopTime.stop_sequence,
-      status
-    };
-  });
+  // Get actual stops for this vehicle's trip. Live vehicles use the Tranzy
+  // stop-time store; scheduled vehicles use the GTFS schedule payload (their
+  // trip is not in the partial Tranzy set).
+  const tripStops = isScheduled
+    ? (scheduleData?.stopTimes?.[vehicle.trip_id ?? ''] ?? [])
+        .slice()
+        .sort((a, b) => a.q - b.q)
+        .map((st) => ({
+          name: stops.find((s) => s.stop_id === st.s)?.stop_name || `Stop ${st.s}`,
+          stopId: st.s,
+          sequence: st.q,
+          status: 'upcoming' as const,
+        }))
+    : getTripStopSequenceStops();
+
+  // Live-vehicle stop status computation (extracted so the scheduled branch
+  // above stays simple).
+  function getTripStopSequenceStops() {
+    const tripStopTimes = getTripStopSequence(vehicle, stopTimes);
+    return tripStopTimes.map((stopTime) => {
+      const stopData = stops.find(stop => stop.stop_id === stopTime.stop_id);
+      const stopRelation = determineTargetStopRelation(vehicle, stopData || { stop_id: stopTime.stop_id } as any, trips, stopTimes, stops);
+      let status: 'passed' | 'current' | 'upcoming';
+      if (stopRelation === 'passed') {
+        status = 'passed';
+      } else if (stopRelation === 'not_in_trip') {
+        status = 'upcoming';
+      } else {
+        const upcomingStops = tripStopTimes.filter(st => {
+          const tempStopData = stops.find(s => s.stop_id === st.stop_id);
+          if (!tempStopData) return false;
+          const relation = determineTargetStopRelation(vehicle, tempStopData, trips, stopTimes, stops);
+          return relation === 'upcoming';
+        });
+        status = upcomingStops[0]?.stop_id === stopTime.stop_id ? 'current' : 'upcoming';
+      }
+      return {
+        name: stopData?.stop_name || `Stop ${stopTime.stop_id}`,
+        stopId: stopTime.stop_id,
+        sequence: stopTime.stop_sequence,
+        status
+      };
+    });
+  }
 
   const routeShortName = route?.route_short_name || vehicle.route_id?.toString() || '?';
   const headsign = trip?.trip_headsign || 'Unknown Destination';
+
+  // Stop times to feed the map dialog. Scheduled trips are not in the Tranzy
+  // stop-time store, so the map's station filter would fall back to showing
+  // EVERY station. Synthesize Tranzy-shaped rows for this trip from the schedule
+  // so the map shows only THIS trip's stations.
+  const mapStopTimes = isScheduled && vehicle.trip_id
+    ? [
+        ...stopTimes,
+        ...(scheduleData?.stopTimes?.[vehicle.trip_id] ?? []).map((st) => ({
+          trip_id: vehicle.trip_id as string,
+          stop_id: st.s,
+          stop_sequence: st.q,
+        })),
+      ]
+    : stopTimes;
 
   return (
     <Card 
@@ -344,7 +398,9 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
             }}
             onClick={() => setDataToastOpen(true)}
           >
-            {dataAgeResult && <DataAgeIcon status={dataAgeResult.status} />}
+            {isScheduled
+              ? <AccessTimeIcon fontSize="small" sx={{ color: 'info.main' }} />
+              : (dataAgeResult && <DataAgeIcon status={dataAgeResult.status} />)}
           </Box>
         </Stack>
 
@@ -355,50 +411,78 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
           spacing={{ xs: 1.5, sm: 2 }} 
           sx={{ mb: 1.5, flexWrap: 'wrap' }}
         >
-              <Chip 
-                label={`${vehicle.label}`} 
-                size="small" 
+          {isFutureScheduled ? (
+            <>
+              {/* Placeholders for upcoming schedule views (today / tomorrow AM). */}
+              <Button
+                size="small"
                 variant="outlined"
-                sx={{ 
-                  fontSize: '0.7rem',
-                  height: { xs: 20, sm: 24 },
-                  flexShrink: 0
-                }}
-              />
-          {/* Speed */}
-          <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
-            <SpeedIcon fontSize="small" color="action" />
-            <Typography 
-              variant="caption"
-              sx={{ 
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {formatSpeed(vehicle.speed)}
-            </Typography>
-          </Box>
-          
-          {/* Accessibility information */}
-          {getAccessibilityFeatures(vehicle.wheelchair_accessible, vehicle.bike_accessible).map(feature => (
-            <Box key={feature.type} display="flex" alignItems="center" gap={0.25} sx={{ flexShrink: 0 }}>
-              {feature.type === 'wheelchair' ? (
-                <WheelchairIcon fontSize="small" color="primary" />
-              ) : (
-                <BikeIcon fontSize="small" color="primary" />
-              )}
-              <Typography 
-                variant="caption" 
-                color="primary"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  whiteSpace: 'nowrap'
-                }}
+                color="info"
+                onClick={() => setScheduleView('today')}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, textTransform: 'none', py: 0.25 }}
               >
-                {feature.label}
-              </Typography>
-            </Box>
-          ))}
+                Today schedule
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="info"
+                onClick={() => setScheduleView('tomorrow')}
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' }, textTransform: 'none', py: 0.25 }}
+              >
+                Tomorrow schedule
+              </Button>
+            </>
+          ) : (
+            <>
+              {vehicle.label ? (
+                <Chip
+                  label={`${vehicle.label}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    fontSize: '0.7rem',
+                    height: { xs: 20, sm: 24 },
+                    flexShrink: 0
+                  }}
+                />
+              ) : null}
+              {/* Speed */}
+              <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
+                <SpeedIcon fontSize="small" color="action" />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {formatSpeed(vehicle.speed)}
+                </Typography>
+              </Box>
+
+              {/* Accessibility information */}
+              {getAccessibilityFeatures(vehicle.wheelchair_accessible, vehicle.bike_accessible).map(feature => (
+                <Box key={feature.type} display="flex" alignItems="center" gap={0.25} sx={{ flexShrink: 0 }}>
+                  {feature.type === 'wheelchair' ? (
+                    <WheelchairIcon fontSize="small" color="primary" />
+                  ) : (
+                    <BikeIcon fontSize="small" color="primary" />
+                  )}
+                  <Typography
+                    variant="caption"
+                    color="primary"
+                    sx={{
+                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {feature.label}
+                  </Typography>
+                </Box>
+              ))}
+            </>
+          )}
           
           {/* Favorite route indicator */}
           {isRouteFavorite && (
@@ -415,7 +499,29 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         </Stack>
 
         {/* Arrival time information */}
-        {arrivalTime && (
+        {arrivalTime && isScheduled && (
+          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1.5 }}>
+            <Chip
+              icon={<ArrivalIcon />}
+              label={arrivalTime.statusMessage}
+              color="info"
+              variant="filled"
+              size="small"
+              onClick={() => setScheduleView('today')}
+              sx={{
+                fontWeight: 'medium',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                '& .MuiChip-icon': { color: 'inherit' },
+                cursor: 'pointer',
+              }}
+            />
+            <ScheduledDepartureChip />
+            <VehicleDropOffChip isDropOffOnly={isDropOffOnly} />
+          </Box>
+        )}
+
+        {/* Arrival time information */}
+        {arrivalTime && !isScheduled && (
           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1.5 }}>
             {(() => {
               // Format time difference without "ago" suffix
@@ -555,8 +661,20 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
         vehicles={allStationVehicles}
         routes={routes}
         stations={stops}
-        trips={trips}
-        stopTimes={stopTimes}
+        trips={isScheduled && trip ? [...trips, trip] : trips}
+        stopTimes={mapStopTimes}
+      />
+
+      {/* Today / Tomorrow scheduled departure board */}
+      <ScheduleBoardDialog
+        open={scheduleView !== null}
+        initialMode={scheduleView ?? 'today'}
+        station={station}
+        routeId={route?.route_id ?? vehicle.route_id ?? null}
+        routeShortName={routeShortName}
+        headsign={trip?.trip_headsign ?? headsign}
+        directionId={trip?.direction_id ?? null}
+        onClose={() => setScheduleView(null)}
       />
       
       {/* Data Age Toast */}
@@ -571,7 +689,24 @@ const VehicleCard: FC<VehicleCardProps> = memo(({ vehicle, route, trip, arrivalT
           variant="filled"
           sx={{ width: '100%' }}
         >
-          {dataAgeResult ? (
+          {isScheduled ? (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                Scheduled vehicle (no live GPS)
+              </Typography>
+              {vehicle.isGhost ? (
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  Position is estimated from the timetable, based on the last scheduled
+                  stop at {formatAbsoluteTime(new Date(vehicle.timestamp).getTime())}.
+                </Typography>
+              ) : (
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  Shown at its start station until its scheduled departure. Once a real
+                  GPS vehicle appears for this run, it replaces this entry.
+                </Typography>
+              )}
+            </>
+          ) : dataAgeResult ? (
             <>
               <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 Data Freshness

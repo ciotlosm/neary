@@ -22,6 +22,21 @@ export interface EnhancedVehicleData extends TranzyVehicleResponse {
   // Override coordinates with predicted values
   latitude: number;  // Predicted latitude (or original if no prediction)
   longitude: number; // Predicted longitude (or original if no prediction)
+
+  // Schedule-only (synthetic) vehicle flags. Set when this entry represents a
+  // SCHEDULED departure with no live GPS yet (Req 6, 12) — synthesized at the
+  // route's start station so it renders through the normal vehicle card/map.
+  // Absent/false for all real GPS vehicles, so existing behavior is unchanged.
+  /** True when this is a synthesized scheduled departure (no live GPS). */
+  isScheduled?: boolean;
+  /** Minutes from now until the scheduled departure (only when isScheduled). */
+  scheduledDepartureMinutes?: number;
+  /**
+   * For a scheduled vehicle, whether it has DEPARTED and is moving (a "ghost":
+   * interpolated position, averaged speed) vs a FUTURE departure waiting at its
+   * start station (speed 0). Only meaningful when `isScheduled` is true.
+   */
+  isGhost?: boolean;
   
   // Override speed with predicted value
   speed: number;     // Predicted speed (or original if no prediction)
@@ -69,6 +84,13 @@ export interface EnhancementOptions {
   // Speed prediction options (always enabled)
   nearbyVehicles?: TranzyVehicleResponse[];
   stationDensityCenter?: Coordinates;
+
+  // Start station prediction suppression (Requirements 9.1, 9.4).
+  // When true, forward position prediction is suppressed and the vehicle is
+  // shown at its current/API position. Defaults to off, so existing behavior is
+  // unchanged when schedule data is unavailable. Callers compute this via
+  // `isPredictionSuppressed` in `scheduleVehicleIntegration.ts`.
+  suppressForwardPrediction?: boolean;
 }
 
 // ============================================================================
@@ -93,7 +115,9 @@ export function enhanceVehicle(
     vehicle,
     options.routeShape,
     options.stopTimes,
-    options.stops
+    options.stops,
+    undefined,
+    options.suppressForwardPrediction
   );
   
   // 2. Check if vehicle is at station FIRST (before speed prediction)

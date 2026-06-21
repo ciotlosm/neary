@@ -96,13 +96,29 @@ export const PERFORMANCE = {
 } as const;
 
 /**
+ * Manual refresh debounce (ms).
+ *
+ * This is NOT a cache tier — it is the debounce window for the refresh BUTTON.
+ * The auto-refresh cadence is independent (AUTO_REFRESH_CYCLE) and is never
+ * changed by tapping. When the user taps refresh:
+ *   - if the vehicle data is OLDER than this window  -> force a real fetch;
+ *   - if it is YOUNGER (a fetch would just be skipped) -> recompute predictions
+ *     instead, so the tap is still rewarding (no API call, quota-friendly).
+ * Mirrors the vehicle data freshness so "inside the window" == "a fetch would be
+ * a no-op".
+ */
+export const MANUAL_REFRESH_DEBOUNCE_MS = API_CACHE_DURATION.VEHICLES; // 60s
+
+/**
  * Arrival time calculation constants
  * Configurable values for arrival time estimation (Requirements 2.3, 2.5)
  */
 export const ARRIVAL_CONFIG = {
-  // Average bus speed for time calculations (km/h)
-  // Reduced from 25 to 18 for more realistic urban conditions
-  AVERAGE_SPEED: 18,
+  // Average urban travel speed used for ETA to OTHER stations when no live
+  // moving speed is available (e.g. the vehicle is momentarily dwelling at a
+  // stop, where its current speed is 0). Aligned with SPEED_PREDICTION_CONFIG
+  // .FALLBACK_SPEED (25) so a vehicle's ETA doesn't jump when it stops/starts.
+  AVERAGE_SPEED: 25,
   
   // Dwell time per intermediate stop (seconds)
   // Increased from 30 to 60 for more realistic stop times
@@ -115,7 +131,54 @@ export const ARRIVAL_CONFIG = {
   RECENT_DEPARTURE_WINDOW: 2,
   
   // Off-route threshold for distance from route shape (meters)
-  OFF_ROUTE_THRESHOLD: 200
+  OFF_ROUTE_THRESHOLD: 200,
+
+  // Distance (m) over which the ETA blends the vehicle's momentary speed toward
+  // AVERAGE_SPEED. A single low/high speed reading must not be extrapolated over
+  // a long remaining trip: near stops trust the current speed, far stops trust
+  // the average (avoids ETAs swinging when a bus briefly stops or crawls).
+  ETA_SPEED_BLEND_DISTANCE_METERS: 2000,
+} as const;
+
+/**
+ * Ghost vehicle matching & frequency-based suppression (Req 7, 12).
+ *
+ * A "ghost" is a scheduled departure that has begun (its scheduled departure
+ * passed) but has no live GPS vehicle. It is shown as a moving vehicle at a
+ * schedule-interpolated position UNLESS a real GPS vehicle is effectively the
+ * same run. Matching is positional: if a GPS vehicle on the same route is within
+ * `matchDistance` of the ghost's predicted position, the ghost is suppressed.
+ *
+ * The match distance scales with the route's scheduled headway near "now":
+ * low-frequency routes (long headway) tolerate a larger distance; high-frequency
+ * routes tolerate less. On high-frequency routes (headway below
+ * HIGH_FREQUENCY_HEADWAY_MINUTES) that already have ANY live GPS vehicle, ghosts
+ * are not shown at all — the live feed is dense enough that synthesized runs add
+ * only noise/duplicates.
+ */
+export const GHOST_VEHICLE_MATCH = {
+  // Default positional match distance (meters) at the ~10-min headway pivot.
+  BASE_DISTANCE_METERS: 500,
+  // Clamp bounds for the frequency-scaled match distance (meters).
+  MIN_DISTANCE_METERS: 250,
+  MAX_DISTANCE_METERS: 1500,
+  // Headway (minutes) at/below which a route is "high frequency".
+  HIGH_FREQUENCY_HEADWAY_MINUTES: 10,
+  // Window (minutes) around "now" used to estimate the route's headway.
+  HEADWAY_WINDOW_MINUTES: 60,
+  // A live GPS vehicle within this distance of a run's START stop, moving slower
+  // than START_CLAIM_SPEED_KMH, is treated as the bus that will serve (or is
+  // serving, late) a departure from that stop. It "claims" the nearest run by
+  // scheduled time, suppressing that run's future/ghost card. This is what lets
+  // a vehicle waiting at the start (before its time) or a LATE bus that just
+  // pulled in cover its scheduled run even though the on-time interpolated
+  // ghost position would be far away (so the positional rule alone would miss it).
+  START_CLAIM_PROXIMITY_METERS: 150,
+  START_CLAIM_SPEED_KMH: 5,
+  // Reserved for the moving "late bus" reassignment: once a bus that was waiting
+  // at the start leaves the stop BEFORE its claimed scheduled time, it is a late
+  // earlier run and should cover that run's ghost. Bounds how late that can be.
+  LATE_CLAIM_WINDOW_MINUTES: 45,
 } as const;
 
 /**
