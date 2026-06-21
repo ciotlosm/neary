@@ -219,7 +219,7 @@ export const StationVehicleList: FC<StationVehicleListProps> = memo(({ vehicles,
     return (
       <NextTomorrowFallback
         station={station}
-        message="Only drop-off vehicles serve this station. Enable Show drop-off only in Settings to view them."
+        message="Only drop-off vehicles serve this station at the moment. Enable Show drop-off only in Settings to view them."
       />
     );
   }
