@@ -28,7 +28,6 @@ export const StationView: FC<StationViewProps> = ({ onNavigateToSettings }) => {
   const vehicles = useVehicleStore(state => state.vehicles);
   const vehicleLoading = useVehicleStore(state => state.loading);
   const vehicleLastUpdated = useVehicleStore(state => state.lastApiFetch);
-  const apiKey = useConfigStore(state => state.apiKey);
   const agency_id = useConfigStore(state => state.agency_id);
   
   const { 
@@ -43,7 +42,7 @@ export const StationView: FC<StationViewProps> = ({ onNavigateToSettings }) => {
   // Note: Data loading is handled by automaticRefreshService on app startup
   // No need to trigger loading here - it creates duplicate requests
 
-  if (!apiKey || !agency_id) {
+  if (!agency_id) {
     return (
       <Alert 
         severity="info" 
@@ -60,7 +59,7 @@ export const StationView: FC<StationViewProps> = ({ onNavigateToSettings }) => {
           )
         }
       >
-        Please configure your API key and agency in settings
+        Please select a transit agency in settings
       </Alert>
     );
   }

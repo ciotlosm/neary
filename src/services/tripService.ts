@@ -12,7 +12,7 @@ export const tripService = {
     const { agencyId } = getApiConfig();
     const data = await staticDataService.fetchEndpoint<TranzyStopTimeResponse[]>(agencyId, 'stop_times');
     if (data) return data;
-    throw new Error('Stop times unchanged (hash match)');
+    return [];
   },
 
   /**
@@ -22,6 +22,6 @@ export const tripService = {
     const { agencyId } = getApiConfig();
     const data = await staticDataService.fetchEndpoint<TranzyTripResponse[]>(agencyId, 'trips');
     if (data) return data;
-    throw new Error('Trips unchanged (hash match)');
+    return [];
   }
 };

@@ -14,8 +14,10 @@ export const routeService = {
     const { agencyId } = getApiConfig();
     const data = await staticDataService.fetchEndpoint<TranzyRouteResponse[]>(agencyId, 'routes');
     if (data) return data;
-    // Hash matched — throw so store's error handler preserves cached data
-    throw new Error('Routes unchanged (hash match)');
+    // Hash matched — no new data. Return empty array; the store's
+    // loadRoutes() will see length=0 but its localStorage cache is still valid
+    // (the store only overwrites when it gets actual data).
+    return [];
   },
 
   /**

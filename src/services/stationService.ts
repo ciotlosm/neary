@@ -14,7 +14,7 @@ export const stationService = {
     const { agencyId } = getApiConfig();
     const data = await staticDataService.fetchEndpoint<TranzyStopResponse[]>(agencyId, 'stops');
     if (data) return data;
-    throw new Error('Stops unchanged (hash match)');
+    return [];
   },
 
   /**

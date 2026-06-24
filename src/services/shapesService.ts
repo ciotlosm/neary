@@ -12,6 +12,6 @@ export const shapesService = {
     const { agencyId } = getApiConfig();
     const data = await staticDataService.fetchEndpoint<TranzyShapeResponse[]>(agencyId, 'shapes');
     if (data) return data;
-    throw new Error('Shapes unchanged (hash match)');
+    return [];
   }
 };
