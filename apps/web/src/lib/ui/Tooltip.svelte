@@ -26,8 +26,18 @@
 {:else}
   <Bits.Provider delayDuration={300}>
     <Bits.Root>
-      <Bits.Trigger class="contents">
-        {@render children?.()}
+      <!--
+        Use bits-ui's child snippet so the trigger DOESN'T render its own
+        <button>. Otherwise consumers wrapping a <Button> / <IconButton>
+        produce nested <button> elements (SSR / hydration warning). The
+        span is inline-flex so the trigger area matches the child's box.
+      -->
+      <Bits.Trigger>
+        {#snippet child({ props })}
+          <span {...props} class="inline-flex">
+            {@render children?.()}
+          </span>
+        {/snippet}
       </Bits.Trigger>
       <Bits.Portal>
         <Bits.Content

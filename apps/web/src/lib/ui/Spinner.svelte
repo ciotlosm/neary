@@ -12,7 +12,8 @@
 
   let { size = 20, class: className }: Props = $props();
 
-  const border = Math.max(2, Math.floor(size / 10));
+  // Derived so the border scales with prop updates (caller may swap sizes).
+  const border = $derived(Math.max(2, Math.floor(size / 10)));
 </script>
 
 <span

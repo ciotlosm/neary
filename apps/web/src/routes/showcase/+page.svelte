@@ -10,8 +10,9 @@
   import {
     Avatar, Box, Button, BottomNavigation, Card, CardContent, Chip,
     Collapsible, Dialog, DialogContent, DialogTitle,
-    IconButton, ProgressBar, Spinner, Stack, StatusBar, Switch, TextField,
-    Tooltip, Typography,
+    IconButton, List, ListItem, ListItemText,
+    ProgressBar, Spinner, Stack, StatusBar, Switch, Tabs,
+    TextField, ToggleGroup, Tooltip, Typography,
   } from '$lib/ui';
   import { statusBus } from '$lib/stores/statusBus.svelte';
   import {
@@ -35,6 +36,14 @@
   let dialogOpen = $state(false);
   let textValue = $state('');
   let progressValue = $state(35);
+
+  // Tabs + ToggleGroup demo state
+  let tabsValue = $state<'today' | 'tomorrow' | 'week'>('today');
+  let mode = $state<'auto' | 'light' | 'dark'>('auto');
+  $effect(() => {
+    // Mirror the theme picker (top-right) so they stay in sync
+    theme = mode;
+  });
 
   // Push one demo entry on mount so the StatusBar is non-empty on first paint
   onMount(() => {
@@ -196,10 +205,12 @@
           <Stack direction="row" spacing={1.5} align="center">
             <Avatar variant="square" size={44}><Bus size={22} /></Avatar>
             <Box class="flex-1 min-w-0">
-              <Typography variant="h6" class="truncate">Piața Mihai Viteazul</Typography>
-              <Stack direction="row" spacing={1} align="center" wrap>
-                <Chip size="small">{#snippet icon()}<MapPin size={12} />{/snippet}120 m</Chip>
-                <Chip size="small" variant="outlined" color="danger">Drop off only</Chip>
+              <Stack spacing={0.5}>
+                <Typography variant="h6" class="truncate">Piața Mihai Viteazul</Typography>
+                <Stack direction="row" spacing={1} align="center" wrap>
+                  <Chip size="small">{#snippet icon()}<MapPin size={12} />{/snippet}120 m</Chip>
+                  <Chip size="small" variant="outlined" color="danger">Drop off only</Chip>
+                </Stack>
               </Stack>
             </Box>
             <IconButton aria-label="Expand"><ChevronDown size={20} /></IconButton>
@@ -212,8 +223,10 @@
           <Stack direction="row" spacing={1.5} align="center">
             <Avatar variant="square" size={44}>24</Avatar>
             <Box class="flex-1 min-w-0">
-              <Typography variant="h6">Cluj-Napoca → Mănăștur</Typography>
-              <Typography variant="caption">Route 24 · Trolleybus · 12 stops</Typography>
+              <Stack spacing={0.5}>
+                <Typography variant="h6">Cluj-Napoca → Mănăștur</Typography>
+                <Typography variant="caption">Route 24 · Trolleybus · 12 stops</Typography>
+              </Stack>
             </Box>
             <Chip color="success" size="small">Live</Chip>
           </Stack>
@@ -225,16 +238,18 @@
           <Stack direction="row" spacing={1.5} align="center">
             <Avatar variant="square" size={44}>3D</Avatar>
             <Box class="flex-1 min-w-0">
-              <Typography variant="h6">Ghost vehicle</Typography>
-              <Stack direction="row" spacing={1} align="center" wrap>
-                <Chip size="small" variant="outlined" color="warning">
-                  {#snippet icon()}<EyeOff size={12} />{/snippet}
-                  GPS missing
-                </Chip>
-                <Chip size="small">
-                  {#snippet icon()}<Calendar size={12} />{/snippet}
-                  Scheduled 14:32
-                </Chip>
+              <Stack spacing={0.5}>
+                <Typography variant="h6">Ghost vehicle</Typography>
+                <Stack direction="row" spacing={1} align="center" wrap>
+                  <Chip size="small" variant="outlined" color="warning">
+                    {#snippet icon()}<EyeOff size={12} />{/snippet}
+                    GPS missing
+                  </Chip>
+                  <Chip size="small">
+                    {#snippet icon()}<Calendar size={12} />{/snippet}
+                    Scheduled 14:32
+                  </Chip>
+                </Stack>
               </Stack>
             </Box>
           </Stack>
@@ -285,7 +300,7 @@
     <Stack spacing={1}>
       <Typography variant="body2">ProgressBar</Typography>
       <ProgressBar value={progressValue} />
-      <Stack direction="row" spacing={1}>
+      <Stack direction="row" spacing={1} align="center">
         <Button size="small" variant="outlined" onclick={() => (progressValue = Math.max(0, progressValue - 10))}>−10%</Button>
         <Button size="small" variant="outlined" onclick={() => (progressValue = Math.min(100, progressValue + 10))}>+10%</Button>
         <Typography variant="caption">{progressValue}%</Typography>
@@ -329,6 +344,75 @@
     <div>
       <Button onclick={() => (dialogOpen = true)}>Open dialog</Button>
     </div>
+  </section>
+
+  <!-- ============================== Tabs / Toggle / List ============================== -->
+  <section class="space-y-4">
+    <Typography variant="h4">Selection & lists</Typography>
+
+    <Stack spacing={1}>
+      <Typography variant="body2">Tabs (Today / Tomorrow / This week)</Typography>
+      <Tabs
+        value={tabsValue}
+        onchange={(v: typeof tabsValue) => (tabsValue = v)}
+        items={[
+          { value: 'today', label: 'Today' },
+          { value: 'tomorrow', label: 'Tomorrow' },
+          { value: 'week', label: 'This week' },
+        ]}
+      />
+      <Typography variant="caption">Active: {tabsValue}</Typography>
+    </Stack>
+
+    <Stack spacing={1}>
+      <Typography variant="body2">ToggleGroup (theme picker)</Typography>
+      <Stack direction="row" spacing={1} align="center" wrap>
+        {#snippet sunIcon()}<Sun size={16} />{/snippet}
+        {#snippet locateIcon()}<Locate size={16} />{/snippet}
+        {#snippet moonIcon()}<Moon size={16} />{/snippet}
+        <ToggleGroup
+          value={mode}
+          onchange={(v: typeof mode) => (mode = v)}
+          items={[
+            { value: 'light', label: 'Light', icon: sunIcon },
+            { value: 'auto', label: 'Auto', icon: locateIcon },
+            { value: 'dark', label: 'Dark', icon: moonIcon },
+          ]}
+        />
+        <ToggleGroup
+          size="small"
+          value={mode}
+          onchange={(v: typeof mode) => (mode = v)}
+          items={[
+            { value: 'light', 'aria-label': 'Light', icon: sunIcon },
+            { value: 'auto', 'aria-label': 'Auto', icon: locateIcon },
+            { value: 'dark', 'aria-label': 'Dark', icon: moonIcon },
+          ]}
+        />
+      </Stack>
+    </Stack>
+
+    <Stack spacing={1}>
+      <Typography variant="body2">List (semantic, interactive rows)</Typography>
+      <Card>
+        <List>
+          <ListItem button onclick={() => statusBus.push({ id: 'list-1', kind: 'info', message: 'Pretended to open station 1.' })}>
+            <Avatar variant="square" size={36}><Bus size={18} /></Avatar>
+            <ListItemText primary="Piața Mihai Viteazul" secondary="120 m · 6 routes" />
+            <Chip size="small" color="success">Live</Chip>
+          </ListItem>
+          <ListItem button onclick={() => statusBus.push({ id: 'list-2', kind: 'info', message: 'Pretended to open station 2.' })}>
+            <Avatar variant="square" size={36}><Bus size={18} /></Avatar>
+            <ListItemText primary="Cluj Arena" secondary="340 m · 4 routes" />
+            <Chip size="small" color="warning" variant="outlined">Schedule</Chip>
+          </ListItem>
+          <ListItem>
+            <Avatar variant="square" size={36}><Bus size={18} /></Avatar>
+            <ListItemText primary="Gara Cluj" secondary="1.2 km · 8 routes (read-only row)" />
+          </ListItem>
+        </List>
+      </Card>
+    </Stack>
   </section>
 </main>
 

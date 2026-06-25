@@ -22,5 +22,11 @@ export { default as Switch } from './Switch.svelte';
 export { default as TextField } from './TextField.svelte';
 export { default as ProgressBar } from './ProgressBar.svelte';
 
+export { default as Tabs } from './Tabs.svelte';
+export { default as ToggleGroup } from './ToggleGroup.svelte';
+export { default as List } from './List.svelte';
+export { default as ListItem } from './ListItem.svelte';
+export { default as ListItemText } from './ListItemText.svelte';
+
 export { cn } from './cn';
 
