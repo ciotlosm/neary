@@ -9,7 +9,9 @@
   import { onMount } from 'svelte';
   import {
     Avatar, Box, Button, BottomNavigation, Card, CardContent, Chip,
-    IconButton, Spinner, Stack, StatusBar, Typography,
+    Collapsible, Dialog, DialogContent, DialogTitle,
+    IconButton, ProgressBar, Spinner, Stack, StatusBar, Switch, TextField,
+    Tooltip, Typography,
   } from '$lib/ui';
   import { statusBus } from '$lib/stores/statusBus.svelte';
   import {
@@ -26,6 +28,13 @@
   $effect(() => {
     document.documentElement.dataset.theme = theme;
   });
+
+  // Interactive state for the controls section
+  let switchOn = $state(true);
+  let collapsibleOpen = $state(false);
+  let dialogOpen = $state(false);
+  let textValue = $state('');
+  let progressValue = $state(35);
 
   // Push one demo entry on mount so the StatusBar is non-empty on first paint
   onMount(() => {
@@ -248,7 +257,96 @@
     <Typography variant="caption">Caption — small muted text.</Typography>
     <Typography variant="overline">Overline label</Typography>
   </section>
+
+  <!-- ============================== Form controls ============================== -->
+  <section class="space-y-4">
+    <Typography variant="h4">Form controls</Typography>
+
+    <Stack spacing={2}>
+      <TextField
+        label="API key"
+        placeholder="Optional — for live tracking"
+        helperText="Add later in Advanced settings to enable real-time data."
+        bind:value={textValue}
+      />
+      <TextField
+        label="With error"
+        value="bad-input"
+        error
+        helperText="This value is not valid."
+      />
+    </Stack>
+
+    <Stack direction="row" spacing={2} align="center">
+      <Switch bind:checked={switchOn} onchange={(v) => (switchOn = v)} aria-label="Toggle ghost vehicles" />
+      <Typography variant="body2">Show ghost vehicles</Typography>
+    </Stack>
+
+    <Stack spacing={1}>
+      <Typography variant="body2">ProgressBar</Typography>
+      <ProgressBar value={progressValue} />
+      <Stack direction="row" spacing={1}>
+        <Button size="small" variant="outlined" onclick={() => (progressValue = Math.max(0, progressValue - 10))}>−10%</Button>
+        <Button size="small" variant="outlined" onclick={() => (progressValue = Math.min(100, progressValue + 10))}>+10%</Button>
+        <Typography variant="caption">{progressValue}%</Typography>
+      </Stack>
+    </Stack>
+  </section>
+
+  <!-- ============================== Tooltip + Collapsible + Dialog ============================== -->
+  <section class="space-y-4">
+    <Typography variant="h4">Overlays & motion</Typography>
+
+    <Stack direction="row" spacing={1.5} align="center" wrap>
+      <Tooltip title="Hover or focus to see me" placement="top">
+        <Button variant="outlined" size="small">Hover for tooltip</Button>
+      </Tooltip>
+      <Tooltip title="Tooltip on a chip works too" placement="right">
+        <Chip color="primary">Hover me</Chip>
+      </Tooltip>
+      <Tooltip title="Bottom tooltip" placement="bottom">
+        <IconButton aria-label="Info"><Search size={18} /></IconButton>
+      </Tooltip>
+    </Stack>
+
+    <Stack spacing={1}>
+      <Button variant="outlined" size="small" onclick={() => (collapsibleOpen = !collapsibleOpen)}>
+        {collapsibleOpen ? 'Hide' : 'Show'} collapsible
+      </Button>
+      <Collapsible in={collapsibleOpen}>
+        <Card>
+          <CardContent>
+            <Typography variant="body2">
+              Pure CSS expand/collapse via grid-template-rows: 1fr↔0fr — no JS height
+              measurement, interruptible, respects reduced motion when the parent passes it.
+              This is what every station card body will use.
+            </Typography>
+          </CardContent>
+        </Card>
+      </Collapsible>
+    </Stack>
+
+    <div>
+      <Button onclick={() => (dialogOpen = true)}>Open dialog</Button>
+    </div>
+  </section>
 </main>
+
+<Dialog open={dialogOpen} onclose={() => (dialogOpen = false)} maxWidth="sm">
+  <DialogTitle onclose={() => (dialogOpen = false)}>Dialog title</DialogTitle>
+  <DialogContent>
+    <Stack spacing={2}>
+      <Typography variant="body2">
+        bits-ui handles the focus trap, the Escape key, the overlay click, and scroll
+        locking on the body. Styling and copy are ours.
+      </Typography>
+      <Stack direction="row" spacing={1} justify="end">
+        <Button variant="text" onclick={() => (dialogOpen = false)}>Cancel</Button>
+        <Button onclick={() => (dialogOpen = false)}>Confirm</Button>
+      </Stack>
+    </Stack>
+  </DialogContent>
+</Dialog>
 
 <!-- ============================== Bottom navigation ============================== -->
 <BottomNavigation

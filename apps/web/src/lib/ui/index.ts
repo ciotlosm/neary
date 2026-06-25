@@ -13,4 +13,14 @@ export { default as Spinner } from './Spinner.svelte';
 export { default as StatusBar } from './StatusBar.svelte';
 export { default as BottomNavigation } from './BottomNavigation.svelte';
 
+export { default as Dialog } from './Dialog.svelte';
+export { default as DialogTitle } from './DialogTitle.svelte';
+export { default as DialogContent } from './DialogContent.svelte';
+export { default as Tooltip } from './Tooltip.svelte';
+export { default as Collapsible } from './Collapsible.svelte';
+export { default as Switch } from './Switch.svelte';
+export { default as TextField } from './TextField.svelte';
+export { default as ProgressBar } from './ProgressBar.svelte';
+
 export { cn } from './cn';
+
