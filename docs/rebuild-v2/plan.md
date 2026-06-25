@@ -1,0 +1,269 @@
+# Neary v2 — Rebuild Plan
+
+Status: **approved** — see commit history of this branch (`rebuild/v2-svelte-sqlite`) for execution.
+Owner: @ciotlosm. Date: 2026-06-26.
+
+This document is the spec for the v2 rebuild and the only long-form doc we
+intentionally keep in-repo. Day-to-day changes go in commit messages and PR
+descriptions, not here. Update this file only when the plan itself changes.
+
+---
+
+## 1. Goals
+
+| Goal | Target |
+|---|---|
+| Cold start to interactive (iOS Safari, mid-range iPhone) | < 1.0 s |
+| Time-to-first-station-card after launch | < 250 ms (offline, schedule cached) |
+| JS shipped on first paint | < 50 KB gzipped |
+| Real GTFS, no dedup hack | First-class, full spec |
+| Offline | All views fully usable without network |
+| Live GPS | Optional enhancement, never required |
+| Skinnable | One CSS file changes the entire app |
+| Modular UI | Every primitive runs standalone in a sandbox |
+
+Non-goals: Android-first, desktop-first, multi-agency simultaneously.
+
+---
+
+## 2. Stack — decided
+
+| Layer | Pick | Rationale |
+|---|---|---|
+| Framework | **Svelte 5 + SvelteKit** | ~3 KB runtime, fine-grained reactivity, single-file components are the sandbox-testable primitive, scoped CSS native, best iOS PWA story. |
+| Build | Vite (rolldown-vite when SvelteKit supports it; vanilla Vite otherwise) | |
+| Styling | **Tailwind v4** + CSS custom properties for tokens | Skinning = swap one `theme.css`. |
+| Headless behaviors | **Melt UI** | Svelte's Radix equivalent — accessible, unstyled, tiny. |
+| Icons | **lucide-svelte** | Per-icon tree-shaking. |
+| Local DB | **SQLite-WASM (`@sqlite.org/sqlite-wasm`) + OPFS** | Real GTFS as real tables, unlimited storage on iOS 16.4+, worker-isolated. |
+| DB transport | Comlink-wrapped Web Worker | Clean RPC; UI never blocks. |
+| Network | Native `fetch` | Drop axios (smaller, no vulns). |
+| Map | Leaflet 1.9 (kept) | 40 KB. Fix layer-order issues with proper Leaflet panes. |
+| Lint+format | **Biome** | One tool replaces ESLint + Prettier. |
+| Tests | Vitest + `@testing-library/svelte` + Playwright | |
+| Sandbox | **Histoire** | Svelte-native. |
+| PWA | `@vite-pwa/sveltekit` + Workbox | |
+| TypeScript | 6.0 | |
+
+---
+
+## 3. Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ UI  (Svelte 5 + Tailwind, main thread)                  │
+│   - 4 top-level views + drill-downs                     │
+│   - Primitives sandboxed in Histoire                    │
+│   - Subscribes to stores via $state/$derived            │
+└──────────────────────▲──────────────────────────────────┘
+                       │ typed events / signals
+┌──────────────────────┴──────────────────────────────────┐
+│ Domain  (pure TS, framework-free, unit-tested)          │
+│   - Stations, Routes, Trips, Vehicles, Predictions      │
+│   - Reconciler: matches live vehicles ↔ scheduled trips │
+│   - Prediction engine (ported from v1)                  │
+│   - Time/speed estimators (ported from v1)              │
+└──────────▲────────────────────────────▲─────────────────┘
+           │ repository API             │ live data API
+┌──────────┴─────────────┐  ┌───────────┴─────────────────┐
+│ GTFS Worker            │  │ Live Worker (optional)      │
+│   - SQLite-WASM + OPFS │  │   - Tranzy / GTFS-RT poller │
+│   - Schema = real GTFS │  │   - debounce, retry, ETag   │
+│   - Async repo queries │  │   - emits to domain         │
+└────────────────────────┘  └─────────────────────────────┘
+```
+
+### Three root-cause fixes
+
+1. **Real GTFS in SQLite.** `neary-gtfs` already produces `agency-<id>-gtfs.zip`
+   (CTP) and Tranzy-API JSON for other agencies. A new pipeline step there
+   converts both paths to `agency-<id>.sqlite3` gzipped. The app downloads once
+   to OPFS, opens in a worker, runs real SQL — no dedup, no in-memory Maps, no
+   5 MB localStorage gymnastics.
+
+2. **All heavy work in workers.** GTFS queries in the DB worker; live polling +
+   enhancement + prediction in the live worker. UI thread does layout and
+   events only.
+
+3. **Vehicle taxonomy is data.** Discriminated union: `live | live-matched |
+   ghost | scheduled`. One component per kind, used identically in list /
+   schedule / map. Ghost dedup logic lives in the reconciler, not in JSX.
+
+---
+
+## 4. UI design system
+
+### Primitives (`apps/web/src/lib/ui/`)
+
+`Box`, `Stack`, `Card`, `Chip`, `Avatar`, `Button`, `IconButton`, `Switch`,
+`TextField`, `BottomNav`, `Dialog`, `Tooltip`, `Collapsible`, `Toast`,
+`StatusBar`, `Spinner`, `ProgressBar`, `Tabs`, `ToggleGroup`, `List`,
+`ListItem`, `RouteBadge`, `StationCard`, `VehicleCard`.
+
+Each is a single `.svelte` file. Each gets a Histoire story.
+
+Skinning = `apps/web/src/lib/styles/theme.css` (CSS vars). One file. Light /
+dark / high-contrast are sibling files swapped via `[data-theme]`.
+
+### Header (kept from v1)
+
+Title (left), 4 status dots (GPS, Connection, Schedule, Live), Refresh button
+(right). Each dot is a primitive with its own tooltip.
+
+### Status bar
+
+Single fixed line **below the header**. Severity hierarchy:
+`error > loading/progress > warning > info > success`. Concurrent loads
+collapse into one line ("Loading schedule, vehicles"). Idle → 0 height. Replaces
+all toasts AND all per-view loading spinners (header `CircularProgress`,
+manual-refresh button state, "refreshing…" footers).
+
+### Bottom navigation
+
+`[Stations] [Favorites] [Planner] [Settings]`
+
+Schedule and Map are drill-downs (`/schedule/[routeId]`, `/map/vehicle/[id]`),
+not top-level — keeps URLs shareable and the back button working on iOS PWA.
+Planner reserved now, implemented in a later phase.
+
+### Card unification
+
+Station, Route, Vehicle cards share one shell with `variant` accent and
+content slots. Fixes the visual inconsistency complaint at the design-system
+level, not per-screen.
+
+### Vehicle visual taxonomy (consistent in list + schedule + map)
+
+| Kind | Color | Border | Badge |
+|---|---|---|---|
+| `live` | route color (solid) | none | — |
+| `live-matched` | route color (solid) | none | small calendar pip |
+| `ghost` | route color | **dashed** | eye-off |
+| `scheduled` | route color (50% opacity) | **dotted** | calendar |
+
+### Map layer order (Leaflet panes, top→bottom)
+
+`selected-vehicle > vehicles > user-location > stations > route-shapes > tiles`
+
+---
+
+## 5. Kept from v1
+
+These move to `apps/web/src/lib/domain/` as pure TS, unit-tested:
+
+- Prediction engine (segment-based speed + distance + ETA)
+- Debounce strategy for live polling
+- GPS-staleness-aware refresh trigger
+- Schedule-by-route-direction logic
+- Speed estimate alternatives (avg / instant / shape-based)
+- Time estimate composition
+
+---
+
+## 6. Settings split
+
+**User Preferences (default Settings tab):** theme, distance unit, language,
+drop-off indicators toggle, ghost vehicles toggle, default landing view, home
+/ work addresses (later — fuels Planner), manage favorites.
+
+**Advanced (separate route):** agency selector, optional API key, storage
+usage breakdown (per OPFS file), force schedule reload, last update
+timestamps, app version + build hash, force-update button, debug toggles.
+
+---
+
+## 7. Onboarding (no wizard)
+
+First launch lands directly on **Stations** with an empty state: "Select your
+transit agency." Inline dropdown sourced from `neary-gtfs`' `data/agency.json`.
+Pick agency → SQLite download starts in background, app already usable. API
+key is **never required**, mentioned once in the Live indicator's empty state
+as "Add API key for real-time tracking → Advanced settings."
+
+---
+
+## 8. Repository layout
+
+```
+apps/web/                  # v2 SvelteKit app
+apps/legacy/               # current React/MUI app, frozen at v1.5.x
+docs/rebuild-v2/           # this plan and any future spec docs
+scripts/                   # local maintenance
+.github/workflows/         # CI for both apps
+```
+
+`neary-gtfs` (separate repo) owns the data pipeline. It already publishes the
+JSON outputs `apps/legacy` consumes. A new step there will add the SQLite
+output `apps/web` consumes.
+
+---
+
+## 9. Phases — sequenced, each independently demoable
+
+Every phase ends in a working, testable build.
+
+### Phase 0 — Foundations
+- Branch `rebuild/v2-svelte-sqlite`
+- npm workspaces monorepo
+- Legacy moved to `apps/legacy/`, builds + tests green
+- `apps/web/` bootstrapped (SvelteKit + Tailwind v4 + Biome + Vitest + Histoire + PWA plugin)
+- Both apps build under one `npm run build` at root
+- Netlify config updated to build from `apps/legacy`
+
+### Phase 1 — UI primitive library
+- ~20 primitives, each with a Histoire story
+- Visual regression via Playwright screenshots
+- Theme.css drives the entire palette
+
+### Phase 2 — GTFS pipeline + DB worker
+- Pipeline step in `neary-gtfs` produces `agency-<id>.sqlite3.gz`
+- DB worker in `apps/web` opens OPFS, exposes typed repo API
+- CLI demo: dump "next departures at stop X" using real GTFS
+
+### Phase 3 — App shell + status system
+- Layout (header + status bar + bottom nav)
+- Theme switch
+- Empty-state Stations view with agency picker
+- Install as PWA on iPhone, pick agency, see download progress
+
+### Phase 4 — Domain + Stations (schedule-only)
+- Port prediction / reconciler / estimators to `lib/domain/`
+- Stations view renders real cards from real GTFS, schedule-only
+- All four vehicle kinds visually distinct
+- Fully offline once schedule cached
+
+### Phase 5 — Live data
+- Live worker polls Tranzy when API key present
+- Reconciler produces `live` / `live-matched` / `ghost`
+- Live status dot reflects health
+- API key toggle in Advanced settings
+
+### Phase 6 — Favorites, Schedule, Map
+- Favorites view (route-context card shell)
+- Schedule drill-down (today/tomorrow board)
+- Map drill-down (Leaflet with corrected pane order)
+
+### Phase 7 — Settings + Advanced
+- User Preferences view
+- Advanced view (storage, freshness, force reload, version)
+- Polished agency-picker empty state
+
+### Phase 8 — Planner (with transfers)
+- From/to (current location / address / station)
+- Itinerary using SQLite + stop_times + transfer matching
+- Reuses Schedule view as the result renderer
+
+### Phase 9 — Polish, perf budgets, store install
+
+---
+
+## 10. Open items intentionally deferred
+
+- Whether to share `lib/domain/` as an npm package between `apps/web` and any
+  future native wrapper. Decide once Phase 4 is done and the domain shape is
+  stable.
+- Whether to swap Leaflet for MapLibre GL. Revisit if Phase 6 hits a real
+  bottleneck on iOS Safari.
+- Server-side rendering vs static prerender for SvelteKit. Default to
+  prerender (cheaper hosting, faster TTI). Revisit if route-based data
+  fetching ever needs it.

@@ -1,0 +1,10 @@
+/*
+ * Tailwind v4 entrypoint for the v2 app.
+ *
+ * The design tokens live in theme.css (one file = one skin). v4 lets us
+ * declare them in an @theme block so they're available as utilities and as
+ * CSS custom properties for arbitrary-value use.
+ */
+
+@import 'tailwindcss';
+@import './theme.css';
