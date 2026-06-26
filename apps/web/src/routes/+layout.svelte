@@ -20,6 +20,23 @@
 
   let { children } = $props();
 
+  // Dev/debug console hooks. Lets the user pin a fake GPS location from
+  // the browser console — useful in Safari where DevTools doesn't have a
+  // built-in location override. Always installed (cheap, no harm in
+  // production) so internal users can exercise different neighborhoods.
+  //
+  //   neary.setLocation(46.7712, 23.6236)   // Pia\u021ba Mihai Viteazul, Cluj
+  //   neary.clearLocation()                  // resume real GPS
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    (window as unknown as { neary?: unknown }).neary = {
+      setLocation: (lat: number, lon: number, accuracy = 25) =>
+        locationStore.setMockPosition(lat, lon, accuracy),
+      clearLocation: () => locationStore.clearMockPosition(),
+      stores: { locationStore, feedsStore, statusBus, userPrefs, refreshBus },
+    };
+  });
+
   // Persist user prefs on any change. Browser-only — $effect doesn't run on
   // the server during prerender.
   $effect(() => {

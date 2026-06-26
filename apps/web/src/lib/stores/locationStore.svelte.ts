@@ -82,6 +82,42 @@ class LocationStore {
   }
 
   /**
+   * Debug helper: pin the store to an arbitrary lat/lon, bypassing the
+   * geolocation API. Useful in browsers without a built-in GPS override
+   * (notably Safari). Exposed on window as `neary.setLocation(lat, lon)`
+   * by the layout. Pair with `clearMockPosition()` to resume real GPS.
+   */
+  setMockPosition(lat: number, lon: number, accuracy = 25): void {
+    this.position = {
+      coords: {
+        latitude: lat,
+        longitude: lon,
+        accuracy,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+        toJSON() {
+          return { latitude: lat, longitude: lon, accuracy };
+        },
+      },
+      timestamp: Date.now(),
+      toJSON() {
+        return { coords: this.coords, timestamp: this.timestamp };
+      },
+    } as GeolocationPosition;
+    this.lastUpdated = Date.now();
+    this.error = null;
+  }
+
+  /** Clear the mocked position; subsequent `watchPosition` callbacks (if a
+   *  watch is active) will resume populating it. */
+  clearMockPosition(): void {
+    this.position = null;
+    this.lastUpdated = null;
+  }
+
+  /**
    * Header-dot state. Buckets:
    *   - permission denied: error (red)
    *   - watch error w/ no position ever: error
