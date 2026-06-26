@@ -187,7 +187,7 @@
     originStopName
     ?? (route ? `${vehicleTypeLabel(route.type ?? 'unknown')} ${route.shortName}` : ''),
   );
-  const headerSubtitle = $derived(headsign ? `→ ${headsign}` : null);
+  const headerSubtitle = $derived(headsign);
 
   // ── Navigation helpers ─────────────────────────────────────────────
   function swapDirection() {
