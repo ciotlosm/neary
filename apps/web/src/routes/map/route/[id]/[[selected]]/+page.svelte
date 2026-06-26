@@ -480,24 +480,17 @@
 
 <style>
   /* The flex chain (main flex-col → page flex-1 → Stack flex-1 →
-     Card flex-1) should fill the map card to the available
-     viewport, but in practice some browsers don't propagate
-     flex-grow through nested grandchildren reliably. We use an
-     explicit `calc(100svh − fixed-offset)` floor as the source
-     of truth instead. The offset accounts for: app header bar
-     (~3.5rem), in-page header Card + its margin (~4rem), page
-     padding (~1.5rem), bottom navigation (~5rem). */
-  :global(.neary-map-card) {
-    min-height: calc(100svh - 14rem);
-  }
+     Card flex-1 → map div h-full) sizes the map card correctly
+     on its own; no min-height floor needed in the common case.
+     Leaflet's invalidateSize on init + ResizeObserver handle
+     the post-mount measurement. */
   .neary-map {
     width: 100%;
     height: 100%;
-    min-height: inherit;
   }
   /* Floor for tiny viewports (e.g. landscape phone): the map gets
-     a usable minimum even if the calc would otherwise hand it
-     near-zero height. */
+     a usable minimum even if the flex math would otherwise hand
+     it near-zero height. */
   @media (max-height: 480px) {
     :global(.neary-map-card) {
       min-height: 220px;
