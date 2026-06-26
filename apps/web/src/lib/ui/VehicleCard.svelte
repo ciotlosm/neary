@@ -13,7 +13,7 @@
   union; this component reads it.
 -->
 <script lang="ts">
-  import { Calendar, CheckCircle2, Clock, Radio } from 'lucide-svelte';
+  import { ArrowRight, Calendar, CheckCircle2, Clock, Radio } from 'lucide-svelte';
   import type { Vehicle } from '$lib/domain/types';
   import { formatHHMM, formatRelativeMin } from '$lib/domain/types';
   import type { Urgency } from '$lib/domain/buckets';
@@ -99,7 +99,18 @@
   <RouteBadge route={vehicle.route} size="medium" />
 
   <div class="flex-1 min-w-0">
-    <div class="text-sm font-medium truncate">{headsign}</div>
+    <div class="text-sm font-medium truncate flex items-center gap-1">
+      <!-- Direction-of-travel cue. The headsign IS the destination, so
+           a small arrow in front reads as 'going to …' without any
+           extra label. Inline-flex so it scales with the text and
+           stays vertically centred. -->
+      <ArrowRight
+        size={14}
+        aria-hidden="true"
+        class="shrink-0 text-[color:var(--color-fg-muted)]"
+      />
+      <span class="truncate">{headsign}</span>
+    </div>
     <div class={cn('text-xs truncate', etaClass)}>{secondaryLine}</div>
   </div>
 
