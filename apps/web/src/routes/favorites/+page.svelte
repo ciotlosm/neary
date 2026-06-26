@@ -1,15 +1,16 @@
 <!--
-  Favorites — lists the user’s favorited routes. Each badge links to a
-  (future) route detail view; for now tapping a heart removes the
-  favorite. Routes the user hasn’t encountered yet aren’t shown here
-  — favoriting still happens from the Stations view (in a follow-up
-  commit, until then via `neary.stores.favoritesStore.add(routeId)` in
-  the console).
+  Favorites — single picker view listing every route in the bound feed
+  with a heart toggle per row. Tap the heart to favorite; tap again to
+  unfavorite. Favorited rows float to the top, otherwise sorted by
+  short-name (numeric-first, alpha after).
+
+  No separate "add" surface — this IS the picker. Stations view also
+  shows hearts on favorited badges as visual reinforcement.
 -->
 <script lang="ts">
-  import { Heart, HeartOff } from 'lucide-svelte';
+  import { Heart } from 'lucide-svelte';
   import {
-    Card, CardContent, IconButton, RouteBadge, Stack, Typography,
+    Card, CardContent, IconButton, RouteBadge, Spinner, Stack, Typography,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
   import type { Route } from '$lib/domain/types';
@@ -17,10 +18,7 @@
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { userPrefs } from '$lib/stores/userPrefs.svelte';
 
-  // Fetch the feed’s full route list once so we can look up shortName
-  // and color for each favorited id. Keeps the favorite store as a pure
-  // id set (no embedded route metadata that could drift from the feed).
-  let routesById = $state<Map<number, Route> | null>(null);
+  let allRoutes = $state<Route[] | null>(null);
   let error = $state<string | null>(null);
 
   $effect(() => {
@@ -29,30 +27,29 @@
     (async () => {
       try {
         const repo = getGtfsRepo();
-        const all = await repo.getRoutes();
-        const m = new Map<number, Route>();
-        for (const r of all) m.set(r.id, r);
-        routesById = m;
+        allRoutes = await repo.getRoutes();
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
       }
     })();
   });
 
-  const favRoutes = $derived.by<Route[]>(() => {
-    if (!routesById) return [];
-    const out: Route[] = [];
-    for (const id of favoritesStore.routeIds) {
-      const r = routesById.get(id);
-      if (r) out.push(r);
-    }
-    return out.sort((a, b) => {
+  // Favorites float to the top so the user sees what they've picked
+  // without scrolling. Within each section, sort numeric-first.
+  const sortedRoutes = $derived.by<Route[]>(() => {
+    if (!allRoutes) return [];
+    return [...allRoutes].sort((a, b) => {
+      const af = favoritesStore.has(a.id);
+      const bf = favoritesStore.has(b.id);
+      if (af !== bf) return af ? -1 : 1;
       const an = Number(a.shortName);
       const bn = Number(b.shortName);
       if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return an - bn;
       return a.shortName.localeCompare(b.shortName);
     });
   });
+
+  const favCount = $derived(favoritesStore.routeIds.size);
 </script>
 
 <div class="mx-auto max-w-3xl px-4 py-6">
@@ -65,7 +62,7 @@
           </div>
           <Typography variant="h4">Favorites</Typography>
           <Typography variant="body2" class="max-w-prose text-[color:var(--color-fg-muted)]">
-            Pick a feed in Settings first; then star routes from a station card to see them here.
+            Pick a feed in Settings first; then star routes here.
           </Typography>
         </Stack>
       </CardContent>
@@ -77,17 +74,12 @@
         <Typography variant="caption">{error}</Typography>
       </CardContent>
     </Card>
-  {:else if favRoutes.length === 0}
+  {:else if allRoutes == null}
     <Card>
-      <CardContent class="text-center">
-        <Stack spacing={1.5} align="center">
-          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[color:var(--color-danger)]/10 text-[color:var(--color-danger)]">
-            <Heart size={24} />
-          </div>
-          <Typography variant="h4">No favorites yet</Typography>
-          <Typography variant="body2" class="max-w-prose text-[color:var(--color-fg-muted)]">
-            Star a route from any station card to keep it here.
-          </Typography>
+      <CardContent>
+        <Stack direction="row" spacing={1} align="center">
+          <Spinner size={16} />
+          <Typography variant="caption">Loading routes…</Typography>
         </Stack>
       </CardContent>
     </Card>
@@ -95,19 +87,30 @@
     <Card>
       <CardContent>
         <Stack spacing={2}>
-          <Typography variant="h5">Your favorite routes</Typography>
-          <Stack spacing={1}>
-            {#each favRoutes as route (route.id)}
-              <Stack direction="row" spacing={1} align="center">
-                <RouteBadge {route} size="large" isFavorite={true} />
-                <Typography variant="body2" class="flex-1 truncate">
+          <Stack spacing={0.5}>
+            <Typography variant="h5">Favorites</Typography>
+            <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">
+              {favCount} of {allRoutes.length} routes starred. Tap the heart to toggle.
+            </Typography>
+          </Stack>
+          <Stack spacing={0.5}>
+            {#each sortedRoutes as route (route.id)}
+              {@const isFav = favoritesStore.has(route.id)}
+              <Stack direction="row" spacing={1} align="center" class="px-1 py-1 rounded-md hover:bg-[color:var(--color-border)]/30">
+                <RouteBadge {route} size="medium" isFavorite={isFav} />
+                <Typography variant="body2" class="flex-1 truncate text-[color:var(--color-fg-muted)]">
                   Route {route.shortName}
                 </Typography>
                 <IconButton
-                  aria-label={`Unfavorite route ${route.shortName}`}
-                  onclick={() => favoritesStore.remove(route.id)}
+                  aria-label={`${isFav ? 'Unfavorite' : 'Favorite'} route ${route.shortName}`}
+                  aria-pressed={isFav}
+                  onclick={() => favoritesStore.toggle(route.id)}
                 >
-                  <HeartOff size={18} />
+                  <Heart
+                    size={18}
+                    fill={isFav ? 'currentColor' : 'none'}
+                    class={isFav ? 'text-[color:var(--color-danger)]' : 'text-[color:var(--color-fg-muted)]'}
+                  />
                 </IconButton>
               </Stack>
             {/each}
