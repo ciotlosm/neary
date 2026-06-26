@@ -665,6 +665,31 @@ const api: GtfsRepo = {
     };
   },
 
+  async getRouteDirectionEndpoints(routeId, directionId) {
+    // Origin + terminus names from any trip on the (route, direction).
+    // The endpoint pair is stable across trips on the same direction
+    // (occasional short-runs notwithstanding), so a single trip's
+    // first + last stops are a good representative cheaper than
+    // scanning all of them.
+    const db = await ensureDb();
+    type Row = { origin_name: string | null; terminus_name: string | null };
+    const rows = selectAll<Row>(
+      db,
+      `SELECT
+         (SELECT s.stop_name FROM stop_times st JOIN stops s ON s.stop_id = st.stop_id
+          WHERE st.trip_id = t.trip_id ORDER BY st.stop_sequence ASC LIMIT 1) AS origin_name,
+         (SELECT s.stop_name FROM stop_times st JOIN stops s ON s.stop_id = st.stop_id
+          WHERE st.trip_id = t.trip_id ORDER BY st.stop_sequence DESC LIMIT 1) AS terminus_name
+       FROM trips t
+       WHERE t.route_id = ? AND t.direction_id = ?
+       LIMIT 1;`,
+      [routeId, directionId],
+    );
+    const r = rows[0];
+    if (!r || !r.origin_name || !r.terminus_name) return null;
+    return { originName: r.origin_name, terminusName: r.terminus_name };
+  },
+
   async getRouteMapView(routeId, directionId, localDate, localMin, lookbackMin, lookaheadMin) {
     const db = await ensureDb();
     const services = activeServicesOn(db, localDate);

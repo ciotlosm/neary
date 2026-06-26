@@ -41,7 +41,9 @@
   } from '$lib/domain/types';
   import { scheduleUrgency } from '$lib/domain/buckets';
   import { urgencyClass } from '$lib/ui/urgencyClass';
-  import type { ScheduleTrip, ScheduleTripStop, WeeklySchedule } from '$lib/data/gtfs/types';
+  import type {
+    RouteDirectionEndpoints, ScheduleTrip, ScheduleTripStop, WeeklySchedule,
+  } from '$lib/data/gtfs/types';
   import {
     dayOfWeekInTz, minSinceMidnightInTz, scheduleWindowFor,
   } from '$lib/domain/pipeline/timeUtils';
@@ -275,26 +277,34 @@
   // left already carries the route identity; the subtitle confirms
   // the destination.
   //
-  // We cache the last non-null origin + headsign so the header
-  // doesn't blank out when the user opens Week (whose underlying
-  // fetch is keyed on today and may return empty late at night).
-  // The cache resets on a direction change so the swap button
-  // doesn't show stale info.
-  let stickyOrigin = $state<string | null>(null);
-  let stickyHeadsign = $state<string | null>(null);
+  // Endpoints come from a dedicated worker call keyed on
+  // (routeId, direction) — they're stable across days / windows so
+  // the header paints the moment the page mounts, before (and
+  // independent of) the day's trip fetches. focusStops is the
+  // fallback in the unlikely case the endpoints query returns null
+  // (e.g. a route+direction with zero trips defined in calendar).
+  let endpoints = $state<RouteDirectionEndpoints | null>(null);
   $effect(() => {
-    // Direction is the cache key.
-    direction;
-    stickyOrigin = null;
-    stickyHeadsign = null;
-  });
-  $effect(() => {
-    if (originStopName) stickyOrigin = originStopName;
-    if (headsign) stickyHeadsign = headsign;
+    const fid = feedsStore.boundFeedId;
+    if (!fid || direction == null || !routeIdValid) {
+      endpoints = null;
+      return;
+    }
+    const rid = routeId;
+    const dir = direction;
+    endpoints = null;
+    (async () => {
+      try {
+        const repo = getGtfsRepo();
+        endpoints = await repo.getRouteDirectionEndpoints(rid, dir);
+      } catch {
+        // Header just falls back to focusStops + the route-badge label.
+      }
+    })();
   });
 
-  const displayOrigin = $derived(originStopName ?? stickyOrigin);
-  const displayHeadsign = $derived(headsign ?? stickyHeadsign);
+  const displayOrigin = $derived(endpoints?.originName ?? originStopName ?? null);
+  const displayHeadsign = $derived(endpoints?.terminusName ?? headsign ?? null);
   const headerTitle = $derived(
     displayOrigin
     ?? (route ? `${vehicleTypeLabel(route.type ?? 'unknown')} ${route.shortName}` : ''),

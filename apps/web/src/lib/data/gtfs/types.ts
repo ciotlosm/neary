@@ -177,6 +177,19 @@ export interface GtfsRepo {
   ): Promise<WeeklySchedule>;
 
   /**
+   * Origin + terminus stop names for a (route, direction). Stable
+   * for the life of the feed — derived from any single trip on the
+   * pair. Lets the schedule + map headers show "{origin} → {headsign}"
+   * the moment the page mounts, before (and independent of) the
+   * trip / shape fetches that drive the body of the view. Null when
+   * no trips exist on that pair.
+   */
+  getRouteDirectionEndpoints(
+    routeId: string,
+    directionId: 0 | 1,
+  ): Promise<RouteDirectionEndpoints | null>;
+
+  /**
    * One round-trip payload for the route-map view: every trip
    * currently active on (routeId, directionId) plus a representative
    * shape polyline for the direction.
@@ -223,6 +236,14 @@ export interface WeeklySchedule {
   weekday: number[];
   saturday: number[];
   sunday: number[];
+}
+
+/** Origin + terminus stop names for a route+direction. Stable per
+ *  feed; lets the schedule / map headers paint immediately, before
+ *  the day's trips are fetched. */
+export interface RouteDirectionEndpoints {
+  originName: string;
+  terminusName: string;
 }
 
 /** One stop on a single trip's stop_times. */
