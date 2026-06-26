@@ -39,6 +39,10 @@
     buildTripShapePlan, predictPosition, predictPositionOnShape,
     type TripShapePlan,
   } from '$lib/domain/predictPosition';
+  import {
+    bearingAtDistance, measurePolyline, pointAtDistance,
+    type MeasuredPolyline,
+  } from '$lib/domain/shapeProjection';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { locationStore } from '$lib/stores/locationStore.svelte';
@@ -119,6 +123,14 @@
     return map;
   });
 
+  // Measured route polyline (cumulative distances) for the direction
+  // arrows. One pass per page mount; the arrow positions / bearings
+  // below all read from it.
+  const measuredShape = $derived.by<MeasuredPolyline | null>(() => {
+    if (!view || view.shape.length < 2) return null;
+    return measurePolyline(view.shape);
+  });
+
   // ── Derived view-model ──────────────────────────────────────────────
   /** Render-ready vehicles for the current nowMin. Each trip yields
    *  one entry; the domain decides position + status, the UI maps
@@ -193,7 +205,10 @@
   function zoomOut() { mapInstance?.zoomOut(); }
   function fitToRoute() {
     if (!mapInstance || !shapeLayer) return;
-    mapInstance.fitBounds(shapeLayer.getBounds(), { padding: [24, 24] });
+    mapInstance.fitBounds(shapeLayer.getBounds(), {
+      padding: [12, 12],
+      maxZoom: 15,
+    });
   }
 
   // ── Leaflet ────────────────────────────────────────────────────────
@@ -215,6 +230,7 @@
   let mapInstance = $state<import('leaflet').Map | null>(null);
   let shapeLayer: import('leaflet').Polyline | null = null;
   let stopsLayer: import('leaflet').LayerGroup | null = null;
+  let arrowsLayer: import('leaflet').LayerGroup | null = null;
   let vehiclesLayer: import('leaflet').LayerGroup | null = null;
   let userMarker: import('leaflet').CircleMarker | null = null;
   let hasFitOnce = false;
@@ -262,6 +278,7 @@
           attribution: '© OpenStreetMap contributors',
         }).addTo(mapInstance);
         stopsLayer = Lref.layerGroup().addTo(mapInstance);
+        arrowsLayer = Lref.layerGroup().addTo(mapInstance);
         vehiclesLayer = Lref.layerGroup().addTo(mapInstance);
         // Future-resize listener (rotation, splitscreen, sidebar).
         if (typeof ResizeObserver !== 'undefined') {
@@ -322,7 +339,14 @@
         opacity: 0.85,
       }).addTo(mapInstance);
       if (!hasFitOnce) {
-        mapInstance.fitBounds(shapeLayer.getBounds(), { padding: [24, 24] });
+        // Borrowed v1's tighter framing: small fixed padding so the
+        // route fills the viewport, capped at zoom 15 so a short
+        // route doesn't slam in past the point where street labels
+        // start to fight each other.
+        mapInstance.fitBounds(shapeLayer.getBounds(), {
+          padding: [12, 12],
+          maxZoom: 15,
+        });
         hasFitOnce = true;
       }
     }
@@ -341,6 +365,35 @@
         });
         m.addTo(stopsLayer);
       }
+    }
+  });
+
+  // Direction-of-travel arrows along the route shape. Five evenly-
+  // spaced markers (skipping the endpoints so they don't crowd the
+  // terminus stops) rotated to the local segment bearing. Same
+  // render cadence as the shape itself — built once per view.
+  const ARROW_COUNT = 5;
+  $effect(() => {
+    if (!L || !mapInstance || !arrowsLayer) return;
+    arrowsLayer.clearLayers();
+    if (!measuredShape || measuredShape.totalDistM === 0) return;
+    const total = measuredShape.totalDistM;
+    const color = view?.route.color ?? 'currentColor';
+    for (let i = 1; i <= ARROW_COUNT; i++) {
+      const distM = (total * i) / (ARROW_COUNT + 1);
+      const pos = pointAtDistance(measuredShape, distM);
+      const bearing = bearingAtDistance(measuredShape, distM);
+      const icon = L.divIcon({
+        className: 'neary-arrow',
+        html: arrowHtml(color, bearing),
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+      L.marker([pos.lat, pos.lon], {
+        icon,
+        interactive: false,
+        keyboard: false,
+      }).addTo(arrowsLayer);
     }
   });
 
@@ -423,6 +476,23 @@
     return s
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  /** Direction-of-travel marker: route-coloured chevron in a small
+   *  white-bordered disc, rotated to the route bearing. Stroke-only
+   *  (no fill) keeps it from looking like another vehicle. */
+  function arrowHtml(color: string, bearingDeg: number): string {
+    return `<div style="
+      width:16px;height:16px;display:inline-flex;
+      align-items:center;justify-content:center;
+      transform:rotate(${bearingDeg}deg);
+      filter:drop-shadow(0 0 1px rgba(255,255,255,0.9));
+    ">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="${color}" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 14 12 8 18 14" />
+      </svg>
+    </div>`;
   }
 </script>
 
