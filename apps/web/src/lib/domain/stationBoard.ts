@@ -15,6 +15,7 @@ import {
   filterForStationView,
   type ArrivalBucket,
 } from './buckets';
+import { haversineMeters } from './distance';
 import type { Vehicle } from './types';
 
 export interface BoardRow {
@@ -39,9 +40,15 @@ function nowMinSinceMidnight(nowMs: number): number {
 
 /** Assemble the bucketed, filtered, sorted board for one station's
  *  worth of vehicles. Pure. The result is capped at 5 rows (see
- *  `capStationBoard` for the picking rule) so the card stays scannable. */
+ *  `capStationBoard` for the picking rule) so the card stays scannable.
+ *
+ *  `stop` supplies the coordinates we need to measure how far each live
+ *  vehicle actually is from the stop — the bucketer's at-station check
+ *  is meaningful only with a real distance. Schedule-only vehicles (no
+ *  position) get Infinity, which keeps them out of the at-stop branch. */
 export function assembleStationBoard(
   vehicles: Vehicle[],
+  stop: { lat?: number; lon?: number },
   prefs: BoardPrefs,
   nowMs: number,
 ): BoardRow[] {
@@ -50,7 +57,10 @@ export function assembleStationBoard(
     vehicle: v,
     bucket: bucketOf(v.kind, {
       etaMinutes: v.eta?.minutes ?? 0,
-      distanceToStopMeters: 0,
+      distanceToStopMeters:
+        v.position && typeof stop.lat === 'number' && typeof stop.lon === 'number'
+          ? haversineMeters(v.position.lat, v.position.lon, stop.lat, stop.lon)
+          : Number.POSITIVE_INFINITY,
       scheduledArrivalMin: v.schedule?.scheduledArrival,
       scheduledDepartureMin: v.schedule?.scheduledDeparture,
       nowMin,

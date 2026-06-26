@@ -42,7 +42,7 @@ describe('assembleStationBoard', () => {
       scheduled('f', r9, 20),
       scheduled('g', r9, -2), // departed
     ];
-    const board = assembleStationBoard(vehicles, allowAll, nowMs);
+    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs);
     expect(board).toHaveLength(5);
     const buckets = board.map((r) => r.bucket);
     expect(buckets.filter((b) => b === 'incoming')).toHaveLength(4);
@@ -72,7 +72,7 @@ describe('assembleStationBoard', () => {
       scheduled('i3', r24, 8),
       scheduled('i4', r24, 10),
     ];
-    const board = assembleStationBoard(vehicles, allowAll, nowMs);
+    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs);
     expect(board).toHaveLength(5);
     expect(board.map((r) => r.bucket)).toEqual([
       'at-station', 'arriving', 'incoming', 'incoming', 'incoming',
@@ -83,6 +83,7 @@ describe('assembleStationBoard', () => {
     const vehicles = [scheduled('a', r24, 10), scheduled('c', r9, -3)];
     const board = assembleStationBoard(
       vehicles,
+      { lat: 46.7712, lon: 23.6236 },
       { ...allowAll, showDepartedVehicles: false },
       nowMs,
     );

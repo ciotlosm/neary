@@ -198,7 +198,7 @@
       {@const filteredTotal = boards.reduce(
         (n, b) => n + assembleStationBoard(
           reconcileWithLive(b.vehicles, liveVehiclesStore.observations).vehicles,
-          userPrefs, nowMs).length, 0)}
+          b.stop, userPrefs, nowMs).length, 0)}
       {#if rawTotal === 0}
         <Box class="px-2 py-1 text-xs text-[color:var(--color-warning)]">
           No upcoming vehicles found in any of the {boards.length} nearby
@@ -217,7 +217,7 @@
       {/if}
       {#each boards as { stop, vehicles } (stop.id)}
         {@const reconciled = reconcileWithLive(vehicles, liveVehiclesStore.observations).vehicles}
-        {@const board = assembleStationBoard(reconciled, userPrefs, nowMs)}
+        {@const board = assembleStationBoard(reconciled, stop, userPrefs, nowMs)}
         <StationCard
           station={{ id: stop.id, name: stop.name, distance: stop.distance, lat: stop.lat, lon: stop.lon }}
           rows={board}
