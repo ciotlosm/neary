@@ -170,18 +170,20 @@ export interface Vehicle {
 }
 ```
 
-### Confidence and visual variant in one table
+### Visual variant table
 
-| Kind            | `position.source`            | Visual                                | Suppressed by `showGhostVehicles=false`? |
-| --------------- | ---------------------------- | ------------------------------------- | ----------------------------------------- |
-| `corroborated`  | `gps` (latest of N sources)  | solid + check-circle pip + bold border | no                                        |
-| `reconciled`    | `gps`                        | solid + calendar pip                  | no                                        |
-| `live`          | `gps`                        | solid                                 | no                                        |
-| `predicted`     | `predicted-from-schedule`    | dashed                                | **yes** (rename: now "schedule-only vehicles") |
-| `scheduled`     | n/a (no marker on map, list item with calendar icon) | 50 % opacity, calendar icon | yes |
+| Kind            | `position.source`            | Visual                                |
+| --------------- | ---------------------------- | ------------------------------------- |
+| `corroborated`  | `gps` (latest of N sources)  | solid + check-circle pip + bold border |
+| `reconciled`    | `gps`                        | solid + calendar pip                  |
+| `live`          | `gps`                        | solid                                 |
+| `predicted`     | `predicted-from-schedule`    | dashed                                |
+| `scheduled`     | n/a (no marker on map, list item with calendar icon) | 50 % opacity, calendar icon |
 
-The `showGhostVehicles` userPref is renamed to **`showScheduleOnlyVehicles`**
-to match the new model.
+Schedule-only kinds (`predicted` / `scheduled`) are always shown — they
+are the only data we have when no live source is wired, and the user
+should not be able to hide them. (Earlier draft had a
+`showScheduleOnlyVehicles` toggle; dropped per request.)
 
 ### Why this is one type and not five
 
@@ -316,15 +318,15 @@ Tie-break: ascending `eta.minutes` (so "incoming in 3 min" beats "incoming in
 
 ### Station-view filters (`filterForStationView`)
 
-Three user-tunable filters apply **before** the board renders. Map view
-ignores all of these and always shows every vehicle.
+Two user-tunable filters apply **before** the board renders. Map view
+ignores both and always shows every vehicle.
 
 | `userPrefs` flag             | Default | Effect on station view                                                |
 | ---------------------------- | ------- | --------------------------------------------------------------------- |
 | `showDropOffOnly`            | `true`  | When `false`, drop vehicles with `vehicle.dropOffOnly === true` (GTFS `stop_times.pickup_type = 1`). When `true`, show them with a "drop off only" chip. |
 | `showDepartedVehicles`       | `false` | When `false`, drop the `departed` bucket entirely. When `true`, show recently-departed vehicles (within the 5-min recency window). |
-| `showScheduleOnlyVehicles`   | `true`  | When `false`, drop vehicles of `kind = 'predicted'` or `'scheduled'` (no live GPS available). |
 
+Schedule-only kinds (`predicted` / `scheduled`) are always shown.
 `off-route` is always hidden from station boards; it only surfaces in the
 debug view.
 
@@ -362,7 +364,7 @@ nearest scheduled stop time forward to `now`. The map just plots them.
 | `corroborated` | route color, solid | 2 px route color, **white outline** | small check-circle | rendered topmost (after selected)      |
 | `reconciled`   | route color, solid | 2 px route color | small calendar               |                                        |
 | `live`         | route color, solid | 1 px route color | —                            |                                        |
-| `predicted`    | route color        | **dashed 1 px** | small dashed-clock             | suppressed if `showScheduleOnlyVehicles=false` |
+| `predicted`    | route color        | **dashed 1 px** | small dashed-clock             | always shown                                   |
 | `scheduled`    | n/a — does not appear on map until trip becomes `predicted` or live |     |    | (it's only a list row in the schedule view) |
 | `selected`     | overlay ring around any of the above, 3 px accent colour |          |                                |                                        |
 
@@ -928,8 +930,9 @@ latest commit:
   **shipped**
 - Stations view (`/`) — real proximity list with bucketed boards.
   **shipped**
-- Settings: rename `showGhostVehicles` → `showScheduleOnlyVehicles` with
-  legacy-key migration; new `showDepartedVehicles` toggle. **shipped**
+- Settings: dropped `showGhostVehicles` toggle (initially renamed to
+  `showScheduleOnlyVehicles`, then removed — schedule-only vehicles are
+  always shown). New `showDepartedVehicles` toggle. **shipped**
 - Real position-prediction engine (`lib/domain/prediction/`) per §5 —
   speed estimator, position interpolation, ETA. **deferred to Phase 5**
   (predicted vehicles currently use the stop coords as a placeholder).
@@ -967,7 +970,8 @@ latest commit:
 - v1 categorization vs user request — covered in §3, all four user buckets
   + `at-station` are derived from v1 inputs.
 - v1 ghost-vehicle definition vs new `predicted` name — definition unchanged
-  (§6.3); the toggle (`showScheduleOnlyVehicles`) name now matches the data.
+  (§6.3). The `showGhostVehicles` toggle was renamed once, then dropped:
+  schedule-only vehicles are always shown.
 - v1 map vs user claim "v1 only showed one vehicle" — refuted (see exploration
   report); v1 already supported many. The change in v2 is the **default** —
   open the map and you see the route, not just the vehicle you came from.

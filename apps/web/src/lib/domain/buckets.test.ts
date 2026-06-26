@@ -175,7 +175,6 @@ describe('filterForStationView', () => {
   const allowAll = {
     showDepartedVehicles: true,
     showDropOffOnly: true,
-    showScheduleOnlyVehicles: true,
   };
 
   it('always drops off-route', () => {
@@ -209,15 +208,5 @@ describe('filterForStationView', () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0].vehicle.dropOffOnly).toBeFalsy();
-  });
-
-  it('drops schedule-only vehicles when showScheduleOnlyVehicles is off', () => {
-    // Note: factory currently always builds 'predicted'; bucket-only check
-    // verifies the predicate handles the predicted kind.
-    const out = filterForStationView(
-      [base('incoming', false, 'predicted'), base('incoming', false, 'predicted')],
-      { ...allowAll, showScheduleOnlyVehicles: false },
-    );
-    expect(out).toHaveLength(0);
   });
 });

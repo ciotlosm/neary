@@ -23,7 +23,6 @@ function scheduled(tripId: string, route: Route, etaMinutes: number, opts: Parti
 const allowAll = {
   showDepartedVehicles: true,
   showDropOffOnly: true,
-  showScheduleOnlyVehicles: true,
 };
 
 const nowMs = new Date(2026, 5, 26, 9, 0, 0).getTime(); // 09:00 local
@@ -50,16 +49,6 @@ describe('assembleStationBoard', () => {
     );
     expect(board).toHaveLength(1);
     expect(board[0].bucket).toBe('incoming');
-  });
-
-  it('drops schedule-only vehicles when showScheduleOnlyVehicles=false', () => {
-    const vehicles = [scheduled('a', r24, 10), scheduled('b', r35, 5)];
-    const board = assembleStationBoard(
-      vehicles,
-      { ...allowAll, showScheduleOnlyVehicles: false },
-      nowMs,
-    );
-    expect(board).toHaveLength(0);
   });
 
   it('returns the expected bucket for an arriving vehicle', () => {

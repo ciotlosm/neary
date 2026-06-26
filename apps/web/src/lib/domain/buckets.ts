@@ -177,12 +177,12 @@ export function bucketCounts(buckets: ArrivalBucket[]): Record<ArrivalBucket, nu
 /**
  * Filter a list of bucketed entries for station-view display.
  *
- *   showDepartedVehicles=false     drops `departed` (always allowed on map view)
- *   showDropOffOnly=false          drops entries where vehicle.dropOffOnly is true
- *   showScheduleOnlyVehicles=false drops vehicles of kind 'scheduled' or 'predicted'
- *                                  (those without live GPS)
+ *   showDepartedVehicles=false  drops `departed` (always allowed on map view)
+ *   showDropOffOnly=false       drops entries where vehicle.dropOffOnly is true
  *
  *  `off-route` is always dropped from station view (debug only).
+ *  Schedule-only kinds (`scheduled` / `predicted`) are always shown —
+ *  they're the whole point when no live source is wired.
  */
 export function filterForStationView<
   T extends { vehicle: Vehicle; bucket: ArrivalBucket },
@@ -191,17 +191,12 @@ export function filterForStationView<
   prefs: {
     showDepartedVehicles: boolean;
     showDropOffOnly: boolean;
-    showScheduleOnlyVehicles: boolean;
   },
 ): T[] {
   return entries.filter((e) => {
     if (e.bucket === 'off-route') return false;
     if (e.bucket === 'departed' && !prefs.showDepartedVehicles) return false;
     if (e.vehicle.dropOffOnly && !prefs.showDropOffOnly) return false;
-    if (
-      !prefs.showScheduleOnlyVehicles &&
-      (e.vehicle.kind === 'scheduled' || e.vehicle.kind === 'predicted')
-    ) return false;
     return true;
   });
 }

@@ -126,18 +126,6 @@
 
         <Stack direction="row" align="center" justify="between">
           <Box class="flex-1 min-w-0">
-            <Typography variant="body2">Show schedule-only vehicles</Typography>
-            <Typography variant="caption">Scheduled runs that don't (yet) have a live GPS feed.</Typography>
-          </Box>
-          <Switch
-            checked={userPrefs.showScheduleOnlyVehicles}
-            onchange={(v) => (userPrefs.showScheduleOnlyVehicles = v)}
-            aria-label="Show schedule-only vehicles"
-          />
-        </Stack>
-
-        <Stack direction="row" align="center" justify="between">
-          <Box class="flex-1 min-w-0">
             <Typography variant="body2">Show recently departed vehicles</Typography>
             <Typography variant="caption">Include vehicles that left within the last 5 minutes in station boards. Map view always shows them.</Typography>
           </Box>

@@ -27,7 +27,6 @@ export interface BoardRow {
 export interface BoardPrefs {
   showDepartedVehicles: boolean;
   showDropOffOnly: boolean;
-  showScheduleOnlyVehicles: boolean;
 }
 
 /** Minutes since local midnight for a UNIX ms timestamp. */
