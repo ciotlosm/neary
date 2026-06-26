@@ -630,46 +630,338 @@ The user mentioned "many exceptions at route ends" in v1. Reviewing
 
 ---
 
-## 7. Implementation sequencing
+## 7. Configurable thresholds & operational edge cases
+
+The buckets and the reconciler share a set of magic numbers (50 m, 5 min,
+±10 min, etc.) that the user has surfaced as: "we should be able to tune
+these without grepping the source." This section defines a single `Config`
+shape and walks through the operational edge cases that the v1 reconciler
+either got wrong or didn't address, with proposed v2 solutions.
+
+### 7.1 The `Config` object
+
+All thresholds live in one place — `lib/domain/config.ts` (Phase 4 follow-up
+commit). Production defaults below; the `/settings/advanced` panel exposes
+them so power users can tune.
+
+```ts
+export interface NearyConfig {
+  // ── Bucketing (station view) ─────────────────────────────────────────
+  /** A vehicle within this many meters of the stop is considered
+   *  "physically at" it. v1: 50. */
+  proximityAtStationM: number;
+  /** Live vehicle that's > this far from the stop AND off the route shape
+   *  is bucketed off-route. v1: 200. */
+  offRouteDistanceM: number;
+  /** Width of the "arriving" / "departing" windows around scheduled
+   *  arrival / departure (full window = 2 × value, centred on schedule).
+   *  v1: implicit 1 min. Default: 30 seconds for live, 60 seconds for
+   *  schedule-only — see §7.2 below. */
+  arrivingDepartingWindowS: number;
+  /** Recency window for the "departed" bucket. v1: 5 min. */
+  recentDepartureWindowMin: number;
+  /** Future ETA threshold separating "arriving" from "incoming". v1: 2 min. */
+  arrivingThresholdMin: number;
+  /** A scheduled dwell shorter than this is treated as just-passing and
+   *  surfaces as "arriving" rather than splitting into at-station. v1: 1. */
+  minDwellGapMin: number;
+  /** A live vehicle at the stop moving faster than this is "departing"
+   *  (otherwise it's "at-station"). v1: 5 km/h. */
+  departingSpeedKmh: number;
+
+  // ── Reconciliation ───────────────────────────────────────────────────
+  /** Max |timing delta| (min) between live vehicle and scheduled trip
+   *  for a match. v1: 10. */
+  matchToleranceMin: number;
+  /** Confidence bands by timing delta (min). v1: 3 / 7 / 10. */
+  matchConfidenceBands: { high: number; medium: number; low: number };
+  /** Headway threshold below which suspect-duplicate flagging is
+   *  disabled (the timing heuristic gets unreliable on frequent service).
+   *  v1: 10. v2: also gates start-station inference (§7.5). */
+  highFrequencyHeadwayMin: number;
+  /** Grace window after a trip's scheduled end time during which a
+   *  vehicle stuck at the terminus stays bound to the old trip. v2 new. */
+  terminusGraceMin: number;
+  /** A GPS fix older than this is "stale" and forces confidence to low.
+   *  v1: 30 min. */
+  staleGpsMin: number;
+
+  // ── Prediction ───────────────────────────────────────────────────────
+  /** Max time the position-prediction engine extrapolates forward before
+   *  capping `eta.confidence` to low. v2 new. */
+  maxExtrapolationMin: number;
+  /** Static fallback speed for the speed estimator's last resort. v1: 25. */
+  fallbackSpeedKmh: number;
+}
+```
+
+### 7.2 Live-data-aware wording matrix
+
+When live data confirms a vehicle's position, we can be tighter and more
+confident about the at-station / arriving / departing micro-states. When
+it's schedule-only we have to assume a wider window. The thresholds in
+§7.1 split per source (`arrivingDepartingWindowS = 30s` for live, `60s`
+for schedule-only — implemented as two configurable values).
+
+The displayed wording also shifts subtly — same bucket, different tone:
+
+| Bucket       | Schedule-only wording           | Live wording                       |
+| ------------ | ------------------------------- | ---------------------------------- |
+| `at-station` | "Scheduled at station now"      | "At station"                       |
+| `departing`  | "Scheduled to leave"            | "Leaving now"                      |
+| `arriving`   | "Arrives in ~1 min"             | "Arriving"                         |
+| `incoming`   | "In ~3 min (scheduled)"         | "In 3 min"                         |
+| `departed`   | "Departed ~2 min ago (scheduled)" | "Departed 2 min ago"             |
+
+Implementation: a helper `wordingFor(bucket, vehicle): string` reads
+`vehicle.kind` to decide; lives next to `bucketOf`. The "(scheduled)"
+qualifier is only added when `kind ∈ {scheduled, predicted}`.
+
+### 7.3 Late-vehicle reconciliation (the 15-min-late example)
+
+**Scenario.** Route X runs every 30 min. Schedule says the next bus at this
+stop is in 2 min. A live GPS vehicle for route X is 15 min late — its
+trip_id (via GTFS-RT) is the *previous* schedule trip, not the on-time one.
+A naïve reconciler would match the live vehicle to its trip_id and stamp
+its ETA at this stop based on that trip's stop_times — ETA = (scheduled
+departure of late trip from this stop) − now = something like 27 min ago
+(already past!) and we'd put it in `departed`. Meanwhile the on-time
+schedule bus shows as `arriving` even though no GPS vehicle exists for it.
+The user sees one phantom "arriving" and misses the actually-incoming
+late bus.
+
+**The v1 hack** ([vehicleMatchingUtils.ts L188-L290](../../apps/legacy/src/utils/schedule/vehicleMatchingUtils.ts))
+tried to fix this by re-matching live vehicles to whichever trip minimised
+the |timing delta|, ignoring the trip_id the operator reported. That works
+when the operator-reported trip_id is wrong, but breaks down when the
+*timing* is wrong (the late case).
+
+**v2 approach** — three signals, combined in `rtScheduleReconciler`:
+
+1. **Trust trip_id first.** If GTFS-RT's `trip_id` matches a trip in the
+   SQLite `trips` table, that's authoritative — the vehicle IS on that
+   trip. The "ETA at this stop" then comes from the live vehicle's
+   *predicted travel time* (route shape + speed estimate), NOT from the
+   trip's scheduled stop_times. This is the §5 prediction engine doing its
+   job.
+2. **Compute "late offset" as the headline metadata.** The reconciler
+   stamps `vehicle.lateOffsetMin = nowMin − scheduledArrivalAtThisStop` so
+   the UI can show "5 min late" in the station card. The bucketing uses
+   the predicted ETA from signal 1, not the lateOffset.
+3. **Promote the on-time slot to `predicted` not `arriving`.** When a
+   scheduled trip should be running per the calendar and no live vehicle
+   was matched to it (signal 1 found a different trip taking its place),
+   the scheduleScanner emits it as `kind: 'predicted'` with
+   `checkedSources: ['gtfs-rt']`. The UI shows both: the *live late one*
+   with its real ETA, AND the *predicted on-time one* with a "no live
+   tracking" badge. The user sees the truth — one bus might come now (late)
+   and a second one might come on time, both bound for the same headsign.
+
+Net behaviour: in the user's scenario, the station card shows
+`Route X · 15 min late · arriving in 3 min` (live) AND
+`Route X · scheduled · arriving in 2 min (no live tracking)` (predicted).
+If the predicted one never materialises in subsequent polls, it goes from
+`predicted` to `departed` after its scheduled time + recency window —
+correct.
+
+### 7.4 Frequent vehicles — smarter than v1's flat filter
+
+V1 disabled suspect-duplicate detection on routes with headway ≤ 10 min
+([vehicleMatchingUtils L39-L43](../../apps/legacy/src/utils/schedule/vehicleMatchingUtils.ts)).
+The reasoning was sound (timing-based matching is unreliable on frequent
+service) but the response (disable a feature) is heavy-handed — the
+duplicate detection has *some* signal value.
+
+**v2 approach**, two changes:
+
+1. **Use `trip_id` to cut Gordian knots.** When the live source carries a
+   canonical trip_id (GTFS-RT does;
+   [live-data-analysis.md](live-data-analysis.md)), duplicate detection
+   doesn't need timing math at all — two vehicles can't legally share a
+   `trip_id`. The high-frequency carve-out disappears in that path.
+2. **Scale confidence down by headway, don't disable.** When trip_id is
+   absent (Tranzy fallback), the timing-delta match still happens but the
+   confidence band shrinks based on the route's median headway in the
+   ±2 hour window around now:
+   - headway > 30 min → use v1 bands (3/7/10 min)
+   - headway 10..30 min → tighten to (1.5/3.5/5 min)
+   - headway ≤ 10 min → tighten to (0.5/1.5/2.5 min) AND require a
+     second consistent poll before promoting `live` → `reconciled`
+     (single observation isn't enough)
+   The carve-out becomes "require persistence" not "give up."
+
+Implementation: precompute `routeHeadwayMin(routeId, now)` once at
+reconciler startup (median of inter-departure intervals at the route's
+busiest stop within ±2h). Cache for the polling period.
+
+### 7.5 Start-station / terminus special case
+
+**Scenario.** Route Y starts at Terminal A. Schedule says next departure is
+at 09:15. At 09:08 a live GPS vehicle for route Y is 100 m from Terminal A
+(in the terminal's bus lot). A naïve reconciler:
+1. Sees the vehicle has trip_id of route Y's 08:45 trip (the one that just
+   arrived and parked).
+2. Computes its "expected position" along that trip → end of the trip.
+3. Vehicle's actual position is at the end → matches. Calls it `reconciled`
+   for the 08:45 trip. Bucket: `departed` (the trip ended 23 min ago).
+4. Doesn't surface anything for the 09:15 departure — until 09:15 ticks and
+   the predicted "08:45 trip departed bucket" rolls off.
+
+But the user is at Terminal A looking for the 09:15 bus. They want to know
+"the bus is here, sitting on the lot." We failed.
+
+**v2 approach** — terminus-aware reconciliation in `rtScheduleReconciler`:
+
+A stop S is a **terminus** for a trip T if:
+- S is `trips[T].first_stop` (per stop_times ordered by stop_sequence), OR
+- S is `trips[T].last_stop`
+
+When the reconciler matches a live vehicle V to a finished trip T, and:
+- V is within `2 × proximityAtStationM` of T's last stop S (i.e. parked at
+  terminus), AND
+- The same vehicle (same operator id) is the next-trip-from-S candidate
+  per the schedule (route + direction match a next-departure trip
+  T_next from S within `terminusGraceMin`)
+
+…then V's match is **upgraded** from `reconciled-to-T (departed)` to
+`reconciled-to-T_next (at-station)`. The UI shows the bus at the terminus,
+correctly bound to the upcoming trip.
+
+**The mistaken-bus example** (from your notes): GPS vehicle 100 m from
+station, schedule not for another X minutes, vehicle gets bucketed as
+"departed late from last trip." Same fix — if the vehicle is sitting at
+the start station of a near-future trip on the same route, prefer the
+forward binding. Symmetric in spirit but more conservative: only triggers
+when start station, not random along-route stops.
+
+**Sub-case: GPS error at start station.** Bus parked at terminus, schedule
+says next departure in 8 min, but vehicle's GPS briefly reports a fix 100 m
+away (wrong direction, doesn't match shape). Without the terminus
+heuristic, this looks like "vehicle left early, now en route." With it:
+within the 5-min grace window of a terminus, GPS positions outside the
+proximity radius are *ignored* (re-stamped to the terminus coords) until
+either (a) the scheduled departure time passes or (b) a second consistent
+off-terminus fix arrives. New flag: `vehicle.flags = ['gps-suppressed-at-terminus']`
+visible in debug only.
+
+### 7.6 Tentative matches — partial confidence to multiple candidates
+
+**Scenario.** GPS vehicle, route Y, no trip_id (Tranzy path). Two
+candidate scheduled trips within timing tolerance: T1 (the on-time one,
+delta = 3 min) and T2 (the late one, delta = 8 min). v1 picks the smaller
+delta (T1) and stamps `reconciled` with `low` confidence — but the user
+doesn't see T2 at all.
+
+**v2 approach** — let the reconciler emit a `tentative` *flag* (NOT a new
+kind), and pair it with `predicted` ghost twins for the rejected
+candidates:
+
+- Live vehicle emitted as `kind: 'reconciled'`, `confidence: 'low'`,
+  `flags: ['tentative']`, with `scheduledRun = T1` (the picked one).
+- T2 still emitted as `kind: 'predicted'` (didn't have a live match) with
+  `flags: ['tentative-twin-of:<live-vehicle-id>']`.
+
+The UI renders T1 normally with a small "tentative" indicator (e.g. ⚠️
+chip) and shows T2 below it as a separate predicted row. The user sees
+"either this is the on-time bus or the late one is — they're both within
+8 min and we can't tell which yet."
+
+When the next poll arrives:
+- If the vehicle's new position is consistent with T1's expected progress
+  → drop the flag, T2 stays predicted (or rolls off if its scheduled
+  window passed).
+- If it's consistent with T2 instead → re-match to T2, T1 reverts to
+  predicted.
+- If both still match → keep both tentative. The user still sees both.
+
+Implementation note: only used in the Tranzy-only fallback path. The
+GTFS-RT path has trip_id and never goes tentative.
+
+### 7.7 Wait-for-second-observation rule
+
+Cuts across several of the above. The general principle: don't promote
+a single observation to a high-confidence reconciliation when the heuristic
+is shaky. Spelled out:
+
+- Tentative matches (§7.6) require a confirming poll before flag drops.
+- High-frequency routes (§7.4) require 2 consistent polls before
+  `live` → `reconciled` promotion.
+- Terminus matches (§7.5) require either schedule-time tick or a second
+  off-terminus fix before forward-binding switches off.
+
+This is the same idea three times. Implement once as a small
+`observationHistory: Map<vehicleId, { lastNFixes, lastNMatches }>` in the
+reconciler state; expose a single helper `requiresPersistence(reason)`
+that the policies above call.
+
+### 7.8 What's NOT here (deferred)
+
+- **Bearing-based off-route detection** — GTFS-RT carries bearing; v1
+  doesn't use it; v2 won't either until Phase 6+.
+- **GPS jump detection** (>X m in Y s, snap to shape) — v1 lacks it, v2
+  defers to a follow-up after Phase 5.
+- **Per-feed config overrides** — `Config` is global for v2. A future
+  feed-specific overlay can come if Bucharest needs different defaults
+  than Cluj.
+
+---
+
+## 7.5 Implementation sequencing
 
 This doc does **not** change the [plan.md](plan.md) phase ordering. It
-refines what Phase 4 / 5 / 6 must actually produce. Concrete deltas:
+refines what Phase 4 / 5 / 6 must actually produce. Status as of the
+latest commit:
 
-### Phase 4 (Domain + Stations, schedule-only) — refined deliverables
+### Phase 4 (Domain + Stations, schedule-only) — status
 
-- New `apps/web/src/lib/domain/vehicle.ts` — type from §2.
-- New `apps/web/src/lib/domain/prediction/` — `speed.ts`, `position.ts`,
-  `eta.ts` ported per §5.
-- New `apps/web/src/lib/domain/reconciler.ts` — §6.1, §6.3 only (no live
-  yet, so every active trip becomes `predicted`).
-- New repo method (replaces `getStationsNearAsVehicles` named in
-  [plan.md §9 Phase 4](plan.md)): `getStationArrivals(stopId, now,
-  windowMinutes): UpcomingDeparture[]` — the bucketer in §3 runs in the
-  domain layer, not the worker.
-- Settings: rename `showGhostVehicles` → `showScheduleOnlyVehicles` in
-  [userPrefs.svelte.ts](../../apps/web/src/lib/stores/userPrefs.svelte.ts).
-  Old key auto-migrates on read (one-time migration).
+- `lib/domain/types.ts` — new Vehicle union per §2 + `VehicleType` enum
+  + `vehicleTypeFromGtfs` mapper. **shipped**
+- `lib/domain/buckets.ts` + tests — bucketOf, compareForBoard,
+  filterForStationView. **shipped**
+- `lib/domain/stationBoard.ts` + tests — assembleStationBoard,
+  dedupRoutes. **shipped**
+- `lib/domain/pipeline/` — types.ts, scheduleScanner.ts, timeUtils.ts
+  (with feed-timezone-aware helpers). **shipped**
+- `getStationArrivals(stopId, nowMs, windowMinutes)` and
+  `getStationBoardsNear(...)` worker methods. **shipped**
+- Worker stores feed timezone at setFeed and uses it for now-math.
+  **shipped**
+- Stations view (`/`) — real proximity list with bucketed boards.
+  **shipped**
+- Settings: rename `showGhostVehicles` → `showScheduleOnlyVehicles` with
+  legacy-key migration; new `showDepartedVehicles` toggle. **shipped**
+- Real position-prediction engine (`lib/domain/prediction/`) per §5 —
+  speed estimator, position interpolation, ETA. **deferred to Phase 5**
+  (predicted vehicles currently use the stop coords as a placeholder).
+- `Config` object from §7.1 and live-data-aware wording from §7.2.
+  **deferred** to a follow-up commit once one live source exists to
+  exercise the wording shift.
 
 ### Phase 5 (Live data) — refined deliverables
 
-- Live worker polls GTFS-RT (no key) and Tranzy (if key set), tags responses
-  with `source`.
-- Reconciler §6.2, §6.4, §6.5 turn on.
-- Reactive bus: `vehiclesStore.svelte.ts` (singleton) exposing
-  `vehicles: Vehicle[]` filtered per current view.
+- Live worker polls GTFS-RT (no key) and Tranzy (if key set), tags
+  responses with `source: LiveSource`.
+- Pipeline gains `rtIngester`, `tranzyIngester`, `rtScheduleReconciler`
+  (§6 + §7.3 late-vehicle logic + §7.5 terminus heuristic),
+  `multiSourceCorroborator` (§6.2).
+- `requiresPersistence` helper (§7.7) lives in the reconciler.
+- `Config` (§7.1) lands and `wordingFor` (§7.2) is wired into
+  `VehicleCard`.
+- Reactive bus: `vehiclesStore.svelte.ts` (singleton).
+- Real prediction engine (the §5 deferral above) ships here.
 
 ### Phase 6 (Favorites, Schedule, Map) — refined deliverables
 
 - `/schedule/route/[routeId]` and `/schedule/route/[routeId]?stop=[stopId]`:
-  same `<ArrivalsBoard>` component bound to a different filter.
-- `/map/route/[routeId]?selected=[vehicleId]`: shape + every vehicle for the
-  route + selected ring. Leaflet panes per §4.
+  same `<ArrivalsBoard>` component bound to a different filter; both
+  consume `assembleStationBoard`.
+- `/map/route/[routeId]?selected=[vehicleId]`: shape + every vehicle for
+  the route + selected ring. Leaflet panes per §4.
 - `/map/vehicle/[vehicleId]`: redirect to the route map with `selected` set.
-- Favorites stores both saved routes and saved stations; cards link to the
-  drill-downs above.
+- Favorites stores both saved routes and saved stations; cards link to
+  the drill-downs above.
 
 ---
-
 ## 8. Cross-checks done while writing this doc
 
 - v1 categorization vs user request — covered in §3, all four user buckets

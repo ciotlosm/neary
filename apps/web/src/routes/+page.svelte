@@ -134,6 +134,25 @@
           </Stack>
         </Box>
       {/if}
+      {@const rawTotal = boards.reduce((n, b) => n + b.vehicles.length, 0)}
+      {@const filteredTotal = boards.reduce(
+        (n, b) => n + assembleStationBoard(b.vehicles, userPrefs, nowMs).length, 0)}
+      {#if rawTotal === 0}
+        <Box class="px-2 py-1 text-xs text-[color:var(--color-warning)]">
+          No upcoming vehicles found in any of the {boards.length} nearby
+          stations within the next {ARRIVALS_WINDOW_MIN} min. This usually
+          means the GTFS calendar has no active service for today, or your
+          system clock disagrees with the feed timezone — check
+          <a href="/data-test" class="underline">/data-test</a> for a raw
+          query against a known stop.
+        </Box>
+      {:else if filteredTotal === 0}
+        <Box class="px-2 py-1 text-xs text-[color:var(--color-warning)]">
+          {rawTotal} vehicles found but all hidden by your filters
+          (check Settings → Display: drop-off-only, schedule-only,
+          departed).
+        </Box>
+      {/if}
       {#each boards as { stop, vehicles } (stop.id)}
         {@const board = assembleStationBoard(vehicles, userPrefs, nowMs)}
         <StationCard

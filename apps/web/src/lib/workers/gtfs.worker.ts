@@ -22,7 +22,7 @@ import type {
   GtfsRepo, StopWithDistance, UpcomingDeparture,
 } from '$lib/data/gtfs/types';
 import { scanSchedule, type ScheduleRow } from '$lib/domain/pipeline/scheduleScanner';
-import { localDateKey, localMinSinceMidnight } from '$lib/domain/pipeline/timeUtils';
+import { dateKeyInTz, minSinceMidnightInTz } from '$lib/domain/pipeline/timeUtils';
 
 // ---------------------------------------------------------------------------
 // Source URL resolution per feed.
@@ -59,6 +59,7 @@ function opfsFileFor(feedId: string): string {
 
 let poolPromise: Promise<Awaited<ReturnType<Sqlite3Static['installOpfsSAHPoolVfs']>>> | null = null;
 let currentFeedId: string | null = null;
+let currentFeedTz: string | null = null;
 let currentDb: Database | null = null;
 let bootstrapping: Promise<Database> | null = null;
 
@@ -115,6 +116,7 @@ function closeCurrent() {
     }
     currentDb = null;
   }
+  currentFeedTz = null;
   bootstrapping = null;
 }
 
@@ -175,6 +177,7 @@ const api: GtfsRepo = {
     }
     closeCurrent();
     currentFeedId = feed.id;
+    currentFeedTz = feed.timezone || 'UTC';
     bootstrapping = bootstrap(feed);
     try {
       currentDb = await bootstrapping;
@@ -299,9 +302,9 @@ const api: GtfsRepo = {
 
   async getStationArrivals(stopId, nowMs, windowMinutes): Promise<Vehicle[]> {
     const db = await ensureDb();
-    const now = new Date(nowMs);
-    const localDate = localDateKey(now);
-    const nowMinSinceMidnight = localMinSinceMidnight(now);
+    const tz = currentFeedTz ?? 'UTC';
+    const localDate = dateKeyInTz(nowMs, tz);
+    const nowMinSinceMidnight = minSinceMidnightInTz(nowMs, tz);
 
     const services = activeServicesOn(db, localDate);
     if (services.length === 0) return [];
