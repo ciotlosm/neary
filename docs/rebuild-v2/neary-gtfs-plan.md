@@ -43,20 +43,65 @@ does all of this better.
 | `src/build.js` — ctpcj.ro CSV scraper | Move to `feeds/ctp-cluj/build.js`. **Only custom build script we keep.** |
 | Daily GitHub Action | Rewritten — see §6 |
 
-## 4. Tranzy.ai — final disposition
+## 4. Tranzy.ai — disposition (revised)
 
-**Removed entirely.** Replaced by:
+**Demoted from required-or-removed to OPTIONAL advanced signal.** Default
+neary v2 needs no Tranzy key at all — RT alone covers the baseline. Power
+users who supply a key get higher-confidence vehicle reconciliation. Full
+empirical comparison: [live-data-analysis.md](live-data-analysis.md).
+
+### Default (no API key, all users)
+
+The CTP GTFS-RT feed at `cluj-rt-feed.gtfs.ro` carries everything the
+baseline UX needs:
 
 | Tranzy capability | Replacement |
 |---|---|
-| Live vehicle positions | `https://cluj-rt-feed.gtfs.ro/vehiclePositions` (public, free, standard GTFS-RT protobuf, no API key) |
-| Trip updates | `https://cluj-rt-feed.gtfs.ro/tripUpdates` (same) |
-| Service alerts | `https://cluj-rt-feed.gtfs.ro/serviceAlerts` (same) |
-| Schedule (lossy) | ctpcj.ro CSV → our GTFS |
+| Live vehicle positions | `vehiclePositions` (public, free, standard GTFS-RT, regenerates every 10 s) |
+| Trip updates | `tripUpdates` (same) |
+| Service alerts | `serviceAlerts` (same) |
+| Schedule (lossy in Tranzy) | ctpcj.ro CSV → our GTFS |
 | Route / stop / trip / shape JSON | Standard GTFS via the SQLite blob |
 
-The v2 app's `userPrefs.apiKey` field is also dropped — there's no
-optional API key concept anymore.
+The canonical CTP `trip_id` format (e.g. `42_1_LV_2_0640`) is shared
+between the RT feed and our SQLite — direct JOIN, no remapping. RT also
+carries operational fields Tranzy lacks (`bearing`, `current_status`,
+`current_stop_sequence`, `next stop_id`).
+
+### Advanced (with API key, opt-in)
+
+When a user pastes a Tranzy API key in **Settings → Advanced**, the live
+worker polls Tranzy as a **second signal** in parallel with RT. The
+reconciler then encodes the multi-source agreement in the Vehicle's
+`sources` / `confidence` fields (see [plan.md §3](plan.md#3-architecture)).
+
+What this buys the power user:
+
+- **Higher confidence display**: vehicles confirmed by both sources show
+  a small "2/2" badge; single-source ones don't. Useful for users who
+  care whether the bus icon they see is "really" where it appears.
+- **Faster freshness**: Tranzy median timestamp is ~60 s ahead of RT.
+  When Tranzy says a bus is at position X and RT hasn't caught up, the
+  reconciler trusts the fresher one for the displayed position.
+- **Confirmed-ghost classification**: a scheduled run that's missing
+  from RT *might* just be RT lag. If Tranzy also doesn't see it, the
+  vehicle is a confirmed `ghost` rather than a probable one — the UI
+  can render it with stronger styling.
+- **Fleet-completeness debug** (separate Settings toggle, default off):
+  show the ~251 yard / out-of-service buses Tranzy reports but RT
+  filters. Pure debug surface for operators / curious users; not in
+  the default station / route views.
+
+### What does NOT change
+
+- The default zero-config experience is unchanged from "RT-only".
+- All app behaviour works without a Tranzy key.
+- No Tranzy data is ever stored on disk — the key lives in `userPrefs`
+  (localStorage); responses are kept in memory only.
+- Tranzy is **only** consulted for the user's currently-selected
+  agency, and only when the agency has a Tranzy `X-Agency-Id` mapping
+  (Cluj = 2). For Romanian agencies outside Tranzy's coverage, the
+  Advanced setting simply has no effect.
 
 ## 5. Repo structure (`refactor/feeds-from-transitous` branch)
 
@@ -263,40 +308,53 @@ nothing in `apps/legacy/`.
 | Today | Change |
 |---|---|
 | `agencyId: number \| null` | `feedId: string \| null` (e.g. `"ctp-cluj"`) |
-| `apiKey: string \| null` | **Removed** — no API key needed (Tranzy dropped) |
+| `apiKey: string \| null` | **Kept** but reframed in UI — the field stores the optional Tranzy API key for §4's "Advanced (with API key)" mode. Mentioned only in Advanced Settings; nothing in the default UX references it. |
 | `showDropOffOnly`, `showGhostVehicles`, `theme` | Unchanged |
+| (new) `showTranzyDebugFleet: boolean` | Default `false`. When `apiKey` is set, this toggles the fleet-completeness debug overlay (the ~251 yard buses Tranzy reports but RT filters). |
 
 ### 9.4 `apps/web/src/routes/settings/+page.svelte`
 
 - Agency picker → **feed picker**, sorted by GPS proximity (auto-pick the
   bbox-containing feed by default; pick from list when no GPS).
-- The API key TextField is removed entirely.
-- The "Live tracking (optional)" card becomes "Live tracking" (always on
-  when the feed has `realtime` URLs).
+- The "Live tracking" card stays at the **top** of Settings showing the
+  current live-source status (RT always on; Tranzy on when key present).
+- The Tranzy API key TextField moves into a new **Settings → Advanced**
+  section, with copy framing it as an opt-in confidence booster, not as a
+  requirement. New toggle "Show out-of-service fleet (debug)" gates the
+  yard-buses overlay (§4).
 
 ### 9.5 `apps/web/src/lib/stores/locationStore.svelte.ts` (extension)
 
 Add `pickFeed(feeds: Feed[]): Feed | null` helper that returns the first
 feed whose `bbox` contains the current position. Called on first launch
 when `userPrefs.feedId == null` and we have a GPS fix.
+live sources, decodes
+  payloads, runs the reconciler, pushes `Vehicle[]` updates through
+  Comlink. **Two source channels**:
 
-### 9.6 New worker for live data (Phase 5 starts here)
+  - **`rt`** (always on for feeds that have `realtime.vehicle_positions`).
+    GTFS-RT protobuf via `gtfs-realtime-bindings` (already installed).
+    Poll **every 15 s** (server regenerates every 10 s — see §4 validation).
+  - **`tranzy`** (active only when `userPrefs.apiKey` is set AND the
+    current feed has a Tranzy agency mapping). JSON via
+    `https://api.tranzy.ai/v1/opendata/vehicles` with `X-API-KEY` and
+    `X-Agency-Id` headers. Poll **every 30 s** (gentler on the API and
+    Tranzy is fresher by default, so doesn't need 15 s).
 
-- `apps/web/src/lib/workers/live.worker.ts` — polls `feed.realtime.*` URLs,
-  decodes GTFS-RT via `gtfs-realtime-bindings` (already installed), pushes
-  vehicle / alert updates through Comlink.
-- **Recommended poll cadence: every 15–30 s.** Validated empirically
-  against `cluj-rt-feed.gtfs.ro/vehiclePositions` (2026-06-26):
-  - Server regenerates the feed exactly every **10 s** (header
-    `timestamp` advances 10 s per sample).
-  - Per-vehicle AVL pings arrive every **~1–2 min** upstream (27% of
-    vehicles got a newer timestamp within a 60 s window).
-  - Polling faster than 10 s gets you the same bytes; slower than 30 s
-    makes ghost UI lag behind reality.
-  - Vehicle freshness: median 60–110 s, p90 200–260 s. ~10% long-tail
-    (parked / transponder issues) — must be handled by the reconciler
-    (move into `ghost` after > 5 min of staleness).
-- **CORS workaround**: a Netlify Edge Function at `/rt/[feed]/[endpoint]`
+- **Reconciler** (`apps/web/src/lib/domain/reconcile.ts`) takes both
+  channels + active scheduled trips and emits the `Vehicle[]` discriminated
+  union. Source agreement encoded in `sources` and `confidence` per
+  plan.md §3. Matching key across channels = the license plate
+  (Tranzy `label` ≡ GTFS-RT `entity.id` ≡ `vehicle.licensePlate`).
+- When only one channel is active (no Tranzy key), every confirmed
+  vehicle gets `sources: ['rt']` and `confidence: 'medium'`. The UI is
+  identical to today's design.
+- **CORS workaround**: Tranzy already sends `Access-Control-Allow-Origin: *`
+  (verified) so the worker can fetch directly. The GTFS-RT feed does NOT,
+  so a Netlify Edge Function at `/rt/[feed]/[endpoint]` proxies it with
+  a 5–10 s cache. Same-origin to the app, ~10 lines.
+- Per-vehicle freshness rules (apply equally to both sources): >5 min
+  stale → reclassify as `ghost`; >30 min → drop entirelyrkaround**: a Netlify Edge Function at `/rt/[feed]/[endpoint]`
   proxies the upstream RT URL with a 5–10 s cache (matching server
   regen). Lives in `apps/web/` edge config; same-origin to the app,
   ~10 lines.
@@ -358,5 +416,6 @@ commit when the new `binaries` branch is publishing.
    proxy. Vehicle dots turn green; ghosts appear for trips that don't
    yet have a live vehicle.
 
-No setup wizard. No API key. No agency dropdown. The user just opens the
-app.
+No setup wizard. No required API key. No agency dropdown. The user just
+opens the app. A Tranzy API key can be pasted later in Advanced settings
+to unlock the multi-source confidence boost (see §4) — entirely optional.

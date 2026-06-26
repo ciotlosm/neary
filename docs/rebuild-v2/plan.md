@@ -89,6 +89,40 @@ Non-goals: Android-first, desktop-first, multi-agency simultaneously.
    ghost | scheduled`. One component per kind, used identically in list /
    schedule / map. Ghost dedup logic lives in the reconciler, not in JSX.
 
+   Each entry also carries a **multi-source confidence annotation** so the
+   reconciler can encode "which live feeds confirm this":
+
+   ```ts
+   type LiveSource = 'rt' | 'tranzy';
+   type Confidence = 'high' | 'medium' | 'low';
+
+   type Vehicle =
+     | { kind: 'live';         id; route; gps; eta?;
+                               sources: LiveSource[];   // ≥1
+                               confidence: Confidence }
+     | { kind: 'live-matched'; id; route; gps; schedule; eta?;
+                               sources: LiveSource[];   // ≥1
+                               confidence: Confidence }
+     | { kind: 'ghost';        id; route; schedule;
+                               checkedSources: LiveSource[]; // sources we polled
+                               lastSeenGps?: GpsFix }
+     | { kind: 'scheduled';    id; route; schedule };
+   ```
+
+   - `sources.length === 2` → both RT and Tranzy see it → `confidence: high`.
+   - `sources.length === 1 && sources[0] === 'rt'` → RT only → `confidence: medium`.
+   - `sources.length === 1 && sources[0] === 'tranzy'` and we also have RT
+     polling → Tranzy says yes but RT lags / filters → `confidence: low`.
+   - `ghost.checkedSources` records which sources were polled and found
+     nothing — `['rt', 'tranzy']` is a confirmed ghost; `['rt']` (no Tranzy
+     key) is a probable ghost (could be RT lag).
+
+   The UI kind drives the visual (`live` solid, `ghost` dashed, etc.); the
+   `sources` / `confidence` drive small badges and tooltips (e.g. "2 of 2
+   sources agree"). See plan §4 and the
+   [live-data analysis](live-data-analysis.md) for the empirical basis of
+   this design.
+
 ---
 
 ## 4. UI design system
