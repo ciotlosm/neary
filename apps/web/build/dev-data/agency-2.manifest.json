@@ -1,0 +1,15 @@
+{
+  "agencyId": 2,
+  "source": "https://github.com/ciotlosm/neary-gtfs/releases/latest/download/agency-2-gtfs.zip",
+  "generatedAt": "2026-06-25T23:31:04.043Z",
+  "rowCounts": {
+    "agency": 1,
+    "routes": 168,
+    "stops": 913,
+    "trips": 14653,
+    "stop_times": 202649,
+    "calendar": 4
+  },
+  "rawBytes": 18632704,
+  "gzipBytes": 4406857
+}

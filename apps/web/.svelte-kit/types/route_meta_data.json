@@ -1,0 +1,21 @@
+{
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/data-test": [
+		"src/routes/+layout.ts"
+	],
+	"/favorites": [
+		"src/routes/+layout.ts"
+	],
+	"/planner": [
+		"src/routes/+layout.ts"
+	],
+	"/settings": [
+		"src/routes/+layout.ts"
+	],
+	"/showcase": [
+		"src/routes/+layout.ts"
+	]
+}
