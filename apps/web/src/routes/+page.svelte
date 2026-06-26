@@ -19,6 +19,7 @@
   import type { StopWithDistance } from '$lib/data/gtfs/types';
   import { assembleStationBoard } from '$lib/domain/stationBoard';
   import { reconcileWithLive } from '$lib/domain/reconcile';
+  import { minSinceMidnightInTz } from '$lib/domain/pipeline/timeUtils';
   import type { Vehicle } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
@@ -226,7 +227,13 @@
         </Box>
       {/if}
       {#each boards as { stop, vehicles } (stop.id)}
-        {@const reconciled = reconcileWithLive(vehicles, liveVehiclesStore.observations).vehicles}
+        {@const tz = feedsStore.byId(feedsStore.boundFeedId)?.timezone ?? 'UTC'}
+        {@const nowMinLocal = minSinceMidnightInTz(nowMs, tz)}
+        {@const reconciled = reconcileWithLive(
+          vehicles,
+          liveVehiclesStore.observations,
+          { nowMinSinceMidnight: nowMinLocal },
+        ).vehicles}
         {@const allRoutes = (() => {
           const map = new Map<number, typeof reconciled[number]['route']>();
           for (const v of reconciled) map.set(v.route.id, v.route);

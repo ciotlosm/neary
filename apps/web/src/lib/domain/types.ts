@@ -79,6 +79,15 @@ export interface ScheduledRun {
   /** Arrival time at the target stop, if distinct from departure. Same units. */
   scheduledArrival?: number;
   headsign?: string;
+  /** GTFS `trips.direction_id` (0 or 1). Used by the reconciler as part
+   *  of the live-match key. -1 if the feed doesn't populate direction. */
+  directionId?: 0 | 1 | -1;
+  /** Minutes since local midnight at the trip's FIRST stop (origin
+   *  departure time). Used by the reconciler to match live observations
+   *  to scheduled trips by `(routeId, directionId, tripStartMin)` with
+   *  adaptive tolerance — independent of trip_id, since trip_id can
+   *  differ between the static GTFS source and the GTFS-RT feed. */
+  tripStartMin?: number;
 }
 
 /** Vehicle type — orthogonal to `kind` (which is about source of position

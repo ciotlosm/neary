@@ -312,19 +312,28 @@ const api: GtfsRepo = {
     const placeholders = services.map(() => '?').join(',');
     const rows = selectAll<ScheduleRow>(
       db,
-      // Two correlated subqueries per row:
+      // Three correlated subqueries per row:
       //   last_seq          — trip's terminus index, used to detect
       //                       drop-off-only terminus arrivals.
       //   trip_end_time     — arrival_time at that terminus, used to keep
       //                       a vehicle in the 'departed' bucket only
       //                       while it's still en route (not yet arrived
       //                       at its terminus).
-      // Both are cheap thanks to stop_times_trip_seq_idx (trip_id, stop_sequence).
+      //   trip_start_time   — departure_time at the trip's FIRST stop
+      //                       (origin). Surfaced for the reconciler so it
+      //                       can match live observations by
+      //                       (route, direction, start_time) instead of
+      //                       trip_id (trip_ids drift between static GTFS
+      //                       and GTFS-RT feeds in some operators).
+      // All three are cheap thanks to stop_times_trip_seq_idx (trip_id, stop_sequence).
       `SELECT st.trip_id, st.arrival_time, st.departure_time, st.pickup_type,
               st.stop_sequence,
+              t.direction_id,
               (SELECT MAX(stop_sequence) FROM stop_times WHERE trip_id = st.trip_id) AS last_seq,
               (SELECT arrival_time FROM stop_times WHERE trip_id = st.trip_id
                ORDER BY stop_sequence DESC LIMIT 1) AS trip_end_time,
+              (SELECT departure_time FROM stop_times WHERE trip_id = st.trip_id
+               ORDER BY stop_sequence ASC LIMIT 1) AS trip_start_time,
               r.route_id, r.route_short_name, r.route_color, r.route_text_color, r.route_type,
               t.trip_headsign,
               s.stop_lat, s.stop_lon

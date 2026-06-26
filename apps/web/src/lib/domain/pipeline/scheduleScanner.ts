@@ -41,6 +41,13 @@ export interface ScheduleRow {
   /** GTFS time at which this trip arrives at its terminus. Used to keep
    *  a vehicle in the 'departed' bucket only while it's still en route. */
   trip_end_time: string;
+  /** GTFS time at which this trip departs its FIRST stop (origin).
+   *  Surfaced so the reconciler can match live observations by
+   *  (route, direction, start_time) instead of trip_id. */
+  trip_start_time: string;
+  /** GTFS `trips.direction_id` (0 or 1). Used as part of the reconciler's
+   *  match key. May be null if the feed doesn't populate it. */
+  direction_id: number | null;
   route_id: string | number;
   route_short_name: string;
   route_color: string | null;
@@ -101,6 +108,8 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
       scheduledArrival: arrivalMin,
       scheduledDeparture: departureMin,
       headsign: r.trip_headsign ?? undefined,
+      directionId: r.direction_id === 0 || r.direction_id === 1 ? r.direction_id : -1,
+      tripStartMin: timeToMinutes(r.trip_start_time),
     };
     const dropOffOnly =
       Number(r.pickup_type) === 1 || r.stop_sequence === r.last_seq

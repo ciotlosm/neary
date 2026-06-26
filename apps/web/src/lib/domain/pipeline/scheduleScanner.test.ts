@@ -11,6 +11,10 @@ const row = (overrides: Partial<ScheduleRow> = {}): ScheduleRow => ({
   // Default to a trip that ends an hour after the default arrival, so past
   // arrivals are still 'en route' unless the test overrides this.
   trip_end_time: '10:05:00',
+  // Default trip start: a few minutes before this row's arrival. Tests
+  // can override per-trip when they want a specific origin time.
+  trip_start_time: '09:00:00',
+  direction_id: 0,
   route_id: '24',
   route_short_name: '24',
   route_color: 'ff0000',

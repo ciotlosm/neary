@@ -36,6 +36,13 @@ export interface LiveVehicleObservation {
   routeId: string;
   /** 0 or 1, when the feed reports a direction. -1 when unknown. */
   directionId: number;
+  /** Scheduled trip start time as reported on the TripDescriptor
+   *  ("HH:MM:SS", may exceed 24:00:00 for past-midnight trips). Empty
+   *  string if the feed doesn't populate it. Used by the reconciler to
+   *  match this observation back to a static-GTFS trip by
+   *  (routeId, directionId, startTime) since trip_ids can differ
+   *  between the static-GTFS source and the GTFS-RT feed. */
+  startTime: string;
   /** Last reported position. */
   lat: number;
   lon: number;
@@ -84,6 +91,7 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
       tripId: v.trip?.tripId ?? '',
       routeId: v.trip?.routeId ?? '',
       directionId: v.trip?.directionId ?? -1,
+      startTime: v.trip?.startTime ?? '',
       lat: v.position.latitude ?? 0,
       lon: v.position.longitude ?? 0,
       bearing: v.position.bearing ?? null,
