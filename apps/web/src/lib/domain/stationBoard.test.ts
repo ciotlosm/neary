@@ -8,9 +8,9 @@ import {
 import type { BoardRow } from './stationBoard';
 import type { Route, Vehicle } from './types';
 
-const r24: Route = { id: 24, shortName: '24', color: '#ff0000' };
-const r35: Route = { id: 35, shortName: '35', color: '#00ff00' };
-const r9: Route = { id: 9, shortName: '9', color: '#0000ff' };
+const r24: Route = { id: '24', shortName: '24', color: '#ff0000' };
+const r35: Route = { id: '35', shortName: '35', color: '#00ff00' };
+const r9: Route = { id: '9', shortName: '9', color: '#0000ff' };
 
 function scheduled(tripId: string, route: Route, etaMinutes: number): Vehicle {
   return {

@@ -69,7 +69,7 @@
   ];
 
   let stationExpanded = $state(true);
-  let selectedRouteId = $state<number | null>(null);
+  let selectedRouteId = $state<string | null>(null);
   const favorites = new Set<number>([35]);
   // All routes serving the demo station (pre-filter), so the badge row
   // stays stable when a single route is selected.
@@ -402,7 +402,7 @@
         ontoggle={() => (stationExpanded = !stationExpanded)}
         dropOffOnly={false}
         selectedRouteId={selectedRouteId}
-        onRouteClick={(id: number) => (selectedRouteId = selectedRouteId === id ? null : id)}
+        onRouteClick={(id: string) => (selectedRouteId = selectedRouteId === id ? null : id)}
         favoriteRouteIds={favorites}
       />
     </Stack>

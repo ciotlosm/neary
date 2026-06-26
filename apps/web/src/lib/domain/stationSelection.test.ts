@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { selectBoardsForView } from './stationSelection';
 import type { Route, Vehicle } from './types';
 
-const r1: Route = { id: 1, shortName: '1', color: '#000' };
-const r2: Route = { id: 2, shortName: '2', color: '#000' };
-const r99: Route = { id: 99, shortName: '99', color: '#000' };
+const r1: Route = { id: '1', shortName: '1', color: '#000' };
+const r2: Route = { id: '2', shortName: '2', color: '#000' };
+const r99: Route = { id: '99', shortName: '99', color: '#000' };
 
 const cfg = {
   nearbyRadiusM: 500,

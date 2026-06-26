@@ -145,7 +145,7 @@ export interface AssembleLiveBoardInputs {
   timezone: string;
   /** Optional view-only route filter from the StationCard badge row.
    *  Applied as the very first pipeline stage so it scopes the rest. */
-  routeFilterId?: number | null;
+  routeFilterId?: string | null;
 }
 
 export function assembleLiveBoard(input: AssembleLiveBoardInputs): BoardRow[] {

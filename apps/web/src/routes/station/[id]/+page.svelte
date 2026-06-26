@@ -32,7 +32,7 @@
   let shapes = $state<Record<string, Array<{ lat: number; lon: number }>>>({});
   let error = $state<string | null>(null);
   let notFound = $state(false);
-  let routeFilter = $state<number | null>(null);
+  let routeFilter = $state<string | null>(null);
 
   // Feed tz + wall clock both live in shared stores (feedsStore /
   // nowTicker) so every consumer pages on a single source.

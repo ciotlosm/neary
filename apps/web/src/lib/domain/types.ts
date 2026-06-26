@@ -16,8 +16,14 @@
 
 /** A single transit route as the UI sees it. */
 export interface Route {
-  id: number;
-  /** Short marketing identifier ("24", "M1", "B12"). */
+  /** GTFS route_id — a free-form text identifier per the GTFS spec.
+   *  We keep it as a string everywhere so feeds with non-numeric ids
+   *  (Cluj has '102L') round-trip cleanly through URLs, localStorage,
+   *  and set membership without lossy coercion. */
+  id: string;
+  /** Short marketing identifier (GTFS route_short_name): '24', 'M1',
+   *  'B12'. This is what users actually read; never use it as an
+   *  identifier. */
   shortName: string;
   /** Hex color, including the leading "#". The text color is computed. */
   color: string;

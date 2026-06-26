@@ -54,12 +54,10 @@ export interface SelectionInputs<S extends SelectableStop> {
   /** Tunable knobs — see NearyConfig. */
   config: Pick<NearyConfig, 'nearbyRadiusM' | 'pairProximityM' | 'favoriteFallbackRadiusM'>;
   /** Routes the user has favorited. Pass `null` until the favorites
-   *  store exists — the favorite-fallback step is a no-op. IDs are
-   *  whatever runtime form the feed produces (GTFS allows non-numeric
-   *  route_ids like "102L"); the live store always stores strings,
-   *  so callers comparing `route.id` against this set get
-   *  string-vs-string matches. */
-  favoriteRouteIds: ReadonlySet<string | number> | null;
+   *  store exists — the favorite-fallback step is a no-op. GTFS
+   *  route_ids are text per the spec (Cluj has '102L'); we store and
+   *  compare them as strings end-to-end. */
+  favoriteRouteIds: ReadonlySet<string> | null;
 }
 
 export interface SelectionResult<S extends SelectableStop> {
@@ -97,7 +95,7 @@ export function selectBoardsForView<S extends SelectableStop>(
     for (const c of candidates) {
       const d = c.stop.distance;
       if (typeof d !== 'number' || d > config.favoriteFallbackRadiusM) continue;
-      if (c.vehicles.some((v) => favoriteRouteIds.has(String(v.route.id)))) {
+      if (c.vehicles.some((v) => favoriteRouteIds.has(v.route.id))) {
         return { boards: [c], expandedStopId: c.stop.id };
       }
     }

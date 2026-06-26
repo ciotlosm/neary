@@ -8,27 +8,18 @@
  *   - /favorites page (lists favorite routes)
  *
  * Persistence: localStorage key `neary:favoriteRoutes`, stored as a
- * JSON array of route ids (always strings on the wire). Loaded once
- * on construction (browser only), saved on every mutation. SSR-safe
- * (no-ops on the server).
+ * JSON array of GTFS route_ids (strings, matching `Route.id`). Loaded
+ * once on construction (browser only), saved on every mutation.
+ * SSR-safe (no-ops on the server).
  *
- * IDs are normalised to STRINGS at the boundary. GTFS allows route_id
- * to be any text token ("102L" exists in the Cluj feed); the TS types
- * downstream still claim `number` in places but SQLite-WASM gives us
- * the value verbatim and Set membership is by identity, so a single
- * canonical form across persistence + comparison is what matters.
- * Methods accept `string | number` so callers don't have to coerce.
+ * `loadInitial` is lenient about legacy entries (numbers from older
+ * builds before Route.id was widened to string) and normalises them
+ * to strings on read so a migrating user doesn't lose their favorites.
  */
 
 import { SvelteSet } from 'svelte/reactivity';
 
 const STORAGE_KEY = 'neary:favoriteRoutes';
-
-/** Normalise any caller-supplied route id to its canonical string
- *  form. Numbers (legacy) and strings (current) both map cleanly. */
-function key(id: string | number): string {
-  return String(id);
-}
 
 function loadInitial(): string[] {
   if (typeof localStorage === 'undefined') return [];
@@ -37,9 +28,11 @@ function loadInitial(): string[] {
     if (!raw) return [];
     const arr: unknown = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
+    // Tolerate legacy number entries so migrating users keep their
+    // favorites; everything new is written as a string.
     return arr
       .filter((x): x is string | number => typeof x === 'string' || typeof x === 'number')
-      .map(key);
+      .map((x) => String(x));
   } catch {
     return [];
   }
@@ -56,25 +49,23 @@ class FavoritesStore {
     return this.#routes;
   }
 
-  has(routeId: string | number): boolean {
-    return this.#routes.has(key(routeId));
+  has(routeId: string): boolean {
+    return this.#routes.has(routeId);
   }
 
-  add(routeId: string | number): void {
-    const k = key(routeId);
-    if (this.#routes.has(k)) return;
-    this.#routes.add(k);
+  add(routeId: string): void {
+    if (this.#routes.has(routeId)) return;
+    this.#routes.add(routeId);
     this.#persist();
   }
 
-  remove(routeId: string | number): void {
-    const k = key(routeId);
-    if (!this.#routes.has(k)) return;
-    this.#routes.delete(k);
+  remove(routeId: string): void {
+    if (!this.#routes.has(routeId)) return;
+    this.#routes.delete(routeId);
     this.#persist();
   }
 
-  toggle(routeId: string | number): void {
+  toggle(routeId: string): void {
     if (this.has(routeId)) this.remove(routeId);
     else this.add(routeId);
   }

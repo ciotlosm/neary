@@ -52,10 +52,10 @@
     /** Selected route badge id. Visual hint only — marks the badge as
      *  pressed. Any actual row filtering must happen upstream so the
      *  domain pipeline (filter → bucket → cap) sees the full set. */
-    selectedRouteId?: number | null;
-    onRouteClick?: (routeId: number) => void;
+    selectedRouteId?: string | null;
+    onRouteClick?: (routeId: string) => void;
     /** Optional set of route ids that are favorited. */
-    favoriteRouteIds?: ReadonlySet<string | number>;
+    favoriteRouteIds?: ReadonlySet<string>;
     class?: string;
   };
 
@@ -158,7 +158,7 @@
                   size="medium"
                   colorMode="neutral"
                   selected={selectedRouteId === route.id}
-                  isFavorite={favoriteRouteIds?.has(String(route.id)) ?? false}
+                  isFavorite={favoriteRouteIds?.has(route.id) ?? false}
                   onclick={onRouteClick ? () => onRouteClick(route.id) : undefined}
                 />
               {/each}

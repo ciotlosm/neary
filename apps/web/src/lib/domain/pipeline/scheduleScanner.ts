@@ -100,9 +100,10 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
     }
 
     const route: Route = {
-      // route_id can be TEXT in GTFS; we keep number for legacy compat
-      // until ID types are fully widened (tracked in vehicles-and-views).
-      id: Number(r.route_id),
+      // GTFS route_id is text per the spec; keep it as the worker
+      // emitted it. Number() coercion here would map non-numeric ids
+      // (e.g. '102L') to NaN.
+      id: String(r.route_id),
       shortName: r.route_short_name,
       color: r.route_color ? `#${r.route_color}` : '#666666',
       textColor: r.route_text_color ? `#${r.route_text_color}` : undefined,

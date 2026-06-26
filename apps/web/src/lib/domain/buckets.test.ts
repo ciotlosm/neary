@@ -18,7 +18,7 @@ function inputs(o: Partial<Parameters<typeof bucketOf>[1]> & { nowMin: number })
 }
 
 // Minimal Vehicle factories for the comparator test.
-const route = { id: 1, shortName: '24', color: '#ff0000' };
+const route = { id: '1', shortName: '24', color: '#ff0000' };
 function v(id: string, _kind: Vehicle['kind'] = 'predicted'): Vehicle {
   return {
     kind: 'predicted',

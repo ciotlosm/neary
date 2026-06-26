@@ -242,7 +242,7 @@ const api: GtfsRepo = {
   async getRoutes(): Promise<Route[]> {
     const db = await ensureDb();
     type Row = {
-      route_id: number;
+      route_id: string;
       route_short_name: string;
       route_color: string | null;
       route_text_color: string | null;
@@ -316,7 +316,7 @@ const api: GtfsRepo = {
     type Row = {
       trip_id: string;
       departure_time: string;
-      route_id: number;
+      route_id: string;
       route_short_name: string;
       route_color: string | null;
       trip_headsign: string | null;
@@ -514,7 +514,7 @@ const api: GtfsRepo = {
   async getRouteById(routeId) {
     const db = await ensureDb();
     type Row = {
-      route_id: number;
+      route_id: string;
       route_short_name: string;
       route_color: string | null;
       route_text_color: string | null;

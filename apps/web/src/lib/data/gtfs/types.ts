@@ -19,7 +19,7 @@ export interface StopWithDistance extends Station {
 
 export interface UpcomingDeparture {
   tripId: string;
-  routeId: number;
+  routeId: string;
   routeShortName: string;
   routeColor: string;
   headsign: string | null;
@@ -133,7 +133,7 @@ export interface GtfsRepo {
   ): Promise<Record<string, Array<{ lat: number; lon: number }>>>;
 
   /** Single route by id, or null when the id isn't in the feed. */
-  getRouteById(routeId: number): Promise<Route | null>;
+  getRouteById(routeId: string): Promise<Route | null>;
 
   /**
    * Schedule view: trips on (routeId, directionId) whose service is
@@ -147,7 +147,7 @@ export interface GtfsRepo {
    * special-casing inside the worker.
    */
   getRouteSchedule(
-    routeId: number,
+    routeId: string,
     directionId: 0 | 1,
     localDate: string,
     fromMin: number,
@@ -172,7 +172,7 @@ export interface GtfsRepo {
    * recurring pattern, not a specific date.
    */
   getWeeklySchedule(
-    routeId: number,
+    routeId: string,
     directionId: 0 | 1,
   ): Promise<WeeklySchedule>;
 }

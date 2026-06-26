@@ -3,7 +3,7 @@ import { computeTolerance, parseLiveStartMin, reconcileWithLive } from './reconc
 import type { LiveVehicleObservation } from '$lib/data/live/gtfsRtClient';
 import type { Route, Vehicle } from './types';
 
-const r14: Route = { id: 14, shortName: '25', color: '#ff0000' };
+const r14: Route = { id: '14', shortName: '25', color: '#ff0000' };
 
 // Build a UTC Unix-ms timestamp from minutes-since-midnight. Tests use
 // timezone 'UTC' so the value round-trips through minSinceMidnightInTz
@@ -173,7 +173,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
   it('does not match across different routeIds', () => {
     const sched = [scheduled({
       tripId: 't-r14', tripStartMin: 14 * 60 + 21,
-      route: { id: 14, shortName: '25', color: '#f00' },
+      route: { id: '14', shortName: '25', color: '#f00' },
     })];
     const { vehicles } = reconcileWithLive(
       sched,

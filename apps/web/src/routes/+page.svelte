@@ -82,8 +82,8 @@
   // its board to that route; click again to clear. Lives in page state
   // (not in a store) because the spec is: temporary, view-only, cleared
   // on view-swap (this component remounts) or refresh (we reset below).
-  let routeFilters = $state<Record<number, number | null>>({});
-  function toggleRouteFilter(stopId: number, routeId: number) {
+  let routeFilters = $state<Record<number, string | null>>({});
+  function toggleRouteFilter(stopId: number, routeId: string) {
     routeFilters[stopId] = routeFilters[stopId] === routeId ? null : routeId;
   }
 
