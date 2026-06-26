@@ -199,6 +199,11 @@ export function bucketCounts(buckets: ArrivalBucket[]): Record<ArrivalBucket, nu
  *  `off-route` is always dropped from station view (debug only).
  *  Schedule-only kinds (`scheduled` / `predicted`) are always shown —
  *  they're the whole point when no live source is wired.
+ *
+ *  `dropOffOnly` does NOT apply to the `departed` bucket. That flag is
+ *  about future boardability ("you can't get on this bus") — for a
+ *  vehicle that has already left, the question is moot. When the user
+ *  opts in to recently-departed, they should see them regardless.
  */
 export function filterForStationView<
   T extends { vehicle: Vehicle; bucket: ArrivalBucket },
@@ -212,7 +217,11 @@ export function filterForStationView<
   return entries.filter((e) => {
     if (e.bucket === 'off-route') return false;
     if (e.bucket === 'departed' && !prefs.showDepartedVehicles) return false;
-    if (e.vehicle.dropOffOnly && !prefs.showDropOffOnly) return false;
+    if (
+      e.bucket !== 'departed' &&
+      e.vehicle.dropOffOnly &&
+      !prefs.showDropOffOnly
+    ) return false;
     return true;
   });
 }

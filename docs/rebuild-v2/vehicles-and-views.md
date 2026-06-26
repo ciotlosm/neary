@@ -326,7 +326,7 @@ ignores both and always shows every vehicle.
 
 | `userPrefs` flag             | Default | Effect on station view                                                |
 | ---------------------------- | ------- | --------------------------------------------------------------------- |
-| `showDropOffOnly`            | `true`  | When `false`, drop vehicles with `vehicle.dropOffOnly === true`. Set by `scheduleScanner` when either GTFS `stop_times.pickup_type = 1` OR the stop is the trip's terminus (operators routinely leave `pickup_type` null at the last stop, so the structural fallback catches those). When `true`, the row is shown with a small "Drop off" chip. |
+| `showDropOffOnly`            | `true`  | When `false`, drop vehicles with `vehicle.dropOffOnly === true` from the **future** buckets (incoming / arriving / at-station / departing). Set by `scheduleScanner` when either GTFS `stop_times.pickup_type = 1` OR the stop is the trip's terminus (operators routinely leave `pickup_type` null at the last stop, so the structural fallback catches those). The `departed` bucket ignores this flag — past vehicles aren't boardable anyway, so the question is moot. When `true`, the row is shown with a small "Drop off" chip. |
 | `showDepartedVehicles`       | `false` | When `false`, drop the `departed` bucket entirely. When `true`, show recently-departed vehicles (within the 5-min recency window). |
 
 Schedule-only kinds (`predicted` / `scheduled`) are always shown.

@@ -209,4 +209,15 @@ describe('filterForStationView', () => {
     expect(out).toHaveLength(1);
     expect(out[0].vehicle.dropOffOnly).toBeFalsy();
   });
+
+  it('keeps drop-off-only DEPARTED vehicles even when showDropOffOnly is off', () => {
+    // dropOffOnly is about future boardability; for past vehicles it's
+    // meaningless. The departed bucket honors only its own toggle.
+    const out = filterForStationView(
+      [base('departed', true)],
+      { ...allowAll, showDropOffOnly: false },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].bucket).toBe('departed');
+  });
 });
