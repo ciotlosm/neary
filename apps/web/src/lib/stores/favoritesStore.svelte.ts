@@ -8,31 +8,38 @@
  *   - /favorites page (lists favorite routes)
  *
  * Persistence: localStorage key `neary:favoriteRoutes`, stored as a
- * JSON array of route ids. Loaded once on construction (browser only),
- * saved on every mutation. SSR-safe (no-ops on the server).
+ * JSON array of route ids (always strings on the wire). Loaded once
+ * on construction (browser only), saved on every mutation. SSR-safe
+ * (no-ops on the server).
  *
- * Implementation: a `SvelteSet` from svelte/reactivity. We previously
- * wrapped a plain Set in `$state` and reassigned on every mutation
- * (`this.#routes = new Set(this.#routes).add(id)`). That worked for
- * UI re-renders but tripped a Svelte 5 quirk where the reassignment
- * happened before the rune finished tracking, so consumers
- * occasionally saw stale data — including after a reload, where the
- * persisted value looked unchanged. SvelteSet's `.add` / `.delete`
- * fire reactivity natively and avoid the in-flight copy entirely.
+ * IDs are normalised to STRINGS at the boundary. GTFS allows route_id
+ * to be any text token ("102L" exists in the Cluj feed); the TS types
+ * downstream still claim `number` in places but SQLite-WASM gives us
+ * the value verbatim and Set membership is by identity, so a single
+ * canonical form across persistence + comparison is what matters.
+ * Methods accept `string | number` so callers don't have to coerce.
  */
 
 import { SvelteSet } from 'svelte/reactivity';
 
 const STORAGE_KEY = 'neary:favoriteRoutes';
 
-function loadInitial(): number[] {
+/** Normalise any caller-supplied route id to its canonical string
+ *  form. Numbers (legacy) and strings (current) both map cleanly. */
+function key(id: string | number): string {
+  return String(id);
+}
+
+function loadInitial(): string[] {
   if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const arr: unknown = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    return arr.filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
+    return arr
+      .filter((x): x is string | number => typeof x === 'string' || typeof x === 'number')
+      .map(key);
   } catch {
     return [];
   }
@@ -42,31 +49,33 @@ class FavoritesStore {
   // Native reactive Set — mutations on it propagate without any
   // reassignment dance, and consumers read through `routeIds` (a
   // ReadonlySet view) so they can't mutate behind our back.
-  #routes = new SvelteSet<number>(loadInitial());
+  #routes = new SvelteSet<string>(loadInitial());
 
   /** Reactive, read-only view. */
-  get routeIds(): ReadonlySet<number> {
+  get routeIds(): ReadonlySet<string> {
     return this.#routes;
   }
 
-  has(routeId: number): boolean {
-    return this.#routes.has(routeId);
+  has(routeId: string | number): boolean {
+    return this.#routes.has(key(routeId));
   }
 
-  add(routeId: number): void {
-    if (this.#routes.has(routeId)) return;
-    this.#routes.add(routeId);
+  add(routeId: string | number): void {
+    const k = key(routeId);
+    if (this.#routes.has(k)) return;
+    this.#routes.add(k);
     this.#persist();
   }
 
-  remove(routeId: number): void {
-    if (!this.#routes.has(routeId)) return;
-    this.#routes.delete(routeId);
+  remove(routeId: string | number): void {
+    const k = key(routeId);
+    if (!this.#routes.has(k)) return;
+    this.#routes.delete(k);
     this.#persist();
   }
 
-  toggle(routeId: number): void {
-    if (this.#routes.has(routeId)) this.remove(routeId);
+  toggle(routeId: string | number): void {
+    if (this.has(routeId)) this.remove(routeId);
     else this.add(routeId);
   }
 

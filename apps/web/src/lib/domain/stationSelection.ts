@@ -54,8 +54,12 @@ export interface SelectionInputs<S extends SelectableStop> {
   /** Tunable knobs — see NearyConfig. */
   config: Pick<NearyConfig, 'nearbyRadiusM' | 'pairProximityM' | 'favoriteFallbackRadiusM'>;
   /** Routes the user has favorited. Pass `null` until the favorites
-   *  store exists — the favorite-fallback step is a no-op. */
-  favoriteRouteIds: ReadonlySet<number> | null;
+   *  store exists — the favorite-fallback step is a no-op. IDs are
+   *  whatever runtime form the feed produces (GTFS allows non-numeric
+   *  route_ids like "102L"); the live store always stores strings,
+   *  so callers comparing `route.id` against this set get
+   *  string-vs-string matches. */
+  favoriteRouteIds: ReadonlySet<string | number> | null;
 }
 
 export interface SelectionResult<S extends SelectableStop> {
