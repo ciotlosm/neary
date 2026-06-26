@@ -52,24 +52,28 @@
   import { userPrefs } from '$lib/stores/userPrefs.svelte';
 
   // ── URL params ──────────────────────────────────────────────────────
-  const routeId = $derived(Number(page.params.id));
-  const routeIdValid = $derived(Number.isFinite(routeId) && routeId > 0);
-
-  const direction = $derived<0 | 1 | null>(
-    page.url.searchParams.get('dir') === '0' ? 0
-    : page.url.searchParams.get('dir') === '1' ? 1
-    : null,
-  );
+  // The `id` segment carries both route id and (optional) direction:
+  //   '40'    → route 40, multi-direction
+  //   '40_0'  → route 40, direction 0
+  //   '40_1'  → route 40, direction 1
+  // Anything else (or no suffix) means multi-direction, so a malformed
+  // URL never half-renders a single-direction view.
+  const idSegment = $derived(page.params.id ?? '');
+  const parsed = $derived.by<{ routeId: string; direction: 0 | 1 | null }>(() => {
+    const m = idSegment.match(/^(.+)_([01])$/);
+    if (m) return { routeId: m[1], direction: Number(m[2]) as 0 | 1 };
+    return { routeId: idSegment, direction: null };
+  });
+  const routeId = $derived(parsed.routeId);
+  const direction = $derived(parsed.direction);
+  const routeIdValid = $derived(routeId.length > 0);
 
   type View = 'next-trip' | 'today' | 'tomorrow' | 'week';
   const view = $derived.by<View>(() => {
-    const v = page.url.searchParams.get('view');
+    const v = page.params.view;
     if (v === 'today' || v === 'tomorrow' || v === 'next-trip' || v === 'week') return v;
-    // Back-compat: old links used 'this-trip' for the same concept.
+    // Back-compat for old links that used ?view=this-trip.
     if (v === 'this-trip') return 'next-trip';
-    // 'today' is the canonical default — `pickView` strips the
-    // query string for it, so the URL with no ?view= must also
-    // resolve here.
     return 'today';
   });
 
