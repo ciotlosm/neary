@@ -98,10 +98,21 @@ export function reconcileWithLive(
     return tol;
   }
 
-  // Pick the single best scheduled candidate per live observation.
-  // Track which scheduled index each match landed on so we promote at
-  // most once (a single GPS bus shouldn't upgrade two scheduled rows).
-  const matchByScheduledIdx = new Map<number, LiveVehicleObservation>();
+  // Bipartite-style greedy assignment:
+  //   1. Enumerate ALL (live, sched) pairs that fall within the
+  //      cohort's adaptive tolerance, recording the delta.
+  //   2. Sort by delta ascending so the strongest matches claim their
+  //      slots first.
+  //   3. Greedy walk: each live obs and each scheduled row participate
+  //      in at most one match. A perfect (delta=0) pairing therefore
+  //      always wins over a sloppy (delta=tol) pairing fighting for the
+  //      same scheduled slot, no matter the iteration order of `live`.
+  // This is strictly \u2265 the previous first-iteration-wins variant; it
+  // never loses a match the old code would have made, and recovers
+  // dropped perfect matches in the common "two buses claim the same
+  // sched slot" situation observed on high-frequency lines.
+  type Pair = { obs: LiveVehicleObservation; schedIdx: number; delta: number };
+  const pairs: Pair[] = [];
   let ambiguous = 0;
   for (const obs of live) {
     const liveStart = parseLiveStartMin(obs);
@@ -113,25 +124,34 @@ export function reconcileWithLive(
     if (!candidates || candidates.length === 0) continue;
 
     const tol = toleranceFor(key);
-    let best: { idx: number; delta: number } | null = null;
-    let tiedCount = 0;
+    let inTol = 0;
+    let minDelta = Infinity;
     for (const c of candidates) {
       const delta = Math.abs(c.tripStartMin - liveStart);
       if (delta > tol) continue;
-      if (best == null || delta < best.delta) {
-        best = { idx: c.idx, delta };
-        tiedCount = 1;
-      } else if (delta === best.delta) {
-        tiedCount += 1;
+      pairs.push({ obs, schedIdx: c.idx, delta });
+      inTol += 1;
+      if (delta < minDelta) minDelta = delta;
+    }
+    // Telemetry only: count obs that had \u22652 candidates at the same
+    // closest delta \u2014 we still resolve via the global sort below.
+    if (inTol >= 2) {
+      let tiedAtMin = 0;
+      for (const c of candidates) {
+        if (Math.abs(c.tripStartMin - liveStart) === minDelta) tiedAtMin += 1;
       }
+      if (tiedAtMin > 1) ambiguous += 1;
     }
-    if (!best) continue;
-    if (tiedCount > 1) ambiguous += 1;
-    // First obs that wants this scheduled row wins. The "earlier in the
-    // live list" tiebreaker is arbitrary but deterministic across runs.
-    if (!matchByScheduledIdx.has(best.idx)) {
-      matchByScheduledIdx.set(best.idx, obs);
-    }
+  }
+  pairs.sort((a, b) => a.delta - b.delta);
+
+  const matchByScheduledIdx = new Map<number, LiveVehicleObservation>();
+  const matchedLiveObs = new Set<LiveVehicleObservation>();
+  for (const p of pairs) {
+    if (matchByScheduledIdx.has(p.schedIdx)) continue;
+    if (matchedLiveObs.has(p.obs)) continue;
+    matchByScheduledIdx.set(p.schedIdx, p.obs);
+    matchedLiveObs.add(p.obs);
   }
 
   let matched = 0;
