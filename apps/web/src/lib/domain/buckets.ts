@@ -48,6 +48,41 @@ export const BUCKET_LABEL: Record<ArrivalBucket, string> = {
   'off-route': 'Off route',
 };
 
+/** Context-aware label for a bucket given the rows that fell into it.
+ *  Origin-stop rows ('isAtTripStart') aren't really 'arriving from
+ *  somewhere' — the bus is being prepared to start the trip — so we
+ *  swap the verb to match what the rider sees on the curb:
+ *
+ *    arriving:  all origin → 'Preparing'
+ *               mixed      → 'Arriving & Preparing'
+ *               none       → 'Arriving'
+ *    incoming:  all origin → 'Scheduled'
+ *               mixed      → 'Incoming & Scheduled'
+ *               none       → 'Incoming'
+ *
+ *  Other buckets are unaffected: a vehicle that is 'departing' from
+ *  its origin or 'at-station' at its origin reads correctly either
+ *  way. */
+export function bucketLabel(
+  bucket: ArrivalBucket,
+  vehicles: readonly Vehicle[],
+): string {
+  if (bucket !== 'arriving' && bucket !== 'incoming') {
+    return BUCKET_LABEL[bucket];
+  }
+  let hasOrigin = false;
+  let hasOther = false;
+  for (const v of vehicles) {
+    if (v.schedule?.isAtTripStart) hasOrigin = true;
+    else hasOther = true;
+    if (hasOrigin && hasOther) break;
+  }
+  const originWord = bucket === 'arriving' ? 'Preparing' : 'Scheduled';
+  if (hasOrigin && !hasOther) return originWord;
+  if (hasOrigin && hasOther) return `${BUCKET_LABEL[bucket]} & ${originWord}`;
+  return BUCKET_LABEL[bucket];
+}
+
 // Thresholds — sourced from DEFAULT_CONFIG (lib/domain/config.ts) so a
 // single object controls every magic number in the app. Re-exported as
 // individual consts to keep existing imports stable.

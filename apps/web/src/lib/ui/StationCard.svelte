@@ -15,7 +15,7 @@
   import { Bus, ChevronDown, MapPin } from 'lucide-svelte';
   import type { Route, Station, Vehicle } from '$lib/domain/types';
   import {
-    BUCKET_LABEL, BUCKET_ORDER, etaUrgency, type ArrivalBucket,
+    BUCKET_ORDER, bucketLabel, etaUrgency, type ArrivalBucket,
   } from '$lib/domain/buckets';
   import type { BoardRow } from '$lib/domain/stationBoard';
   import Avatar from './Avatar.svelte';
@@ -116,7 +116,7 @@
       .sort(([a], [b]) => BUCKET_ORDER[a] - BUCKET_ORDER[b])
       .map(([bucket, vehicles]) => ({
         bucket,
-        label: BUCKET_LABEL[bucket],
+        label: bucketLabel(bucket, vehicles),
         vehicles,
       }));
   });
