@@ -10,8 +10,11 @@ import type { Feed } from '$lib/data/feeds';
 import type { Route, Station, Vehicle } from '$lib/domain/types';
 
 export interface StopWithDistance extends Station {
-  /** Always populated by getStopsNear (meters). */
-  distance: number;
+  /** Meters from the query coordinate. Optional because the by-id
+   *  entry path (getStationBoard) has no GPS context to compute it
+   *  against \u2014 every other producer (getStopsNear, getStationBoardsNear)
+   *  always sets it. Consumers that need it should check for `number`. */
+  distance?: number;
 }
 
 export interface UpcomingDeparture {
@@ -94,4 +97,20 @@ export interface GtfsRepo {
     nowMs: number,
     windowMinutes: number,
   ): Promise<{ stop: StopWithDistance; vehicles: Vehicle[] }[]>;
+
+  /**
+   * Single-stop variant of getStationBoardsNear. Used by the
+   * /station/[id] route and any future view that resolves a stop
+   * without GPS (e.g. user picks a stop from a map). Returns null
+   * when the stop_id does not exist.
+   *
+   * `stop.distance` is undefined here — there's no GPS context to
+   * compute it against. Consumers that want a distance should use
+   * getStationBoardsNear instead.
+   */
+  getStationBoard(
+    stopId: number,
+    nowMs: number,
+    windowMinutes: number,
+  ): Promise<{ stop: StopWithDistance; vehicles: Vehicle[] } | null>;
 }

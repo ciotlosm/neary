@@ -371,6 +371,32 @@ const api: GtfsRepo = {
     }
     return boards;
   },
+
+  async getStationBoard(stopId, nowMs, windowMinutes) {
+    // By-id entry point for /station/[id] and any future view that
+    // resolves a stop without GPS (e.g. user taps a stop on the map).
+    // Same shape as one element of getStationBoardsNear so consumers
+    // can use the exact same assembleLiveBoard composer downstream.
+    const db = await ensureDb();
+    type Row = { stop_id: number; stop_name: string; stop_lat: number; stop_lon: number };
+    const rows = selectAll<Row>(
+      db,
+      `SELECT stop_id, stop_name, stop_lat, stop_lon FROM stops WHERE stop_id = ?;`,
+      [stopId],
+    );
+    if (rows.length === 0) return null;
+    const s = rows[0];
+    const vehicles = await api.getStationArrivals(stopId, nowMs, windowMinutes);
+    return {
+      stop: {
+        id: s.stop_id, name: s.stop_name, lat: s.stop_lat, lon: s.stop_lon,
+        // distance intentionally absent \u2014 no GPS context here, and
+        // StopWithDistance treats it as optional. The StationCard
+        // already handles undefined distance gracefully.
+      },
+      vehicles,
+    };
+  },
 };
 
 // ---------------------------------------------------------------------------

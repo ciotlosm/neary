@@ -1,0 +1,142 @@
+<!--
+  Station detail view — by-id entry point. Same render path as the
+  Stations landing page (assembleLiveBoard → StationCard) but the stop
+  is resolved by URL param instead of GPS + selector. Used today by
+  type-the-id, in the future by map tap-to-inspect.
+
+  No GPS dependency, no location store touched. Refresh + live polling
+  flow exactly as on /.
+-->
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
+  import { Bus } from 'lucide-svelte';
+  import {
+    Card, CardContent, Spinner, Stack, StationCard, Typography, Button,
+  } from '$lib/ui';
+  import { getGtfsRepo } from '$lib/data/gtfs/repo';
+  import type { StopWithDistance } from '$lib/data/gtfs/types';
+  import { assembleLiveBoard, routesFromVehicles } from '$lib/domain/stationBoard';
+  import type { Vehicle } from '$lib/domain/types';
+  import { feedsStore } from '$lib/stores/feedsStore.svelte';
+  import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
+  import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
+  import { refreshBus } from '$lib/stores/refreshBus.svelte';
+  import { userPrefs } from '$lib/stores/userPrefs.svelte';
+
+  const ARRIVALS_WINDOW_MIN = 240;
+
+  const stopId = $derived(Number(page.params.id));
+  const stopIdValid = $derived(Number.isFinite(stopId) && stopId > 0);
+
+  let board = $state<{ stop: StopWithDistance; vehicles: Vehicle[] } | null>(null);
+  let error = $state<string | null>(null);
+  let notFound = $state(false);
+  let routeFilter = $state<number | null>(null);
+
+  // Same feed-timezone derivation pattern as / page (single source).
+  const feedTimezone = $derived(
+    feedsStore.byId(feedsStore.boundFeedId)?.timezone ?? 'UTC',
+  );
+
+  // Tick once a minute so ETAs/buckets refresh without re-querying SQLite.
+  let nowMs = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (nowMs = Date.now()), 30_000);
+    return () => clearInterval(t);
+  });
+
+  $effect(() => {
+    const fid = feedsStore.boundFeedId;
+    if (!fid) return;
+    if (!stopIdValid) return;
+    // Subscribe to manual-refresh ticks (header refresh button).
+    refreshBus.tick;
+    const sid = stopId;
+    (async () => {
+      try {
+        const repo = getGtfsRepo();
+        const result = await repo.getStationBoard(sid, Date.now(), ARRIVALS_WINDOW_MIN);
+        if (!result) {
+          notFound = true;
+          board = null;
+        } else {
+          notFound = false;
+          board = result;
+          error = null;
+          routeFilter = null; // reset on every refresh
+        }
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+    })();
+  });
+</script>
+
+<div class="mx-auto max-w-3xl px-4 py-6">
+  {#if userPrefs.feedId == null}
+    <Card class="text-center">
+      <CardContent>
+        <Stack spacing={2} align="center">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[color:var(--color-primary)]/10 text-[color:var(--color-primary)]">
+            <Bus size={24} />
+          </div>
+          <Typography variant="h4">Select your transit feed</Typography>
+          <Button onclick={() => goto('/settings')}>
+            Open Settings
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  {:else if !stopIdValid}
+    <Card>
+      <CardContent>
+        <Typography variant="h6" class="text-[color:var(--color-danger)]">Invalid stop id</Typography>
+      </CardContent>
+    </Card>
+  {:else if error}
+    <Card>
+      <CardContent>
+        <Stack spacing={1}>
+          <Typography variant="h6" class="text-[color:var(--color-danger)]">Failed to load station</Typography>
+          <Typography variant="caption">{error}</Typography>
+        </Stack>
+      </CardContent>
+    </Card>
+  {:else if notFound}
+    <Card>
+      <CardContent>
+        <Typography variant="h6">Station #{stopId} not found in the current feed.</Typography>
+      </CardContent>
+    </Card>
+  {:else if !board}
+    <Card>
+      <CardContent>
+        <Stack direction="row" spacing={1} align="center">
+          <Spinner size={16} />
+          <Typography variant="caption">Loading station…</Typography>
+        </Stack>
+      </CardContent>
+    </Card>
+  {:else}
+    {@const rows = assembleLiveBoard({
+      vehicles: board.vehicles,
+      stop: board.stop,
+      liveObservations: liveVehiclesStore.observations,
+      prefs: userPrefs,
+      nowMs,
+      timezone: feedTimezone,
+      routeFilterId: routeFilter,
+    })}
+    <StationCard
+      station={{ id: board.stop.id, name: board.stop.name, lat: board.stop.lat, lon: board.stop.lon }}
+      rows={rows}
+      allRoutes={routesFromVehicles(board.vehicles)}
+      selectedRouteId={routeFilter}
+      onRouteClick={(rid) => (routeFilter = routeFilter === rid ? null : rid)}
+      favoriteRouteIds={favoritesStore.routeIds}
+      expanded={true}
+      ontoggle={() => {}}
+    />
+  {/if}
+</div>

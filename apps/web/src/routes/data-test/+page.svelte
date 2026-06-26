@@ -156,7 +156,7 @@
             <ListItem>
               <ListItemText
                 primary={s.name}
-                secondary={`id ${s.id} · ${fmtMeters(s.distance)}${i === 0 ? ' · closest' : ''}`}
+                secondary={`id ${s.id} · ${fmtMeters(s.distance ?? 0)}${i === 0 ? ' · closest' : ''}`}
               />
               {#if i === 0}
                 <Chip size="small" color="primary">

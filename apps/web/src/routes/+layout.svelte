@@ -12,6 +12,7 @@
   import { AppLayout, type HeaderHealth } from '$lib/ui';
   import { connectionStore } from '$lib/stores/connectionStore.svelte';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
+  import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
   import { locationStore } from '$lib/stores/locationStore.svelte';
   import { refreshBus } from '$lib/stores/refreshBus.svelte';
@@ -34,7 +35,7 @@
       setLocation: (lat: number, lon: number, accuracy = 25) =>
         locationStore.setMockPosition(lat, lon, accuracy),
       clearLocation: () => locationStore.clearMockPosition(),
-      stores: { locationStore, feedsStore, statusBus, userPrefs, refreshBus, liveVehiclesStore },
+      stores: { locationStore, feedsStore, statusBus, userPrefs, refreshBus, liveVehiclesStore, favoritesStore },
     };
   });
 

@@ -24,6 +24,7 @@
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
   import { locationStore } from '$lib/stores/locationStore.svelte';
+  import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { refreshBus } from '$lib/stores/refreshBus.svelte';
   import { statusBus } from '$lib/stores/statusBus.svelte';
   import { userPrefs } from '$lib/stores/userPrefs.svelte';
@@ -148,13 +149,10 @@
         // slot in the primary pair. Common for GTFS stops that exist
         // in the data for legacy / terminus / one-off reasons.
         const withService = candidates.filter((b) => b.vehicles.length > 0);
-        // TODO(favorites): replace null with favoritesStore.routeIds once
-        // the store lands. Selector is a no-op for the fallback step
-        // until then — same call, no rewrite later.
         const selection = selectBoardsForView({
           candidates: withService,
           config: DEFAULT_CONFIG,
-          favoriteRouteIds: null,
+          favoriteRouteIds: favoritesStore.routeIds,
         });
         boards = selection.boards;
         boardsError = null;
@@ -274,6 +272,7 @@
           allRoutes={routesFromVehicles(vehicles)}
           selectedRouteId={routeFilter}
           onRouteClick={(rid) => toggleRouteFilter(stop.id, rid)}
+          favoriteRouteIds={favoritesStore.routeIds}
           expanded={expandedStopId === stop.id}
           ontoggle={() => (expandedStopId = expandedStopId === stop.id ? null : stop.id)}
         />
