@@ -56,7 +56,6 @@ import { DEFAULT_CONFIG } from './config';
 export const PROXIMITY_AT_STATION_M = DEFAULT_CONFIG.proximityAtStationM;
 export const OFF_ROUTE_DISTANCE_M = DEFAULT_CONFIG.offRouteDistanceM;
 export const ARRIVING_THRESHOLD_MIN = DEFAULT_CONFIG.arrivingThresholdMin;
-export const RECENT_DEPARTURE_WINDOW_MIN = DEFAULT_CONFIG.recentDepartureWindowMin;
 export const DEPARTING_SPEED_KMH = DEFAULT_CONFIG.departingSpeedKmh;
 export const SCHEDULED_DWELL_GAP_MIN = DEFAULT_CONFIG.minDwellGapMin;
 
@@ -157,9 +156,10 @@ export function bucketOf(
     return etaMinutes <= ARRIVING_THRESHOLD_MIN ? 'arriving' : 'incoming';
   }
 
-  // 4. Past.
-  if (-etaMinutes <= RECENT_DEPARTURE_WINDOW_MIN) return 'departed';
-  return 'off-route';
+  // 4. Past. The scheduleScanner already excluded trips that have
+  //    completed (terminus time < now), so anything past here is still
+  //    en route and belongs in 'departed'. No artificial recency cap.
+  return 'departed';
 }
 
 /** Sort comparator: bucket display order, then ascending eta minutes,

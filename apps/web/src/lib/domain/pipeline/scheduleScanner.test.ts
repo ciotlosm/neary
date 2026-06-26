@@ -8,6 +8,9 @@ const row = (overrides: Partial<ScheduleRow> = {}): ScheduleRow => ({
   pickup_type: 0,
   stop_sequence: 3,
   last_seq: 8,
+  // Default to a trip that ends an hour after the default arrival, so past
+  // arrivals are still 'en route' unless the test overrides this.
+  trip_end_time: '10:05:00',
   route_id: '24',
   route_short_name: '24',
   route_color: 'ff0000',
@@ -51,11 +54,10 @@ describe('scanSchedule', () => {
     expect(out[0].position?.lat).toBeCloseTo(46.7712, 4);
   });
 
-  it('drops arrivals outside the window', () => {
+  it('drops future arrivals outside the window', () => {
     const out = scanSchedule({
       rows: [
-        row({ arrival_time: '06:00:00', departure_time: '06:00:30' }),
-        row({ arrival_time: '12:00:00', departure_time: '12:00:30' }),
+        row({ arrival_time: '12:00:00', departure_time: '12:00:30', trip_end_time: '13:00:00' }),
       ],
       nowMinSinceMidnight: now,
       nowMs,
@@ -64,15 +66,31 @@ describe('scanSchedule', () => {
     expect(out).toHaveLength(0);
   });
 
-  it('keeps recently departed arrivals (5 min past window)', () => {
+  it('drops past arrivals whose trip has already reached terminus', () => {
+    // arrival 06:00, trip ended 06:30. now = 09:00 -> trip done, skip.
     const out = scanSchedule({
-      rows: [row({ arrival_time: '08:57:00', departure_time: '08:57:30' })],
+      rows: [
+        row({ arrival_time: '06:00:00', departure_time: '06:00:30', trip_end_time: '06:30:00' }),
+      ],
+      nowMinSinceMidnight: now,
+      nowMs,
+      windowMinutes: 60,
+    });
+    expect(out).toHaveLength(0);
+  });
+
+  it('keeps past arrivals whose trip is still en route to terminus', () => {
+    // arrival 08:50 (10 min ago), trip ends 09:30 -> still en route.
+    const out = scanSchedule({
+      rows: [
+        row({ arrival_time: '08:50:00', departure_time: '08:50:30', trip_end_time: '09:30:00' }),
+      ],
       nowMinSinceMidnight: now,
       nowMs,
       windowMinutes: 60,
     });
     expect(out).toHaveLength(1);
-    expect(out[0].eta?.minutes).toBe(-3);
+    expect(out[0].eta?.minutes).toBe(-10);
   });
 
   it('flags drop-off-only (pickup_type=1)', () => {

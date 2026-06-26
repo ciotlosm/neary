@@ -312,15 +312,19 @@ const api: GtfsRepo = {
     const placeholders = services.map(() => '?').join(',');
     const rows = selectAll<ScheduleRow>(
       db,
-      // The correlated subquery on stop_times computes the trip's terminus
-      // index (max stop_sequence) per row. The scheduleScanner uses
-      // (stop_sequence === last_seq) to mark terminus arrivals as
-      // drop-off-only — Cluj (and many operators) leave pickup_type null
-      // even at the last stop, so we infer it from structure. The
-      // stop_times_trip_seq_idx index keeps this cheap.
+      // Two correlated subqueries per row:
+      //   last_seq          — trip's terminus index, used to detect
+      //                       drop-off-only terminus arrivals.
+      //   trip_end_time     — arrival_time at that terminus, used to keep
+      //                       a vehicle in the 'departed' bucket only
+      //                       while it's still en route (not yet arrived
+      //                       at its terminus).
+      // Both are cheap thanks to stop_times_trip_seq_idx (trip_id, stop_sequence).
       `SELECT st.trip_id, st.arrival_time, st.departure_time, st.pickup_type,
               st.stop_sequence,
               (SELECT MAX(stop_sequence) FROM stop_times WHERE trip_id = st.trip_id) AS last_seq,
+              (SELECT arrival_time FROM stop_times WHERE trip_id = st.trip_id
+               ORDER BY stop_sequence DESC LIMIT 1) AS trip_end_time,
               r.route_id, r.route_short_name, r.route_color, r.route_text_color, r.route_type,
               t.trip_headsign,
               s.stop_lat, s.stop_lon

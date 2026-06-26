@@ -40,6 +40,9 @@ export interface ScheduleRow {
    *  arrival, which we treat as drop-off-only regardless of what
    *  `pickup_type` says (operators routinely leave it null). */
   last_seq: number;
+  /** GTFS time at which this trip arrives at its terminus. Used to keep
+   *  a vehicle in the 'departed' bucket only while it's still en route. */
+  trip_end_time: string;
   route_id: string | number;
   route_short_name: string;
   route_color: string | null;
@@ -58,10 +61,6 @@ export interface ScheduleScannerInputs {
   nowMs: number;
   /** How many minutes in the future to include. */
   windowMinutes: number;
-  /** How many minutes in the past to include (so the bucketer can produce
-   *  the `departed` bucket from this same scan). Default 5 — matches the
-   *  recency window in buckets.ts. */
-  pastWindowMinutes?: number;
   /** Sources we tried to query for live data, even if none responded for
    *  this trip. Empty array means "we only have schedule, no live wired". */
   checkedSources?: LiveSource[];
@@ -75,21 +74,27 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
     nowMinSinceMidnight,
     nowMs,
     windowMinutes,
-    pastWindowMinutes = 5,
     checkedSources = [],
   } = inputs;
 
-  const lower = nowMinSinceMidnight - pastWindowMinutes;
   const upper = nowMinSinceMidnight + windowMinutes;
 
   const out: Vehicle[] = [];
   for (const r of rows) {
     const arrivalMin = timeToMinutes(r.arrival_time);
     const departureMin = timeToMinutes(r.departure_time);
-    // GTFS allows 25:30:00 etc. for trips that cross midnight — accept
-    // them but only when the wall-clock window can reach them. Cheap
-    // filter on the arrival time:
-    if (arrivalMin < lower || arrivalMin > upper) continue;
+    const tripEndMin = timeToMinutes(r.trip_end_time);
+
+    // Inclusion rule:
+    //   * future arrivals up to `windowMinutes` ahead, OR
+    //   * past arrivals whose trip hasn't yet reached its terminus (so the
+    //     vehicle is still en route somewhere on the line and belongs in
+    //     the 'departed' bucket on this stop's board).
+    // No artificial 5-min recency cap — the trip-end gate naturally bounds it.
+    if (arrivalMin > upper) continue;
+    if (arrivalMin <= nowMinSinceMidnight && tripEndMin <= nowMinSinceMidnight) {
+      continue;
+    }
 
     const route: Route = {
       // route_id can be TEXT in GTFS; we keep number for legacy compat

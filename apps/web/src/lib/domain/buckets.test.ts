@@ -43,12 +43,12 @@ describe('bucketOf', () => {
     expect(bucketOf('predicted', inputs({ nowMin: now, etaMinutes: 1 }))).toBe('arriving');
   });
 
-  it('returns departed within the 5 min recency window', () => {
+  it('returns departed when in the past (scanner gates trip-end)', () => {
+    // Bucketer now trusts the scheduleScanner to drop trips whose terminus
+    // has already passed; anything past that reaches the bucketer is still
+    // en route and belongs in 'departed', no recency cap.
     expect(bucketOf('predicted', inputs({ nowMin: now, etaMinutes: -3 }))).toBe('departed');
-  });
-
-  it('returns off-route once past the recency window', () => {
-    expect(bucketOf('predicted', inputs({ nowMin: now, etaMinutes: -10 }))).toBe('off-route');
+    expect(bucketOf('predicted', inputs({ nowMin: now, etaMinutes: -30 }))).toBe('departed');
   });
 
   it('off-route for live vehicles far from stop and off shape', () => {

@@ -19,8 +19,6 @@ export interface NearyConfig {
   offRouteDistanceM: number;
   /** Future ETA threshold separating "arriving" from "incoming". */
   arrivingThresholdMin: number;
-  /** Recency window for the "departed" bucket. */
-  recentDepartureWindowMin: number;
   /** A live vehicle at the stop moving faster than this is "departing"
    *  (otherwise it's "at-station"). */
   departingSpeedKmh: number;
@@ -40,7 +38,6 @@ export const DEFAULT_CONFIG: NearyConfig = {
   proximityAtStationM: 50,
   offRouteDistanceM: 200,
   arrivingThresholdMin: 2,
-  recentDepartureWindowMin: 5,
   departingSpeedKmh: 5,
   minDwellGapMin: 1,
   predictedDepartureGraceMin: 5,

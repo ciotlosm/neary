@@ -327,7 +327,7 @@ ignores both and always shows every vehicle.
 | `userPrefs` flag             | Default | Effect on station view                                                |
 | ---------------------------- | ------- | --------------------------------------------------------------------- |
 | `showDropOffOnly`            | `true`  | When `false`, drop vehicles with `vehicle.dropOffOnly === true` from the **future** buckets (incoming / arriving / at-station / departing). Set by `scheduleScanner` when either GTFS `stop_times.pickup_type = 1` OR the stop is the trip's terminus (operators routinely leave `pickup_type` null at the last stop, so the structural fallback catches those). The `departed` bucket ignores this flag — past vehicles aren't boardable anyway, so the question is moot. When `true`, the row is shown with a small "Drop off" chip. |
-| `showDepartedVehicles`       | `false` | When `false`, drop the `departed` bucket entirely. When `true`, show recently-departed vehicles (within the 5-min recency window). |
+| `showDepartedVehicles`       | `false` | When `false`, drop the `departed` bucket entirely. When `true`, show vehicles that have passed this stop and are still en route to their trip's terminus (no artificial recency cap — the scheduleScanner gates on `trip_end_time > now`). The `dropOffOnly` filter does NOT apply here; you can't board a past vehicle anyway. |
 
 Schedule-only kinds (`predicted` / `scheduled`) are always shown.
 `off-route` is always hidden from station boards; it only surfaces in the
@@ -663,8 +663,12 @@ export interface NearyConfig {
    *  v1: implicit 1 min. Default: 30 seconds for live, 60 seconds for
    *  schedule-only — see §7.2 below. */
   arrivingDepartingWindowS: number;
-  /** Recency window for the "departed" bucket. v1: 5 min. */
-  recentDepartureWindowMin: number;
+  /** Reserved — no longer used. Earlier drafts capped the 'departed'
+   *  bucket at a flat N-min recency. v2 instead gates on the trip
+   *  reaching its terminus (`scheduleScanner` filters past arrivals
+   *  whose `trip_end_time` is already < now), so 'departed' shows
+   *  every still-en-route vehicle that passed this stop. */
+  recentDepartureWindowMin?: number;
   /** Future ETA threshold separating "arriving" from "incoming". v1: 2 min. */
   arrivingThresholdMin: number;
   /** A scheduled dwell shorter than this is treated as just-passing and
