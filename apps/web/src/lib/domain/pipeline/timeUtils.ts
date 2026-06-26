@@ -70,7 +70,7 @@ export interface ScheduleWindow {
 /**
  * Compute the day + minute window the Schedule view should query.
  *
- * - `today` / `this-trip` look at the feed's "today" from now-onwards.
+ * - `today` / `next-trip` look at the feed's "today" from now-onwards.
  *   Night routes extend the window to a full 24h so post-midnight
  *   trips (GTFS times like 25:30) surface in the list.
  * - `tomorrow` looks at the next calendar day from 00:00 to noon —
@@ -81,7 +81,7 @@ export interface ScheduleWindow {
  * dependency.
  */
 export function scheduleWindowFor(args: {
-  view: 'this-trip' | 'today' | 'tomorrow';
+  view: 'next-trip' | 'today' | 'tomorrow';
   isNight: boolean;
   nowMs: number;
   timeZone: string;

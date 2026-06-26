@@ -1,18 +1,19 @@
 <!--
-  Schedule view — by-route, by-direction, with three tabbed sub-views.
+  Schedule view — by-route, by-direction.
 
-  URL: /schedule/route/[id]?dir=0&stop=18&trip=<id>&view=this-trip|today|tomorrow
+  URL: /schedule/route/[id]?dir=0&view=next-trip|today|tomorrow|week
 
   Tabs:
-    - 'this-trip': stop timeline for a specific trip, origin → terminus,
-      with the user's anchor stop highlighted. Enabled only when a
-      direction is set.
-    - 'today': today's remaining departures from origin.
+    - 'next-trip': stop timeline for the next upcoming trip in the
+      selected direction. Enabled only when a direction is set.
+    - 'today':    today's remaining departures from origin.
     - 'tomorrow': tomorrow's morning departures (00:00 → noon).
+    - 'week':     recurring weekly pattern (Mon-Fri / Sat / Sun).
 
-  The header carries the route badge + origin → headsign in one line;
-  the tabs swap a single content card below, so we never duplicate
-  headsign or departure-station info on every row.
+  The header carries route badge + origin → headsign + dir-swap. We
+  intentionally do NOT track an anchor stop or a pinned trip in the
+  URL: the schedule is for the route in a given direction, regardless
+  of which station the user was looking at when they navigated here.
 
   Multi-direction mode (no `dir` param) keeps a two-column side-by-side
   layout, one direction per card, no stop timeline. Used by /favorites.
@@ -52,21 +53,13 @@
     : null,
   );
 
-  const anchorStopId = $derived.by<number | null>(() => {
-    const raw = page.url.searchParams.get('stop');
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  });
-
-  const focusTripId = $derived(page.url.searchParams.get('trip'));
-
-  type View = 'this-trip' | 'today' | 'tomorrow' | 'week';
+  type View = 'next-trip' | 'today' | 'tomorrow' | 'week';
   const view = $derived.by<View>(() => {
     const v = page.url.searchParams.get('view');
-    if (v === 'today' || v === 'tomorrow' || v === 'this-trip' || v === 'week') return v;
-    // Default: 'this-trip' if a trip is pinned, otherwise 'today'.
-    return focusTripId ? 'this-trip' : 'today';
+    if (v === 'today' || v === 'tomorrow' || v === 'next-trip' || v === 'week') return v;
+    // Back-compat: old links used 'this-trip' for the same concept.
+    if (v === 'this-trip') return 'next-trip';
+    return 'next-trip';
   });
 
   // ── Data state ──────────────────────────────────────────────────────
@@ -75,11 +68,11 @@
   // means "no data fetched yet" OR "no service today" — both render
   // the same empty-state row.
   let tripsByDir = $state<{ 0: ScheduleTrip[]; 1: ScheduleTrip[] }>({ 0: [], 1: [] });
-  // Per-trip stop timelines. One source of truth for both the
-  // "This trip" tab and inline row expansion in Today/Tomorrow.
+  // Per-trip stop timelines. Drives the 'Next trip' tab AND the
+  // inline row expansion in Today/Tomorrow.
   let tripStops = $state<Map<string, ScheduleTripStop[]>>(new Map());
-  // Which row is open in the Today/Tomorrow accordion. Seeded from
-  // ?trip= so deep-links auto-expand.
+  // Which row is open in the Today/Tomorrow accordion. Local state
+  // only — the URL no longer carries a trip pin.
   let expandedTripId = $state<string | null>(null);
   // Weekly pattern (Mon-Fri / Sat / Sun). Fetched on demand the first
   // time the user opens the Week tab for a given direction. Keyed by
@@ -115,7 +108,6 @@
     refreshBus.tick;
     const rid = routeId;
     const dir = direction;
-    const ftId = focusTripId;
     const qp = queryParams;
     (async () => {
       try {
@@ -131,12 +123,12 @@
           ]);
           tripsByDir = { 0: d0, 1: d1 };
         } else {
-          // Single-direction: schedule for the day + the focused
-          // trip's stop list (URL-pinned or next-upcoming). Fetched
-          // in parallel for the same reason.
+          // Single-direction: schedule for the day + warm the
+          // next-upcoming trip's stop list so the Next trip tab
+          // renders without an extra round-trip.
           const trips = await repo.getRouteSchedule(rid, dir, qp.localDate, qp.fromMin, qp.windowMin);
           tripsByDir = dir === 0 ? { 0: trips, 1: [] } : { 0: [], 1: trips };
-          const stopsTripId = ftId ?? trips[0]?.tripId ?? null;
+          const stopsTripId = trips[0]?.tripId ?? null;
           if (stopsTripId) await loadTripStops(stopsTripId);
         }
         error = null;
@@ -144,12 +136,6 @@
         error = e instanceof Error ? e.message : String(e);
       }
     })();
-  });
-
-  // Auto-expand the row pinned by ?trip= so deep links from a
-  // vehicle row land on a pre-opened accordion.
-  $effect(() => {
-    expandedTripId = focusTripId;
   });
 
   async function loadTripStops(tripId: string) {
@@ -201,27 +187,21 @@
     : direction === 1 ? tripsByDir[1]
     : [],
   );
-  // The trip whose timeline drives the header (origin name + headsign).
-  // Falls back to the next-upcoming trip when no `?trip=` is pinned.
-  const headerTripId = $derived(focusTripId ?? trips[0]?.tripId ?? null);
-  const focusStops = $derived(headerTripId ? tripStops.get(headerTripId) ?? [] : []);
+  // The trip whose timeline drives the header (origin name + headsign)
+  // and the 'Next trip' tab.
+  const nextTripId = $derived(trips[0]?.tripId ?? null);
+  const focusStops = $derived(nextTripId ? tripStops.get(nextTripId) ?? [] : []);
   const originStopName = $derived(focusStops[0]?.stopName ?? null);
   const headsign = $derived(focusStops[focusStops.length - 1]?.stopName ?? null);
   const nowMin = $derived(minSinceMidnightInTz(nowTicker.ms, tz));
 
-  // Tab availability: 'this-trip' needs a direction + at least one
-  // trip resolved; disable otherwise so the user can't click into
-  // an empty content area.
-  const canShowThisTrip = $derived(direction != null && focusStops.length > 0);
-  // 'This trip' label only applies when a specific trip was pinned via
-  // ?trip= (i.e. the user came from a vehicle row on a station). When
-  // no trip is pinned we're really previewing the next upcoming trip,
-  // so the label reads accordingly.
-  const thisTripLabel = $derived(focusTripId ? 'This trip' : 'Next trip');
+  // Tab availability: 'next-trip' needs a direction + a resolved
+  // next-trip stop list; otherwise the row would be empty.
+  const canShowNextTrip = $derived(direction != null && focusStops.length > 0);
   const tabItems = $derived(
-    canShowThisTrip
+    canShowNextTrip
       ? [
-          { value: 'this-trip', label: thisTripLabel },
+          { value: 'next-trip', label: 'Next trip' },
           { value: 'today', label: 'Today' },
           { value: 'tomorrow', label: 'Tomorrow' },
           { value: 'week', label: 'Week' },
@@ -273,42 +253,29 @@
   }
   function swapDirection() {
     if (direction == null) return;
-    // Dropping `stop` is intentional: the anchor stop only exists in
-    // the original direction's stop list. Forward/back keeps the user
-    // oriented if they want to return.
-    navigateWith({ dir: direction === 0 ? '1' : '0', trip: null, stop: null });
+    navigateWith({ dir: direction === 0 ? '1' : '0' });
   }
   function pickView(v: View) {
-    // Switching AWAY from 'this-trip' drops the trip pin so the URL
-    // stays meaningful (you're no longer viewing a specific bus).
-    // Switching TO 'this-trip' keeps the existing pin if any.
-    navigateWith({
-      view: v === 'today' ? null : v,
-      trip: v === 'this-trip' ? focusTripId : null,
-    });
+    // 'today' is the default — don't pollute the URL with it.
+    navigateWith({ view: v === 'today' ? null : v });
   }
 </script>
 
-<!-- One stop-timeline renderer reused by the "This trip" tab AND the
+<!-- One stop-timeline renderer reused by the 'Next trip' tab AND the
      expanded rows of the Today/Tomorrow accordion. Row 1 is the
-     origin departure; the rest are arrivals. The anchor stop (the
-     one the user came from on a vehicle row) is the focal point. -->
-{#snippet tripTimeline(stops: ScheduleTripStop[], anchorId: number | null)}
+     origin departure; the rest are arrivals. -->
+{#snippet tripTimeline(stops: ScheduleTripStop[])}
   <Stack spacing={0.5}>
     {#each stops as s, i (s.stopId)}
-      {@const isAnchor = anchorId === s.stopId}
       {@const isOrigin = i === 0}
       <Stack
         direction="row"
         spacing={1}
         align="center"
-        class={`px-2 py-1 rounded-md ${isAnchor ? 'bg-[color:var(--color-primary)]/20 ring-2 ring-[color:var(--color-primary)]' : 'hover:bg-[color:var(--color-border)]/30'}`}
+        class="px-2 py-1 rounded-md hover:bg-[color:var(--color-border)]/30"
       >
         <Chip size="small" class="font-mono shrink-0">{i + 1}</Chip>
-        <Typography
-          variant="body2"
-          class={`flex-1 truncate ${isAnchor ? 'font-bold' : ''}`}
-        >
+        <Typography variant="body2" class="flex-1 truncate">
           {s.stopName}
         </Typography>
         {#if isOrigin}
@@ -435,9 +402,9 @@
 
         <Card>
           <CardContent>
-            {#if view === 'this-trip' && focusStops.length > 0}
-              <!-- The anchor stop the user came from is the focal point. -->
-              {@render tripTimeline(focusStops, anchorStopId)}
+            {#if view === 'next-trip' && focusStops.length > 0}
+              <!-- Stop timeline for the next upcoming trip. -->
+              {@render tripTimeline(focusStops)}
             {:else if view === 'week'}
               <!-- Weekly pattern: three columns for Mon–Fri / Sat / Sun
                    showing every scheduled departure from the origin in
@@ -492,7 +459,7 @@
                               </Typography>
                             </Stack>
                           {:else}
-                            {@render tripTimeline(stops, anchorStopId)}
+                            {@render tripTimeline(stops)}
                           {/if}
                         </div>
                       {/if}
