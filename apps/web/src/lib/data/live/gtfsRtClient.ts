@@ -85,12 +85,13 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
   for (const entity of msg.entity ?? []) {
     const v = entity.vehicle;
     if (!v || !v.position) continue;
+    const tripId = v.trip?.tripId ?? '';
     vehicles.push({
       source: 'gtfs-rt',
       vehicleId: v.vehicle?.id ?? entity.id ?? '',
-      tripId: v.trip?.tripId ?? '',
+      tripId,
       routeId: v.trip?.routeId ?? '',
-      directionId: v.trip?.directionId ?? -1,
+      directionId: resolveDirectionId(v.trip?.directionId ?? null, tripId),
       startTime: v.trip?.startTime ?? '',
       lat: v.position.latitude ?? 0,
       lon: v.position.longitude ?? 0,
@@ -102,4 +103,21 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
     });
   }
   return { feedTimestampMs, vehicles };
+}
+
+/** Resolve the bus's direction with feed-id-bug tolerance. Some
+ *  operators (observed: Cluj cluj-rt-feed.gtfs.ro) report
+ *  `TripDescriptor.direction_id = 0` for every vehicle regardless of
+ *  the actual run. When the trip_id follows the canonical
+ *  `<route>_<dir>_<service>_<run>_<HHMM>` convention, the embedded
+ *  direction is authoritative \u2014 prefer it over the feed-level field.
+ *  Falls back to the feed-level value when the trip_id doesn't carry a
+ *  parseable direction segment. */
+export function resolveDirectionId(claimed: number | null, tripId: string): number {
+  const m = tripId.match(/^\d+_(\d)_/);
+  if (m) {
+    const parsed = Number(m[1]);
+    if (parsed === 0 || parsed === 1) return parsed;
+  }
+  return claimed ?? -1;
 }
