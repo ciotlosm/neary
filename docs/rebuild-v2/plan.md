@@ -202,58 +202,105 @@ output `apps/web` consumes.
 
 Every phase ends in a working, testable build.
 
-### Phase 0 — Foundations
+**Status legend**: `✓ done` · `🟡 in progress` · `⏸ blocked` · `TBD`. Each
+done phase lists the commits that delivered it (run `git show <sha>` for the
+detailed message). Update this section on every phase boundary so
+`docs/rebuild-v2/plan.md` is enough to resume from after a context switch.
+
+_Last updated: 2026-06-26 after `d4aa4f9`._
+
+### Phase 0 — Foundations · ✓ done
+Commits: `6ed1b66`
 - Branch `rebuild/v2-svelte-sqlite`
 - npm workspaces monorepo
 - Legacy moved to `apps/legacy/`, builds + tests green
-- `apps/web/` bootstrapped (SvelteKit + Tailwind v4 + Biome + Vitest + Histoire + PWA plugin)
+- `apps/web/` bootstrapped (SvelteKit + Tailwind v4 + Vitest + PWA plugin
+  groundwork). Biome and Histoire intentionally deferred — Biome wasn't
+  needed yet, Histoire's Svelte 5 support was shaky, the `/showcase` route
+  serves the same sandbox purpose for now.
 - Both apps build under one `npm run build` at root
 - Netlify config updated to build from `apps/legacy`
 
-### Phase 1 — UI primitive library
-- ~20 primitives, each with a Histoire story
-- Visual regression via Playwright screenshots
-- Theme.css drives the entire palette
+### Phase 1 — UI primitive library · ✓ done
+Commits: `523db31` · `6eec22c` · `0023a3e` · `0a6d1b1`
+- Primitives in `apps/web/src/lib/ui/`: Box, Stack, Typography, Card +
+  CardContent, Chip, Avatar, Button, IconButton, Spinner, Tooltip,
+  Dialog/Title/Content, Switch, Collapsible (pure CSS), TextField,
+  ProgressBar, Tabs, ToggleGroup, List/ListItem/ListItemText, plus the
+  composites RouteBadge, VehicleCard, StationCard.
+- StatusBar primitive + reactive `statusBus.svelte.ts` store.
+- All exercised on `/showcase`.
+- Histoire / Playwright screenshot regression deferred (manual review via
+  `/showcase`); revisit in Phase 9 polish.
 
-### Phase 2 — GTFS pipeline + DB worker
-- Pipeline step in `neary-gtfs` produces `agency-<id>.sqlite3.gz`
-- DB worker in `apps/web` opens OPFS, exposes typed repo API
-- CLI demo: dump "next departures at stop X" using real GTFS
+### Phase 2 — GTFS pipeline + DB worker · ✓ done locally · ⏸ pipeline-side TBD
+Commits: `60d167e` · `7f0a610`
+- `scripts/build-sqlite/`: Node converter that downloads the CTP Cluj GTFS
+  zip from neary-gtfs releases, builds a real GTFS-shape SQLite (with
+  indexes), and gzips it.
+- `apps/web/src/lib/workers/gtfs.worker.ts`: SQLite-WASM in a Web Worker,
+  OPFS-backed via SAH pool, Comlink-exposed typed repo
+  (`ready` / `getManifest` / `getRoutes` / `getStopsNear` /
+  `getDeparturesFromStop`).
+- `/data-test` route exercises the full pipeline end-to-end.
+- **Outstanding (blocked on neary-gtfs work)**: same script runs as a
+  GitHub Action step in neary-gtfs producing `data/<id>/<id>.sqlite3.gz`
+  on the `releases` branch + entry in `hashes.json`. Until then the v2
+  app is dev-only for agency 2; other agencies are gated in the picker.
 
-### Phase 3 — App shell + status system
-- Layout (header + status bar + bottom nav)
-- Theme switch
-- Empty-state Stations view with agency picker
-- Install as PWA on iPhone, pick agency, see download progress
+### Phase 3 — App shell + status system · ✓ done
+Commits: `4078a3f` · `d4aa4f9`
+- AppLayout = Header (title + 4 status dots + optional refresh) +
+  StatusBar + scrollable main + BottomNavigation.
+- 4 routes wired: `/` Stations, `/favorites`, `/planner`, `/settings`.
+- `userPrefs.svelte.ts` singleton: theme, agencyId, display toggles,
+  apiKey; persisted to localStorage.
+- Theme picker (light / auto / dark) in Settings; SSR-safe.
+- GPS dot driven by `locationStore.svelte.ts` (watchPosition + 15s
+  freshness ticker). Permission prompt only fires on `/`.
+- Connection dot driven by `connectionStore.svelte.ts` (online/offline
+  events).
+- Schedule dot driven by `userPrefs.agencyId` + worker binding.
+- Live dot stays idle until Phase 5.
+- Real agency picker: pulls neary-gtfs `data/agency.json`, gates rows on
+  the local `AGENCIES_WITH_SQLITE` set, on select fires
+  `repo.setAgency(id)` with progress through the StatusBar.
 
-### Phase 4 — Domain + Stations (schedule-only)
-- Port prediction / reconciler / estimators to `lib/domain/`
-- Stations view renders real cards from real GTFS, schedule-only
-- All four vehicle kinds visually distinct
-- Fully offline once schedule cached
+### Phase 4 — Domain + Stations (schedule-only) · TBD (next)
+- Port prediction / reconciler / estimators from `apps/legacy/src/utils/`
+  to `apps/web/src/lib/domain/` as pure TS, unit-tested with Vitest.
+- New repo method: `getStationsNearAsVehicles(lat, lon, radius, now)` —
+  joins stops + active services + upcoming trip starts into
+  `{ station, vehicles: Vehicle[] }[]` ready to render.
+- Real Stations view subscribed to `locationStore.position`,
+  rendering `StationCard`s.
 
-### Phase 5 — Live data
+### Phase 5 — Live data · TBD
 - Live worker polls Tranzy when API key present
 - Reconciler produces `live` / `live-matched` / `ghost`
 - Live status dot reflects health
 - API key toggle in Advanced settings
 
-### Phase 6 — Favorites, Schedule, Map
+### Phase 6 — Favorites, Schedule, Map · TBD
 - Favorites view (route-context card shell)
 - Schedule drill-down (today/tomorrow board)
 - Map drill-down (Leaflet with corrected pane order)
 
-### Phase 7 — Settings + Advanced
-- User Preferences view
+### Phase 7 — Settings + Advanced · TBD
+- User Preferences view (mostly already shipped in Phase 3)
 - Advanced view (storage, freshness, force reload, version)
 - Polished agency-picker empty state
 
-### Phase 8 — Planner (with transfers)
+### Phase 8 — Planner (with transfers) · TBD
 - From/to (current location / address / station)
 - Itinerary using SQLite + stop_times + transfer matching
 - Reuses Schedule view as the result renderer
 
-### Phase 9 — Polish, perf budgets, store install
+### Phase 9 — Polish, perf budgets, store install · TBD
+- Histoire / Playwright screenshot regression (Phase 1 follow-up).
+- Biome adoption.
+- Per-route perf budgets enforced in CI.
+- Apple PWA install polish + screenshots.
 
 ---
 
