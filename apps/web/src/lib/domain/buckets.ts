@@ -176,8 +176,15 @@ export function bucketOf(
     }
     // (d) Mid-dwell on a route with a meaningful gap → at-station.
     if (dwellMin >= SCHEDULED_DWELL_GAP_MIN) return 'at-station';
-    // (e) Short gap, no other signal → just passing; call it arriving.
-    return 'arriving';
+    // (e) Fallback:
+    //     - Live vehicle: GPS says it's physically at the stop right now.
+    //       It IS at the station (the user can board). Return 'at-station'
+    //       regardless of what the schedule says about future timing —
+    //       trust the GPS. This includes the start-station case where the
+    //       bus is dwelling and waiting for its scheduled departure.
+    //     - Non-live: we got here via the dwell window but dwell < 1 min,
+    //       so the trip is just passing through — return 'arriving'.
+    return isLive ? 'at-station' : 'arriving';
   }
 
   // 3. Future.

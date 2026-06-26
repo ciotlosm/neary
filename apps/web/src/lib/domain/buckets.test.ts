@@ -142,6 +142,39 @@ describe('bucketOf', () => {
       ),
     ).toBe('arriving');
   });
+
+  it('live vehicle physically at the stop, no timing match → at-station', () => {
+    // The bus is right there (GPS within 50 m), schedule says depart later
+    // (4 min). User can board it now — bucket should be 'at-station', not
+    // 'arriving'. Covers the start-station dwell case.
+    expect(
+      bucketOf(
+        'reconciled',
+        inputs({
+          nowMin: now,
+          etaMinutes: 4,
+          distanceToStopMeters: 30,
+          scheduledArrivalMin: now + 4,
+          scheduledDepartureMin: now + 4,
+        }),
+      ),
+    ).toBe('at-station');
+  });
+
+  it('live vehicle physically at stop near scheduled departure → departing', () => {
+    expect(
+      bucketOf(
+        'reconciled',
+        inputs({
+          nowMin: now,
+          etaMinutes: 0,
+          distanceToStopMeters: 30,
+          scheduledArrivalMin: now - 1,
+          scheduledDepartureMin: now,
+        }),
+      ),
+    ).toBe('departing');
+  });
 });
 
 describe('compareForBoard', () => {
