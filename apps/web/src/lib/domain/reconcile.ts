@@ -30,7 +30,7 @@
 
 import type { LiveVehicleObservation } from '$lib/data/live/gtfsRtClient';
 import type { Vehicle } from './types';
-import { timeToMinutes } from './pipeline/timeUtils';
+import { minSinceMidnightInTz, timeToMinutes } from './pipeline/timeUtils';
 
 const TOLERANCE_FLOOR_MIN = 1;
 const TOLERANCE_CEILING_MIN = 30;
@@ -50,10 +50,14 @@ export interface ReconcileStats {
 }
 
 export interface ReconcileOptions {
-  /** Current wall clock in minutes since local midnight at the feed's
-   *  timezone. Required for the adaptive tolerance window. If omitted
-   *  the reconciler falls back to a fixed ±5 min tolerance. */
-  nowMinSinceMidnight?: number;
+  /** Unix ms wall clock. Combined with `timezone` to compute the
+   *  feed-local minutes-since-midnight that drives the adaptive
+   *  tolerance window. */
+  nowMs?: number;
+  /** Feed's IANA timezone, e.g. 'Europe/Bucharest'. Required when
+   *  `nowMs` is supplied. When omitted the reconciler falls back to a
+   *  fixed ±5 min tolerance. */
+  timezone?: string;
 }
 
 export function reconcileWithLive(
@@ -61,6 +65,10 @@ export function reconcileWithLive(
   live: LiveVehicleObservation[],
   options: ReconcileOptions = {},
 ): { vehicles: Vehicle[]; stats: ReconcileStats } {
+  const nowMinSinceMidnight =
+    options.nowMs != null && options.timezone
+      ? minSinceMidnightInTz(options.nowMs, options.timezone)
+      : undefined;
   // Index scheduled vehicles by (routeId, directionId). Only
   // kind:'scheduled' rows that carry the new match-key fields are
   // eligible — anything already promoted is left alone (idempotent),
@@ -85,7 +93,7 @@ export function reconcileWithLive(
     const cached = toleranceCache.get(key);
     if (cached != null) return cached;
     const list = byKey.get(key);
-    const tol = computeTolerance(list?.map((e) => e.tripStartMin) ?? [], options.nowMinSinceMidnight);
+    const tol = computeTolerance(list?.map((e) => e.tripStartMin) ?? [], nowMinSinceMidnight);
     toleranceCache.set(key, tol);
     return tol;
   }

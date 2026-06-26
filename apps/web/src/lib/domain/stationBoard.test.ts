@@ -29,7 +29,11 @@ const allowAll = {
   showOffRouteVehicles: false,
 };
 
-const nowMs = new Date(2026, 5, 26, 9, 0, 0).getTime(); // 09:00 local
+// 09:00 UTC. Tests pass 'UTC' as the timezone so minutes-since-midnight
+// inside assembleStationBoard come out to exactly 540 — matching the
+// `540 + etaMinutes` schedules below. Keeps the system-local clock out
+// of the picture entirely.
+const nowMs = Date.UTC(2026, 5, 26, 9, 0, 0);
 
 describe('assembleStationBoard', () => {
   it('caps at 5 rows with 1 per bucket, expanding incoming to fill', () => {
@@ -42,7 +46,7 @@ describe('assembleStationBoard', () => {
       scheduled('f', r9, 20),
       scheduled('g', r9, -2), // departed
     ];
-    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs);
+    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs, 'UTC');
     expect(board).toHaveLength(5);
     const buckets = board.map((r) => r.bucket);
     expect(buckets.filter((b) => b === 'incoming')).toHaveLength(4);
@@ -72,7 +76,7 @@ describe('assembleStationBoard', () => {
       scheduled('i3', r24, 8),
       scheduled('i4', r24, 10),
     ];
-    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs);
+    const board = assembleStationBoard(vehicles, { lat: 46.7712, lon: 23.6236 }, allowAll, nowMs, 'UTC');
     expect(board).toHaveLength(5);
     expect(board.map((r) => r.bucket)).toEqual([
       'at-station', 'arriving', 'incoming', 'incoming', 'incoming',
@@ -86,6 +90,7 @@ describe('assembleStationBoard', () => {
       { lat: 46.7712, lon: 23.6236 },
       { ...allowAll, showDepartedVehicles: false },
       nowMs,
+      'UTC',
     );
     expect(board).toHaveLength(1);
     expect(board[0].bucket).toBe('incoming');

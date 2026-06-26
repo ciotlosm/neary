@@ -5,6 +5,13 @@ import type { Route, Vehicle } from './types';
 
 const r14: Route = { id: 14, shortName: '25', color: '#ff0000' };
 
+// Build a UTC Unix-ms timestamp from minutes-since-midnight. Tests use
+// timezone 'UTC' so the value round-trips through minSinceMidnightInTz
+// to the same number, keeping the schedule/now comparisons exact.
+function epochAt(minSinceUtcMidnight: number): number {
+  return Date.UTC(2025, 5, 26, 0, 0, 0) + minSinceUtcMidnight * 60_000;
+}
+
 function scheduled(opts: {
   tripId: string;
   tripStartMin: number;
@@ -113,7 +120,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles, stats } = reconcileWithLive(
       sched,
       [obs({ tripId: '14_1_LV_101_1423', startTime: '14:23:00' })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     // headway 8 min → tol 4 → only the 14:21 candidate is within ±4 of 14:23
     expect(stats.matched).toBe(1);
@@ -131,7 +138,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles, stats } = reconcileWithLive(
       sched,
       [obs({ tripId: 'live', startTime: '14:22:00' })],
-      { nowMinSinceMidnight: 14 * 60 + 22 },
+      { nowMs: epochAt(14 * 60 + 22 ), timezone: 'UTC'},
     );
     expect(stats.matched).toBe(1);
     // 14:21 and 14:23 are both delta=1 — earlier index wins; either is fine.
@@ -144,7 +151,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles, stats } = reconcileWithLive(
       sched,
       [obs({ tripId: 'live', startTime: '14:45:00' })],
-      { nowMinSinceMidnight: 14 * 60 + 30 },
+      { nowMs: epochAt(14 * 60 + 30 ), timezone: 'UTC'},
     );
     // 1-row cohort → no headway → tol floor (1). 45 min off → no match.
     expect(stats.matched).toBe(0);
@@ -158,7 +165,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles } = reconcileWithLive(
       sched,
       [obs({ tripId: 'live', startTime: '14:21:00', directionId: 1 })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(vehicles[0].kind).toBe('scheduled');
   });
@@ -171,7 +178,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles } = reconcileWithLive(
       sched,
       [obs({ tripId: 'live', startTime: '14:21:00', routeId: '15' })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(vehicles[0].kind).toBe('scheduled');
   });
@@ -186,7 +193,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
         obs({ tripId: 'live-a', startTime: '14:21:00', lat: 46.77 }),
         obs({ tripId: 'live-b', startTime: '14:21:00', lat: 99 }),
       ],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(stats.matched).toBe(1);
     if (vehicles[0].kind === 'reconciled') {
@@ -199,7 +206,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles, stats } = reconcileWithLive(
       sched,
       [obs({ tripId: '14_1_LV_99_1421' })], // no startTime
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(stats.matched).toBe(1);
     expect(vehicles[0].kind).toBe('reconciled');
@@ -214,7 +221,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles } = reconcileWithLive(
       [sched],
       [obs({ tripId: 'live', startTime: '14:21:00' })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     if (vehicles[0].kind === 'reconciled') {
       expect(vehicles[0].headsign).toBe('Mănăștur');
@@ -242,7 +249,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles } = reconcileWithLive(
       input,
       [obs({ tripId: 'live', startTime: '14:21:00' })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(vehicles[0]).toBe(input[0]);
   });
@@ -253,7 +260,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { vehicles } = reconcileWithLive(
       sched,
       [obs({ tripId: 'live', startTime: '14:21:00', asOfMs: 0 })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     const after = Date.now();
     if (vehicles[0].kind === 'reconciled') {
@@ -267,7 +274,7 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     const { stats } = reconcileWithLive(
       sched,
       [obs({ tripId: 'opaque' })],
-      { nowMinSinceMidnight: 14 * 60 + 25 },
+      { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
     expect(stats.matched).toBe(0);
   });

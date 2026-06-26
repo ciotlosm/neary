@@ -17,9 +17,7 @@
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
   import type { StopWithDistance } from '$lib/data/gtfs/types';
-  import { assembleStationBoard } from '$lib/domain/stationBoard';
-  import { reconcileWithLive } from '$lib/domain/reconcile';
-  import { minSinceMidnightInTz } from '$lib/domain/pipeline/timeUtils';
+  import { assembleLiveBoard, routesFromVehicles } from '$lib/domain/stationBoard';
   import type { Vehicle } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
@@ -77,6 +75,14 @@
   function toggleRouteFilter(stopId: number, routeId: number) {
     routeFilters[stopId] = routeFilters[stopId] === routeId ? null : routeId;
   }
+
+  // Single source of truth for the feed's IANA timezone used by the
+  // station-board pipeline (reconciler + bucketer both consume it). Read
+  // it once here so every {@const} below operates on the same value and
+  // we never silently mix system-local with feed-local minutes.
+  const feedTimezone = $derived(
+    feedsStore.byId(feedsStore.boundFeedId)?.timezone ?? 'UTC',
+  );
 
   // Surface GPS state on the global StatusBar instead of a page-level
   // card — the StatusBar already exists for cross-cutting loading info
@@ -207,9 +213,16 @@
       {/if}
       {@const rawTotal = boards.reduce((n, b) => n + b.vehicles.length, 0)}
       {@const filteredTotal = boards.reduce(
-        (n, b) => n + assembleStationBoard(
-          reconcileWithLive(b.vehicles, liveVehiclesStore.observations).vehicles,
-          b.stop, userPrefs, nowMs).length, 0)}
+        (n, b) => n + assembleLiveBoard({
+          vehicles: b.vehicles,
+          stop: b.stop,
+          liveObservations: liveVehiclesStore.observations,
+          prefs: userPrefs,
+          nowMs,
+          timezone: feedTimezone,
+        }).length,
+        0,
+      )}
       {#if rawTotal === 0}
         <Box class="px-2 py-1 text-xs text-[color:var(--color-warning)]">
           No upcoming vehicles found in any of the {boards.length} nearby
@@ -227,27 +240,20 @@
         </Box>
       {/if}
       {#each boards as { stop, vehicles } (stop.id)}
-        {@const tz = feedsStore.byId(feedsStore.boundFeedId)?.timezone ?? 'UTC'}
-        {@const nowMinLocal = minSinceMidnightInTz(nowMs, tz)}
-        {@const reconciled = reconcileWithLive(
-          vehicles,
-          liveVehiclesStore.observations,
-          { nowMinSinceMidnight: nowMinLocal },
-        ).vehicles}
-        {@const allRoutes = (() => {
-          const map = new Map<number, typeof reconciled[number]['route']>();
-          for (const v of reconciled) map.set(v.route.id, v.route);
-          return Array.from(map.values());
-        })()}
         {@const routeFilter = routeFilters[stop.id] ?? null}
-        {@const scoped = routeFilter != null
-          ? reconciled.filter((v) => v.route.id === routeFilter)
-          : reconciled}
-        {@const board = assembleStationBoard(scoped, stop, userPrefs, nowMs)}
+        {@const board = assembleLiveBoard({
+          vehicles,
+          stop,
+          liveObservations: liveVehiclesStore.observations,
+          prefs: userPrefs,
+          nowMs,
+          timezone: feedTimezone,
+          routeFilterId: routeFilter,
+        })}
         <StationCard
           station={{ id: stop.id, name: stop.name, distance: stop.distance, lat: stop.lat, lon: stop.lon }}
           rows={board}
-          {allRoutes}
+          allRoutes={routesFromVehicles(vehicles)}
           selectedRouteId={routeFilter}
           onRouteClick={(rid) => toggleRouteFilter(stop.id, rid)}
           expanded={expandedStopId === stop.id}

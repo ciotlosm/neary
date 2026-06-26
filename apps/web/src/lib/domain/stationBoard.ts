@@ -7,6 +7,11 @@
  * No DOM, no stores, no SQL. The worker hands us Vehicle[]; this module
  * applies the user's view preferences and produces sorted bucketed rows
  * the UI just renders.
+ *
+ * Timezone contract: every minute-since-midnight value in the pipeline
+ * (scheduledDeparture, scheduledArrival, tripStartMin) is in the FEED's
+ * local timezone. Callers must supply the feed timezone explicitly so
+ * we don't silently mix system-local minutes with feed-local ones.
  */
 
 import {
@@ -16,7 +21,10 @@ import {
   type ArrivalBucket,
 } from './buckets';
 import { haversineMeters } from './distance';
-import type { Vehicle } from './types';
+import { minSinceMidnightInTz } from './pipeline/timeUtils';
+import { reconcileWithLive } from './reconcile';
+import type { LiveVehicleObservation } from '$lib/data/live/gtfsRtClient';
+import type { Route, Vehicle } from './types';
 
 export interface BoardRow {
   vehicle: Vehicle;
@@ -32,12 +40,6 @@ export interface BoardPrefs {
   showOffRouteVehicles: boolean;
 }
 
-/** Minutes since local midnight for a UNIX ms timestamp. */
-function nowMinSinceMidnight(nowMs: number): number {
-  const d = new Date(nowMs);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
 /** Assemble the bucketed, filtered, sorted board for one station's
  *  worth of vehicles. Pure. The result is capped at 5 rows (see
  *  `capStationBoard` for the picking rule) so the card stays scannable.
@@ -45,14 +47,20 @@ function nowMinSinceMidnight(nowMs: number): number {
  *  `stop` supplies the coordinates we need to measure how far each live
  *  vehicle actually is from the stop — the bucketer's at-station check
  *  is meaningful only with a real distance. Schedule-only vehicles (no
- *  position) get Infinity, which keeps them out of the at-stop branch. */
+ *  position) get Infinity, which keeps them out of the at-stop branch.
+ *
+ *  `timezone` is the feed's IANA timezone (e.g. 'Europe/Bucharest'). It
+ *  determines how `nowMs` is converted to minutes-since-midnight so the
+ *  bucketer compares apples to apples with the schedule's HH:MM:SS
+ *  values (which are feed-local by GTFS spec). */
 export function assembleStationBoard(
   vehicles: Vehicle[],
   stop: { lat?: number; lon?: number },
   prefs: BoardPrefs,
   nowMs: number,
+  timezone: string,
 ): BoardRow[] {
-  const nowMin = nowMinSinceMidnight(nowMs);
+  const nowMin = minSinceMidnightInTz(nowMs, timezone);
   const rows: BoardRow[] = vehicles.map((v) => ({
     vehicle: v,
     bucket: bucketOf(v.kind, {
@@ -96,4 +104,64 @@ export function capStationBoard(rows: BoardRow[]): BoardRow[] {
   }
   const slots = Math.max(0, STATION_BOARD_MAX_ROWS - firsts.length);
   return [...firsts, ...extraIncoming.slice(0, slots)].sort(compareForBoard);
+}
+
+/* ---------------------------------------------------------------------- *
+ * Top-level pipeline composer
+ * ---------------------------------------------------------------------- *
+ *
+ * The Stations view (and any other consumer that wants a fully-resolved
+ * board) calls this ONE function instead of chaining
+ *   filter \u2192 reconcileWithLive \u2192 assembleStationBoard
+ * itself. Keeps pipeline composition + timezone discipline in the
+ * domain layer; the UI just renders what comes back.
+ *
+ * Stage order matches docs/rebuild-v2/vehicles-and-views.md \u00a75.5:
+ *   1. Route filter (visual scope chosen by the user) \u2014 applied first
+ *      so the rest of the pipeline operates on the right subset.
+ *   2. Live reconciliation (route+direction+startTime match).
+ *   3. Bucket + filter + sort + cap (assembleStationBoard).
+ */
+
+export interface AssembleLiveBoardInputs {
+  vehicles: Vehicle[];
+  stop: { lat?: number; lon?: number };
+  liveObservations: LiveVehicleObservation[];
+  prefs: BoardPrefs;
+  nowMs: number;
+  /** Feed's IANA timezone, e.g. 'Europe/Bucharest'. Used uniformly by
+   *  the reconciler and bucketer for every minute-since-midnight
+   *  comparison. Must match the timezone of the static GTFS feed that
+   *  produced `vehicles`. */
+  timezone: string;
+  /** Optional view-only route filter from the StationCard badge row.
+   *  Applied as the very first pipeline stage so it scopes the rest. */
+  routeFilterId?: number | null;
+}
+
+export function assembleLiveBoard(input: AssembleLiveBoardInputs): BoardRow[] {
+  const scoped =
+    input.routeFilterId != null
+      ? input.vehicles.filter((v) => v.route.id === input.routeFilterId)
+      : input.vehicles;
+  const { vehicles: reconciled } = reconcileWithLive(scoped, input.liveObservations, {
+    nowMs: input.nowMs,
+    timezone: input.timezone,
+  });
+  return assembleStationBoard(reconciled, input.stop, input.prefs, input.nowMs, input.timezone);
+}
+
+/** Deduped, sorted route list for a station based on the schedule.
+ *  Lives in the domain so consumers (Stations page, future map view,
+ *  showcase) all read routes the same way \u2014 numeric short-names sort
+ *  numerically, alpha after. */
+export function routesFromVehicles(vehicles: Vehicle[]): Route[] {
+  const map = new Map<number, Route>();
+  for (const v of vehicles) map.set(v.route.id, v.route);
+  return Array.from(map.values()).sort((a, b) => {
+    const an = Number(a.shortName);
+    const bn = Number(b.shortName);
+    if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return an - bn;
+    return a.shortName.localeCompare(b.shortName);
+  });
 }
