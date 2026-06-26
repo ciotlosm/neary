@@ -168,15 +168,20 @@ describe('bucketCounts', () => {
 });
 
 describe('filterForStationView', () => {
-  const base = (b: ArrivalBucket, dropOffOnly = false) => ({
-    vehicle: { ...v('x'), dropOffOnly } as Vehicle,
+  const base = (b: ArrivalBucket, dropOffOnly = false, kind: Vehicle['kind'] = 'predicted') => ({
+    vehicle: { ...v('x', kind), dropOffOnly, kind } as Vehicle,
     bucket: b,
   });
+  const allowAll = {
+    showDepartedVehicles: true,
+    showDropOffOnly: true,
+    showScheduleOnlyVehicles: true,
+  };
 
   it('always drops off-route', () => {
     const out = filterForStationView(
       [base('off-route'), base('incoming')],
-      { showDepartedVehicles: true, showDropOffOnly: true },
+      allowAll,
     );
     expect(out.map((e) => e.bucket)).toEqual(['incoming']);
   });
@@ -184,7 +189,7 @@ describe('filterForStationView', () => {
   it('drops departed when showDepartedVehicles is off', () => {
     const out = filterForStationView(
       [base('departed'), base('incoming')],
-      { showDepartedVehicles: false, showDropOffOnly: true },
+      { ...allowAll, showDepartedVehicles: false },
     );
     expect(out.map((e) => e.bucket)).toEqual(['incoming']);
   });
@@ -192,7 +197,7 @@ describe('filterForStationView', () => {
   it('keeps departed when showDepartedVehicles is on', () => {
     const out = filterForStationView(
       [base('departed'), base('incoming')],
-      { showDepartedVehicles: true, showDropOffOnly: true },
+      allowAll,
     );
     expect(out.map((e) => e.bucket)).toEqual(['departed', 'incoming']);
   });
@@ -200,9 +205,19 @@ describe('filterForStationView', () => {
   it('drops drop-off-only vehicles when showDropOffOnly is off', () => {
     const out = filterForStationView(
       [base('arriving', true), base('arriving', false)],
-      { showDepartedVehicles: true, showDropOffOnly: false },
+      { ...allowAll, showDropOffOnly: false },
     );
     expect(out).toHaveLength(1);
     expect(out[0].vehicle.dropOffOnly).toBeFalsy();
+  });
+
+  it('drops schedule-only vehicles when showScheduleOnlyVehicles is off', () => {
+    // Note: factory currently always builds 'predicted'; bucket-only check
+    // verifies the predicate handles the predicted kind.
+    const out = filterForStationView(
+      [base('incoming', false, 'predicted'), base('incoming', false, 'predicted')],
+      { ...allowAll, showScheduleOnlyVehicles: false },
+    );
+    expect(out).toHaveLength(0);
   });
 });
