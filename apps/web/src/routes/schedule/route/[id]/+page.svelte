@@ -20,7 +20,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ArrowRightLeft, ExternalLink, Moon } from 'lucide-svelte';
+  import { ArrowRightLeft, ChevronDown, ExternalLink, Moon } from 'lucide-svelte';
   import {
     Card, CardContent, Chip, IconButton, NoFeedState, RouteBadge, Spinner,
     Stack, ToggleGroup, Typography,
@@ -58,7 +58,7 @@
   const focusTripId = $derived(page.url.searchParams.get('trip'));
 
   type View = 'this-trip' | 'today' | 'tomorrow';
-  const view = $derived<View>(() => {
+  const view = $derived.by<View>(() => {
     const v = page.url.searchParams.get('view');
     if (v === 'today' || v === 'tomorrow' || v === 'this-trip') return v;
     // Default: 'this-trip' if a trip is pinned, otherwise 'today'.
@@ -71,9 +71,12 @@
   // means "no data fetched yet" OR "no service today" — both render
   // the same empty-state row.
   let tripsByDir = $state<{ 0: ScheduleTrip[]; 1: ScheduleTrip[] }>({ 0: [], 1: [] });
-  // Stop timeline for the focused trip. Drives header origin name +
-  // origin departure time + the 'this trip' tab.
-  let focusStops = $state<ScheduleTripStop[]>([]);
+  // Per-trip stop timelines. One source of truth for both the
+  // "This trip" tab and inline row expansion in Today/Tomorrow.
+  let tripStops = $state<Map<string, ScheduleTripStop[]>>(new Map());
+  // Which row is open in the Today/Tomorrow accordion. Seeded from
+  // ?trip= so deep-links auto-expand.
+  let expandedTripId = $state<string | null>(null);
   let error = $state<string | null>(null);
 
   const tz = $derived(feedsStore.activeTimezone);
@@ -122,7 +125,6 @@
             repo.getRouteSchedule(rid, 1, qp.localDate, qp.fromMin, qp.windowMin),
           ]);
           tripsByDir = { 0: d0, 1: d1 };
-          focusStops = [];
         } else {
           // Single-direction: schedule for the day + the focused
           // trip's stop list (URL-pinned or next-upcoming). Fetched
@@ -130,7 +132,7 @@
           const trips = await repo.getRouteSchedule(rid, dir, qp.localDate, qp.fromMin, qp.windowMin);
           tripsByDir = dir === 0 ? { 0: trips, 1: [] } : { 0: [], 1: trips };
           const stopsTripId = ftId ?? trips[0]?.tripId ?? null;
-          focusStops = stopsTripId ? await repo.getStopsAlongTrip(stopsTripId) : [];
+          if (stopsTripId) await loadTripStops(stopsTripId);
         }
         error = null;
       } catch (e) {
@@ -139,15 +141,42 @@
     })();
   });
 
+  // Auto-expand the row pinned by ?trip= so deep links from a
+  // vehicle row land on a pre-opened accordion.
+  $effect(() => {
+    expandedTripId = focusTripId;
+  });
+
+  async function loadTripStops(tripId: string) {
+    if (tripStops.has(tripId)) return;
+    const repo = getGtfsRepo();
+    const stops = await repo.getStopsAlongTrip(tripId);
+    const next = new Map(tripStops);
+    next.set(tripId, stops);
+    tripStops = next;
+  }
+
+  function toggleExpand(tripId: string) {
+    if (expandedTripId === tripId) {
+      expandedTripId = null;
+      return;
+    }
+    expandedTripId = tripId;
+    loadTripStops(tripId);
+  }
+
   // ── Derived view-model ──────────────────────────────────────────────
   const trips = $derived(
     direction === 0 ? tripsByDir[0]
     : direction === 1 ? tripsByDir[1]
     : [],
   );
+  // The trip whose timeline drives the header (origin name + headsign).
+  // Falls back to the next-upcoming trip when no `?trip=` is pinned.
+  const headerTripId = $derived(focusTripId ?? trips[0]?.tripId ?? null);
+  const focusStops = $derived(headerTripId ? tripStops.get(headerTripId) ?? [] : []);
   const originStopName = $derived(focusStops[0]?.stopName ?? null);
   const headsign = $derived(focusStops[focusStops.length - 1]?.stopName ?? null);
-  const focusStartMin = $derived(focusStops[0]?.arrivalMin ?? null);
   const nowMin = $derived(minSinceMidnightInTz(nowTicker.ms, tz));
 
   // Tab availability: 'this-trip' needs a direction + at least one
@@ -227,6 +256,42 @@
   }
 </script>
 
+<!-- One stop-timeline renderer reused by the "This trip" tab AND the
+     expanded rows of the Today/Tomorrow accordion. Row 1 is the
+     origin departure; the rest are arrivals. The anchor stop (the
+     one the user came from on a vehicle row) is the focal point. -->
+{#snippet tripTimeline(stops: ScheduleTripStop[], anchorId: number | null)}
+  <Stack spacing={0.5}>
+    {#each stops as s, i (s.stopId)}
+      {@const isAnchor = anchorId === s.stopId}
+      {@const isOrigin = i === 0}
+      <Stack
+        direction="row"
+        spacing={1}
+        align="center"
+        class={`px-2 py-1 rounded-md ${isAnchor ? 'bg-[color:var(--color-primary)]/20 ring-2 ring-[color:var(--color-primary)]' : 'hover:bg-[color:var(--color-border)]/30'}`}
+      >
+        <Chip size="small" class="font-mono shrink-0">{i + 1}</Chip>
+        <Typography
+          variant="body2"
+          class={`flex-1 truncate ${isAnchor ? 'font-bold' : ''}`}
+        >
+          {s.stopName}
+        </Typography>
+        <Typography variant="caption" class="text-[color:var(--color-fg-muted)] font-mono shrink-0">
+          {isOrigin ? 'dep' : 'arr'} {formatHHMM(s.arrivalMin)}
+        </Typography>
+        <IconButton
+          aria-label={`Open station ${s.stopName}`}
+          onclick={() => goto(`/station/${s.stopId}`)}
+        >
+          <ExternalLink size={16} />
+        </IconButton>
+      </Stack>
+    {/each}
+  </Stack>
+{/snippet}
+
 <div class="mx-auto max-w-5xl px-4 py-6">
   {#if userPrefs.feedId == null}
     <NoFeedState message="Pick a feed in Settings to view route schedules." />
@@ -294,44 +359,11 @@
         <Card>
           <CardContent>
             {#if view === 'this-trip' && focusStops.length > 0}
-              <!-- Trip timeline. Anchor stop (the one the user came
-                   from) is the visual focal point. -->
-              <Stack spacing={0.5}>
-                <Typography variant="overline" class="uppercase tracking-wide text-[color:var(--color-fg-muted)]">
-                  This trip
-                  {#if focusStartMin != null}
-                    · departs {formatHHMM(focusStartMin)} · {formatRelative(focusStartMin)}
-                  {/if}
-                </Typography>
-                {#each focusStops as s, i (s.stopId)}
-                  {@const isAnchor = anchorStopId === s.stopId}
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    align="center"
-                    class={`px-2 py-1 rounded-md ${isAnchor ? 'bg-[color:var(--color-primary)]/20 ring-2 ring-[color:var(--color-primary)]' : 'hover:bg-[color:var(--color-border)]/30'}`}
-                  >
-                    <Chip size="small" class="font-mono shrink-0">{i + 1}</Chip>
-                    <Typography
-                      variant="body2"
-                      class={`flex-1 truncate ${isAnchor ? 'font-bold' : ''}`}
-                    >
-                      {s.stopName}
-                    </Typography>
-                    <Typography variant="caption" class="text-[color:var(--color-fg-muted)] font-mono shrink-0">
-                      {formatHHMM(s.arrivalMin)}
-                    </Typography>
-                    <IconButton
-                      aria-label={`Open station ${s.stopName}`}
-                      onclick={() => goto(`/station/${s.stopId}`)}
-                    >
-                      <ExternalLink size={16} />
-                    </IconButton>
-                  </Stack>
-                {/each}
-              </Stack>
+              <!-- The anchor stop the user came from is the focal point. -->
+              {@render tripTimeline(focusStops, anchorStopId)}
             {:else}
-              <!-- Today / Tomorrow departures list. -->
+              <!-- Today / Tomorrow: one row per trip, click to expand
+                   the stop timeline below the row. -->
               <Stack spacing={0.5}>
                 {#if trips.length === 0}
                   <Typography variant="body2" class="text-[color:var(--color-fg-muted)] py-2">
@@ -339,15 +371,39 @@
                   </Typography>
                 {:else}
                   {#each trips as t (t.tripId)}
-                    <a
-                      href={`/schedule/route/${routeId}?dir=${direction}${anchorStopId != null ? `&stop=${anchorStopId}` : ''}&trip=${encodeURIComponent(t.tripId)}&view=this-trip`}
-                      class="flex items-center gap-2 px-2 py-1 rounded-md transition-colors no-underline text-[color:var(--color-fg)] hover:bg-[color:var(--color-border)]/30"
-                    >
-                      <Chip size="small" class="font-mono shrink-0">{formatHHMM(t.tripStartMin)}</Chip>
-                      <span class="flex-1 min-w-0 text-xs text-[color:var(--color-fg-muted)]">
-                        {#if view === 'today'}{formatRelative(t.tripStartMin)}{/if}
-                      </span>
-                    </a>
+                    {@const isOpen = expandedTripId === t.tripId}
+                    {@const stops = tripStops.get(t.tripId)}
+                    <Stack spacing={0}>
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onclick={() => toggleExpand(t.tripId)}
+                        class="flex items-center gap-2 px-2 py-1 rounded-md transition-colors text-left text-[color:var(--color-fg)] hover:bg-[color:var(--color-border)]/30"
+                      >
+                        <Chip size="small" class="font-mono shrink-0">{formatHHMM(t.tripStartMin)}</Chip>
+                        <span class="flex-1 min-w-0 text-xs text-[color:var(--color-fg-muted)]">
+                          {#if view === 'today'}{formatRelative(t.tripStartMin)}{/if}
+                        </span>
+                        <ChevronDown
+                          size={16}
+                          class={`shrink-0 transition-transform text-[color:var(--color-fg-muted)] ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {#if isOpen}
+                        <div class="pl-2 pr-1 pb-2 pt-1">
+                          {#if stops == null}
+                            <Stack direction="row" spacing={1} align="center" class="px-2 py-1">
+                              <Spinner size={14} />
+                              <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">
+                                Loading stops…
+                              </Typography>
+                            </Stack>
+                          {:else}
+                            {@render tripTimeline(stops, anchorStopId)}
+                          {/if}
+                        </div>
+                      {/if}
+                    </Stack>
                   {/each}
                 {/if}
               </Stack>
