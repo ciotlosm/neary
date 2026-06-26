@@ -610,30 +610,111 @@ Useful for non-Cluj feeds where we have no local knowledge. **Not recommended fo
 - `mode=transit` returns the operator's GTFS schedule back — that's our input, not useful as calibration.
 - ToS restricts storing derived data from their APIs beyond display.
 
-### Option C — Historical observation script (future work)
+### Option C — Historical observation, three deliverables (future work, post-v2.5)
 
-A script in `neary-gtfs/scripts/`, run manually whenever the operator data feels stale, that:
+This is the long-term right answer and the user's planned follow-on work. Three deliverables, in order:
 
-1. Captures GTFS-RT VehiclePositions continuously for some window (a week, a month).
-2. Per `(routeId, directionId, segmentIdx, hour-of-week)` computes empirical median bus speed.
-3. Collapses the hour-of-week dimension to the three TOD buckets (`peak`, `offpeak`, `night`) so the cascade can consume it.
-4. Writes per-route overrides into `feeds/<id>/config.json`:
+#### C.1 — The capture script
 
-```json
-{
-  "speed": { "kmh_peak": 12, "kmh_offpeak": 22, "kmh_night": 30 },
-  "route_overrides": {
-    "25_0": { "kmh_peak": 18, "kmh_offpeak": 25, "kmh_night": 32 },
-    "5_1":  { "kmh_peak": 20, "kmh_offpeak": 24, "kmh_night": 30 }
-  }
-}
+A standalone Node script in `neary-gtfs/scripts/observe-cluj.mjs` (or similar) that:
+
+1. Polls the upstream GTFS-RT VehiclePositions feed at the same cadence as `apps/web` (every ~15 s).
+2. Stores raw snapshots to a local directory or SQLite file. **Storage stays local** — no operator data leaves the machine. This keeps the script in the same "tool you can run when you feel like it" category as `scripts/build-sqlite/` rather than a load-bearing service.
+3. Run for a meaningful window: a month gives ~2.6 M snapshots for a 100-vehicle city. SQLite handles that comfortably.
+
+Not wired into the build pipeline. Manual `node observe-cluj.mjs --since=… --until=…` invocation.
+
+#### C.2 — The analysis pass
+
+A second script, `scripts/analyze-observations.mjs`, that reads the captured snapshots and computes empirical speeds:
+
+- Project each observation onto its trip's shape (the existing `geo.projectOnPolyline` from P0).
+- Between consecutive same-vehicle observations, compute `distAlongShape_delta / time_delta` = empirical speed for that segment, at that wall-clock time.
+- Bucket by `(route_id, direction_id, segment_idx, hour_of_week)`. Take p60 of the bucket's speed samples (drop ≤5 km/h as before — those are at-stop dwell artefacts, not motion).
+- Drop buckets with fewer than some minimum sample count (e.g. 20) so we don't ship overfit data.
+
+Output: a per-bucket median speed table.
+
+#### C.3 — Ship the empirical data IN THE SAME SQLITE THE CLIENT ALREADY DOWNLOADS
+
+This is the key architectural call. The empirical speeds are valuable in **two** contexts:
+
+1. **Build time in `neary-gtfs`:** when generating `stop_times.txt` for the next feed build, the per-segment speeds are far better inputs to the schedule interpolation than the per-feed TOD defaults. So P1's `estimateSegmentSpeed` call picks them up directly.
+2. **Runtime in `apps/web`:** when the cascade is deciding which speed to apply to a far segment, having the *empirical* median for that exact `(route, direction, segment, hour)` is better than falling back to the per-feed TOD bucket.
+
+The cleanest way to get both: **stash the table in the SQLite database the client downloads**. New table in `make-sqlite.js`:
+
+```sql
+CREATE TABLE segment_speeds (
+  route_id        TEXT NOT NULL,
+  direction_id    INTEGER NOT NULL,
+  segment_idx     INTEGER NOT NULL,
+  hour_of_week    INTEGER NOT NULL,  -- 0..167; lets the client collapse to its own bucketing
+  kmh_p60         REAL NOT NULL,
+  sample_count    INTEGER NOT NULL,
+  PRIMARY KEY (route_id, direction_id, segment_idx, hour_of_week)
+);
 ```
 
-The shared `prediction-core/` cascade reads `feedConfig.route_overrides[routeId_directionId]` when present, falls back to `feedConfig.speed` otherwise. Per-route overrides hold only the speed numbers; everything else (city-centre coords, peak windows, dwell) stays at the feed level.
+The Cluj feed build picks up the latest snapshot of this table and ships it inside the same `.sqlite` artifact users already download once per feed. **No new network endpoint, no extra HTTP, no client config to manage.** Empirical data flows through the same channel as the schedule.
 
-**Deferred from v2.5** per §8 anti-goals — we explicitly didn't want a historical-speed store as part of the initial pipeline. The slot in the data shape exists so when this script ships it's a config-file change, not an architectural one. The cascade already knows how to read it.
+#### C.4 — What happens to the cascade once C.3 ships
 
-**Scope when built:** a standalone Node script, not part of the build pipeline. Capture by storing GTFS-RT snapshots to a local directory (or SQLite, if it grows); analysis is a separate pass. Storage stays local — no operator data leaves the machine. This keeps the script in the same "tool you can run when you feel like it" category as `scripts/build-sqlite/` rather than a load-bearing service.
+**This is the big simplification.** With dense empirical data for every `(route, dir, segment, hour-of-week)` bucket, most of v2.5's cascade becomes dead weight. The fallback tiers (TOD, centre, static) are *configured estimates of what observation would tell us*; once observation tells us, the configured estimates are obsolete by definition.
+
+The cascade collapses from 5–6 tiers to **two real layers**:
+
+| Layer | Source | What it answers |
+|---|---|---|
+| **Baseline (empirical)** | `segment_speeds` p60 for this `(route, dir, segment, hour)` | "What's the normal speed here?" |
+| **Live correction** | `(observed_speed_of_this_bus_recently) / (empirical_median_for_those_segments)` over the last ~5 min | "Is this bus running normal, fast, or slow right now?" |
+
+The prediction for any future segment becomes `empirical_baseline × live_correction_ratio`. So instead of choosing between a vehicle's instant speed (tier 1) OR fleet average (tier 2) OR TOD (tier 3), we always use empirical baseline AND apply the live observation as a multiplier on it.
+
+**Why "live correction" survives even when empirical is dense:**
+
+- Empirical median says "normal Monday 8 AM is 14 km/h on this segment". That's a forecast, not a fact about this Monday.
+- A protest, a wreck, weather, a road closure — these all bend reality away from the historical median. The vehicle's own GPS catches that in real time; the median can't.
+- Same goes for individual vehicle behaviour: a particular bus running broken / running early / dwelling unusually long. Its own observed speed tells us; the median doesn't.
+
+**What disappears post-C.3:**
+
+- ~~Tier 1 (vehicle's own raw speed)~~ — folded into the live-correction multiplier.
+- ~~Tier 2 (nearby fleet average)~~ — folded in too. Computed as the same ratio against the empirical median, weighted by sample count.
+- ~~Tier 3 (per-feed TOD default)~~ — empirical baseline supersedes. Stays as `route_overrides` in feed config for the **sparse-bucket** case (specific (segment, hour) cells with <20 samples).
+- ~~Tier 4 (city-centre interpolation)~~ — empirical supersedes. Useful only as ultimate cold-start fallback for cities where Option C hasn't run yet.
+- ~~Tier 5 (static fallback)~~ — same. Survives as the universal "I have no data at all" fallback.
+
+So the post-C.3 cascade is conceptually `empirical × correction` with config tail-fallbacks for cold start / sparse data:
+
+| # | Source | When fires |
+|---|---|---|
+| 1 | Empirical p60 × live correction multiplier | When `segment_speeds` row exists with enough samples |
+| 2 | Empirical p60 from adjacent hour bucket × live correction | Sparse cell, but nearby bucket has data |
+| 3 | Per-route TOD override × live correction | No empirical for this route at all |
+| 4 | Per-feed TOD default × live correction | Brand new feed, no empirical anywhere |
+| 5 | Static fallback | Catastrophic case |
+
+The same `estimateSegmentSpeed` signature handles all of this; the function just becomes "look up empirical first, derive correction multiplier from live observations, multiply, fall back if empirical is missing".
+
+**Implication for v2.5 design:**
+
+The cascade we ship in v2.5 is *the cold-start version* of this design. Tiers 3–5 in v2.5 ARE tiers 3–5 in the post-C.3 cascade — same constants, same code paths. Tiers 1–2 in v2.5 (raw vehicle speed / fleet average) get reworked into the live-correction multiplier when C.4 lands, but the data they consume is already in place. So the migration from v2.5 to post-C.3 is **adding** layers, not throwing the cascade away.
+
+#### What this design is NOT
+
+- **Not** an ML model. p60 of observed speeds is straight arithmetic; the historical pipeline learns nothing it doesn't observe.
+- **Not** a real-time service. The capture script runs occasionally (think "once a month"); the analysis pass runs once per feed build. No always-on infrastructure.
+- **Not** part of v2.5's first release. The slots exist in the cascade and the SQLite schema (empty initially); the script is built when someone has the appetite for it.
+
+#### Deferred-work entry point
+
+When picking this up:
+
+1. Spike the capture script first — a day's work, validates the data quality is what we expect.
+2. Let it run for a week before bothering to build the analysis pass; one week is enough to know whether the data is dense enough for the p60 buckets to be meaningful.
+3. Analysis pass + SQLite schema + `make-sqlite.js` wiring come together as one PR (they're tightly coupled).
+4. Client-side: add the empirical-baseline tier to `speedCascade.ts`. With `segment_speeds` empty (or missing), it short-circuits and falls through to the config tiers — so the cascade keeps working before any data is captured. Later, rework tiers 1–2 into the live-correction multiplier when there's enough empirical data to make the ratio meaningful.
 
 ---
 
@@ -686,4 +767,5 @@ Things this design deliberately does *not* attempt, with reasons:
 - 2026-06-27 — P1 scope spelled out in full instead of "Stage A from §5". Five explicit deliverables: shape-aware segment distance, per-feed time-of-day speed profile, per-stop dwell with proper arrival/departure split, `shape_dist_traveled` populated, drop the min/max clamp. Worked example added showing today's haversine+18 km/h+0 dwell vs the new formula on a 4-stop trip. Acceptance criteria added. Only the Cluj path changes; feeds with operator-provided `stop_times.txt` keep using those as authoritative.
 - 2026-06-27 — P0 ("measurement") deleted. User confirmed no historical-speed pipeline; seed defaults come from lived experience instead. New P0 ("Foundation") replaces it: shared `prediction-core` module (geo math + TOD bucket + speed cascade + dwell), byte-mirrored between the two repos with CI enforcement. §6.6 added explaining the vendor-and-mirror strategy, the sync script, and when to graduate to a private NPM package. P1–P6 renumbered to P1–P5 (the old P3 "speedEstimator domain module" is absorbed into P0 since it's the same shared cascade). Anti-goals section updated to call out the absence of a measurement pipeline.
 - 2026-06-27 — Q.4 revised. Earlier decision was 5 s `nowTicker` everywhere. Reconsidered: that's overkill because predictor inputs only change on the poll cadence (15 s) anyway, and 5 s ticking just re-runs the predictor with identical inputs. New decision: `nowTicker = 15 s`, synchronised with `livePollMs`. Map marker smoothness handled by an RAF interpolation loop on the map page (`pos += vel * dt` per frame, anchor recomputed at each tick) — same pattern the traveling-dots layer already uses. §2.7 cadence comparison fixed (v1 vs v2 vs v2.5 was wrongly framed); §6 P5 description rewritten; §6.5 config table + latency table updated.
-- 2026-06-27 — §6.7 added: "Calibrating the per-feed speed profile". Documents three options (ride / OSM with per-route factor / future historical-observation script). Calls out the Cluj-specific bus-lane wrinkle: standard "car driving time × 0.65" rule is wrong-direction-biased for routes on dedicated bus lanes (which are FASTER than cars at peak, not slower). So Google / OSM car-time APIs are not recommended for Cluj; ride-the-bus stays the cheapest path to accurate numbers for now. Future historical script slot is documented in the feed config shape (`route_overrides` block) so the cascade can already consume it when the script ships — keeps it a config change rather than an architectural one. Anti-goal of "no historical store" preserved; the script is deferred work, not part of v2.5.
+- 2026-06-27 — §6.7 expanded with three Option-C deliverables and a key architectural call: empirical per-segment speeds ship inside the same SQLite database the client already downloads (new `segment_speeds` table). Used at BOTH build time (better stop_times.txt input than per-feed TOD defaults) AND runtime (a new tier 3 in the cascade between fleet-average and per-feed defaults). Same source of truth across both contexts. Refined the bus-lane reasoning: bus lanes don't offer a static advantage; the benefit depends on whether there's traffic to bypass, so the right answer is empirical observation per `(route, time, day-of-week)`. Still deferred from v2.5 (no historical-store as part of initial pipeline); slot in cascade + schema exists so when the script ships, it's a data-only change. Entry-point checklist added at the bottom of §6.7 for picking up tomorrow.
+- 2026-06-27 — §6.7 added C.4 ("What happens to the cascade once C.3 ships"). User insight: with dense empirical data per `(route, dir, segment, hour-of-week)`, most of v2.5's heuristic cascade becomes dead weight. Post-C.3, the cascade collapses from 5–6 tiers to two real layers: empirical baseline (the truth from observation) × live correction multiplier (how this bus is running right now relative to that baseline). Live correction folds today's tier 1 (vehicle's own speed) + tier 2 (fleet average) into a ratio against empirical median; tiers 3–5 (TOD / centre / static) shrink to cold-start + sparse-bucket backstop. The v2.5 cascade is the cold-start version of this design — same data, same code paths — so the migration is additive, not destructive.
