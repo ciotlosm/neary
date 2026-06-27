@@ -15,7 +15,7 @@
     Box, Card, CardContent, NoFeedState, Spinner, Stack, StationCard, Typography,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
-  import type { StopWithDistance } from '$lib/data/gtfs/types';
+  import type { ScheduleTripStop, StopWithDistance } from '$lib/data/gtfs/types';
   import { assembleLiveBoard, routesFromVehicles } from '$lib/domain/stationBoard';
   import { selectBoardsForView } from '$lib/domain/stationSelection';
   import { DEFAULT_CONFIG } from '$lib/domain/config';
@@ -84,6 +84,13 @@
   let routeFilters = $state<Record<number, string | null>>({});
   function toggleRouteFilter(stopId: number, routeId: string) {
     routeFilters[stopId] = routeFilters[stopId] === routeId ? null : routeId;
+  }
+
+  async function getUpcomingStops(tripId: string, currentStopId: number): Promise<ScheduleTripStop[]> {
+    const repo = getGtfsRepo();
+    const all = await repo.getStopsAlongTrip(tripId);
+    const idx = all.findIndex((s) => s.stopId === currentStopId);
+    return idx >= 0 ? all.slice(idx + 1) : all;
   }
 
   // Feed tz + wall clock both live in shared stores (feedsStore /
@@ -255,6 +262,7 @@
           selectedRouteId={routeFilter}
           onRouteClick={(rid) => toggleRouteFilter(stop.id, rid)}
           favoriteRouteIds={favoritesStore.routeIds}
+          getUpcomingStops={getUpcomingStops}
           expanded={expandedStopId === stop.id}
           ontoggle={() => (expandedStopId = expandedStopId === stop.id ? null : stop.id)}
         />

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "WebFetch(domain:registry.npmjs.org)"
     ]
   }
 }

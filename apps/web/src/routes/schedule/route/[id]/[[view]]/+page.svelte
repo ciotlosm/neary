@@ -27,10 +27,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ArrowRightLeft, ArrowUpRight, ChevronDown, ExternalLink, Map as MapIcon, Moon } from 'lucide-svelte';
+  import { ArrowRightLeft, ChevronDown, Map as MapIcon, Moon } from 'lucide-svelte';
   import {
     BackButton, Card, CardContent, Chip, IconButton, NoFeedState, RouteBadge, Spinner,
-    Stack, ToggleGroup, Typography,
+    Stack, ToggleGroup, TripStopList, Typography,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
   import { useOtherDirectionExists } from '$lib/data/gtfs/otherDirectionExists.svelte';
@@ -412,38 +412,6 @@
   );
 </script>
 
-<!-- Stop-timeline for an expanded trip row.
-     Origin shows an ArrowUpRight departure icon (same as StationCard's
-     departing bucket); subsequent stops show just the arrival time. -->
-{#snippet tripTimeline(stops: ScheduleTripStop[])}
-  <Stack spacing={0.5}>
-    {#each stops as s, i (s.stopId)}
-      {@const isOrigin = i === 0}
-      <Stack
-        direction="row"
-        spacing={1}
-        align="center"
-        class="px-2 py-1 rounded-md hover:bg-[color:var(--color-border)]/30"
-      >
-        <Chip size="small" class="font-mono shrink-0">{i + 1}</Chip>
-        <span class="flex-1 min-w-0 text-xs truncate">{s.stopName}</span>
-        <span class="flex items-center gap-0.5 text-[color:var(--color-fg-muted)] font-mono text-xs shrink-0">
-          {#if isOrigin}
-            <ArrowUpRight size={12} class="text-[color:var(--color-danger)]" aria-label="Departure" />
-          {/if}
-          {formatHHMM(s.arrivalMin)}
-        </span>
-        <a
-          href={`/station/${s.stopId}`}
-          aria-label={`Open station ${s.stopName}`}
-          class="shrink-0 text-[color:var(--color-fg-muted)] hover:text-[color:var(--color-fg)]"
-        >
-          <ExternalLink size={16} />
-        </a>
-      </Stack>
-    {/each}
-  </Stack>
-{/snippet}
 
 <!-- Weekly schedule view: rendered as a true matrix table so a
      given clock time lines up horizontally across day columns.
@@ -661,7 +629,7 @@
                               </Typography>
                             </Stack>
                           {:else}
-                            {@render tripTimeline(stops)}
+                            <TripStopList stops={stops} showDepartureMarker />
                           {/if}
                         </div>
                       {/if}

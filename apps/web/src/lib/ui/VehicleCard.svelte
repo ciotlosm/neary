@@ -37,10 +37,21 @@
      *  the trip id). The consumer composes the href so this card
      *  stays free of route-URL convention knowledge. */
     mapHref?: string;
+    /** When set, the route badge becomes tappable and fires this
+     *  callback. Used by StationCard to toggle the upcoming-stop
+     *  list for this vehicle. */
+    onRouteBadgeClick?: () => void;
+    /** Reflects the expanded state of the stop list panel, passed
+     *  back from the consumer so the badge shows a pressed ring. */
+    stopsExpanded?: boolean;
     class?: string;
   };
 
-  let { vehicle, urgency, onclick, scheduleHref, mapHref, class: className }: Props = $props();
+  let {
+    vehicle, urgency, onclick, scheduleHref, mapHref,
+    onRouteBadgeClick, stopsExpanded = false,
+    class: className,
+  }: Props = $props();
 
   // Per-kind visuals. Spec §2 visual-variant table. The kind only drives
   // the badge icon and color now — every row gets the same solid border.
@@ -127,7 +138,13 @@
        Badge is identity-only — navigation lives on the dedicated
        map / schedule icon buttons to the right so users learn one
        affordance per destination (consistent with favorites). -->
-  <RouteBadge route={vehicle.route} size="medium" class="min-w-14" />
+  <RouteBadge
+    route={vehicle.route}
+    size="medium"
+    class="min-w-14"
+    selected={onRouteBadgeClick ? stopsExpanded : undefined}
+    onclick={onRouteBadgeClick ? (e) => { e.stopPropagation(); onRouteBadgeClick!(); } : undefined}
+  />
 
   <div class="flex-1 min-w-0">
     <div class="text-sm font-medium truncate flex items-center gap-1">

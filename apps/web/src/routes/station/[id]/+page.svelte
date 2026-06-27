@@ -13,7 +13,7 @@
     Card, CardContent, NoFeedState, Spinner, Stack, StationCard, Typography,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
-  import type { StopWithDistance } from '$lib/data/gtfs/types';
+  import type { ScheduleTripStop, StopWithDistance } from '$lib/data/gtfs/types';
   import { assembleLiveBoard, routesFromVehicles } from '$lib/domain/stationBoard';
   import { DEFAULT_CONFIG } from '$lib/domain/config';
   import { tripIdsFromVehicles } from '$lib/domain/tripIdsFromVehicles';
@@ -29,6 +29,15 @@
   // Stations / home view). 18 h from any wall-clock time covers
   // the rest of the GTFS service day.
   const ARRIVALS_WINDOW_MIN = DEFAULT_CONFIG.arrivalsWindowMin;
+
+  // Returns all stops after `currentStopId` for the given trip.
+  // Slicing is done here so no filtering logic leaks into the UI.
+  async function getUpcomingStops(tripId: string, currentStopId: number): Promise<ScheduleTripStop[]> {
+    const repo = getGtfsRepo();
+    const all = await repo.getStopsAlongTrip(tripId);
+    const idx = all.findIndex((s) => s.stopId === currentStopId);
+    return idx >= 0 ? all.slice(idx + 1) : all;
+  }
 
   const stopId = $derived(Number(page.params.id));
   const stopIdValid = $derived(Number.isFinite(stopId) && stopId > 0);
@@ -132,6 +141,7 @@
       onRouteClick={(rid) => (routeFilter = routeFilter === rid ? null : rid)}
       favoriteRouteIds={favoritesStore.routeIds}
       originRouteIds={originRouteIds}
+      getUpcomingStops={getUpcomingStops}
       expanded={true}
       ontoggle={() => {}}
     />

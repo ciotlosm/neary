@@ -21,6 +21,7 @@
     BUCKET_ORDER, bucketLabel, etaUrgency, type ArrivalBucket,
   } from '$lib/domain/buckets';
   import type { BoardRow } from '$lib/domain/stationBoard';
+  import type { ScheduleTripStop } from '$lib/data/gtfs/types';
   import Avatar from './Avatar.svelte';
   import Box from './Box.svelte';
   import Card from './Card.svelte';
@@ -29,8 +30,10 @@
   import Collapsible from './Collapsible.svelte';
   import IconButton from './IconButton.svelte';
   import RouteBadge from './RouteBadge.svelte';
+  import Spinner from './Spinner.svelte';
   import Stack from './Stack.svelte';
   import Tooltip from './Tooltip.svelte';
+  import TripStopList from './TripStopList.svelte';
   import Typography from './Typography.svelte';
   import VehicleCard from './VehicleCard.svelte';
   import { cn } from './cn';
@@ -62,6 +65,11 @@
     /** Route ids for which this station is the first (origin) stop. When set,
      *  the corresponding badge shows the isStart ▶ wedge. */
     originRouteIds?: ReadonlySet<string>;
+    /** When provided, tapping a vehicle's route badge fetches and shows the
+     *  upcoming stops from this station to the end of the trip. The callback
+     *  receives the trip id and current stop id; the caller slices the stop
+     *  list so the first returned stop is the one after the current station. */
+    getUpcomingStops?: (tripId: string, currentStopId: number) => Promise<ScheduleTripStop[]>;
     class?: string;
   };
 
@@ -76,8 +84,32 @@
     onRouteClick,
     favoriteRouteIds,
     originRouteIds,
+    getUpcomingStops,
     class: className,
   }: Props = $props();
+
+  // Stop-list expansion state for vehicle route badge tap.
+  let expandedVehicleId = $state<string | null>(null);
+  let vehicleStops = $state<ScheduleTripStop[] | null>(null);
+  let stopsLoading = $state(false);
+
+  async function toggleStops(vehicle: Vehicle) {
+    const tid = vehicle.schedule?.tripId;
+    if (!tid || !getUpcomingStops) return;
+    if (expandedVehicleId === vehicle.id) {
+      expandedVehicleId = null;
+      vehicleStops = null;
+      return;
+    }
+    expandedVehicleId = vehicle.id;
+    vehicleStops = null;
+    stopsLoading = true;
+    try {
+      vehicleStops = await getUpcomingStops(tid, station.id);
+    } finally {
+      stopsLoading = false;
+    }
+  }
 
   function formatDistance(m: number | undefined): string {
     if (typeof m !== 'number') return '';
@@ -262,14 +294,40 @@
               </Stack>
               <Stack spacing={0.5} class="pt-1">
                 {#each group.vehicles as vehicle (vehicle.id)}
-                  <VehicleCard
-                    {vehicle}
-                    urgency={etaUrgency(group.bucket, vehicle.eta?.minutes ?? 0)}
-                    scheduleHref={`/schedule/route/${vehicle.route.id}_${vehicle.schedule?.directionId ?? 0}`}
-                    mapHref={mapEligibleIds.has(vehicle.id)
-                      ? `/map/route/${vehicle.route.id}_${vehicle.schedule?.directionId ?? 0}${vehicle.schedule?.tripId ? `/${encodeURIComponent(vehicle.schedule.tripId)}` : ''}`
-                      : undefined}
-                  />
+                  <Box class="flex flex-col gap-1">
+                    <VehicleCard
+                      {vehicle}
+                      urgency={etaUrgency(group.bucket, vehicle.eta?.minutes ?? 0)}
+                      scheduleHref={`/schedule/route/${vehicle.route.id}_${vehicle.schedule?.directionId ?? 0}`}
+                      mapHref={mapEligibleIds.has(vehicle.id)
+                        ? `/map/route/${vehicle.route.id}_${vehicle.schedule?.directionId ?? 0}${vehicle.schedule?.tripId ? `/${encodeURIComponent(vehicle.schedule.tripId)}` : ''}`
+                        : undefined}
+                      onRouteBadgeClick={getUpcomingStops && vehicle.schedule?.tripId && mapEligibleIds.has(vehicle.id)
+                        ? () => toggleStops(vehicle)
+                        : undefined}
+                      stopsExpanded={expandedVehicleId === vehicle.id}
+                    />
+                    {#if getUpcomingStops && vehicle.schedule?.tripId && mapEligibleIds.has(vehicle.id)}
+                      <Collapsible in={expandedVehicleId === vehicle.id}>
+                        <div class="rounded-md border border-[color:var(--color-border)]/60 bg-[color:var(--color-surface-raised,var(--color-surface))] overflow-hidden">
+                          {#if stopsLoading && expandedVehicleId === vehicle.id}
+                            <Stack direction="row" spacing={1} align="center" class="px-3 py-2">
+                              <Spinner size={12} />
+                              <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">Loading…</Typography>
+                            </Stack>
+                          {:else if vehicleStops != null && expandedVehicleId === vehicle.id}
+                            {#if vehicleStops.length === 0}
+                              <Typography variant="caption" class="block px-3 py-2 text-[color:var(--color-fg-muted)]">
+                                This is the last stop.
+                              </Typography>
+                            {:else}
+                              <TripStopList stops={vehicleStops} class="py-1" />
+                            {/if}
+                          {/if}
+                        </div>
+                      </Collapsible>
+                    {/if}
+                  </Box>
                 {/each}
               </Stack>
             </Box>

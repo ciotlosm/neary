@@ -32,6 +32,7 @@ export { default as ListItemText } from './ListItemText.svelte';
 // Composite primitives — domain-shaped, consume the discriminated Vehicle
 // union from $lib/domain/types so taxonomy decisions live in one place.
 export { default as RouteBadge } from './RouteBadge.svelte';
+export { default as TripStopList } from './TripStopList.svelte';
 export { default as VehicleCard } from './VehicleCard.svelte';
 export { default as StationCard } from './StationCard.svelte';
 export { default as NoFeedState } from './NoFeedState.svelte';

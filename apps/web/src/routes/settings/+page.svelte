@@ -32,6 +32,7 @@
       <Stack spacing={1.5}>
         <Typography variant="h6">Theme</Typography>
         <ToggleGroup
+          size="small"
           value={userPrefs.theme}
           onchange={(v: Theme) => (userPrefs.theme = v)}
           items={[
