@@ -279,3 +279,77 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     expect(stats.matched).toBe(0);
   });
 });
+
+describe('reconcileWithLive (kind:live emission for unmatched obs)', () => {
+  it('emits kind:live for a live obs whose (route, dir) is on the input but no scheduled trip is in tolerance', () => {
+    // Scheduled trip on 14|1 at 14:21. Live obs claims 18:00 — way
+    // outside any sane tolerance for a 1-trip cohort.
+    const sched = [scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21 })];
+    const { vehicles, stats } = reconcileWithLive(
+      sched,
+      [obs({ tripId: 't-other', startTime: '18:00:00' })],
+      { nowMs: epochAt(14 * 60 + 25), timezone: 'UTC' },
+    );
+    expect(stats.matched).toBe(0);
+    expect(stats.live).toBe(1);
+    const live = vehicles.find((v) => v.kind === 'live');
+    expect(live).toBeDefined();
+    if (!live || live.kind !== 'live') throw new Error('expected kind=live');
+    expect(live.id).toBe('live:t-other');
+    expect(live.route.id).toBe('14');
+    expect(live.position.lat).toBeCloseTo(46.77);
+    expect(live.liveSources).toEqual(['gtfs-rt']);
+  });
+
+  it('does NOT emit kind:live for routes the input does not serve', () => {
+    const sched = [scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21 })];
+    const { vehicles, stats } = reconcileWithLive(
+      sched,
+      [obs({ tripId: 'foreign', routeId: '999', startTime: '14:21:00' })],
+      { nowMs: epochAt(14 * 60 + 25), timezone: 'UTC' },
+    );
+    expect(stats.live).toBe(0);
+    expect(vehicles.every((v) => v.kind !== 'live')).toBe(true);
+  });
+
+  it('does NOT emit kind:live for the same (route, dir) but the wrong direction', () => {
+    // Scheduled only carries dir 1; orphan claims dir 0 — different
+    // direction on the same route. Refuse to surface a bus heading
+    // away from where the user is looking.
+    const sched = [scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21, directionId: 1 })];
+    const { stats } = reconcileWithLive(
+      sched,
+      [obs({ tripId: 'wrong-dir', directionId: 0, startTime: '14:21:00' })],
+      { nowMs: epochAt(14 * 60 + 25), timezone: 'UTC' },
+    );
+    expect(stats.live).toBe(0);
+  });
+
+  it('does NOT double-count a matched live obs as both reconciled and orphan', () => {
+    // Live obs cleanly matches the scheduled row.
+    const sched = [scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21 })];
+    const { vehicles, stats } = reconcileWithLive(
+      sched,
+      [obs({ tripId: 't-other', startTime: '14:22:00' })],
+      { nowMs: epochAt(14 * 60 + 25), timezone: 'UTC' },
+    );
+    expect(stats.matched).toBe(1);
+    expect(stats.live).toBe(0);
+    expect(vehicles.every((v) => v.kind !== 'live')).toBe(true);
+  });
+
+  it('copies headsign from a representative sibling on the same (route, dir)', () => {
+    // First scheduled row has the headsign; orphan should inherit it.
+    const v: Vehicle = {
+      ...scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21 }),
+      headsign: 'Centru',
+    };
+    const { vehicles } = reconcileWithLive(
+      [v],
+      [obs({ tripId: 'orphan', startTime: '18:00:00' })],
+      { nowMs: epochAt(14 * 60 + 25), timezone: 'UTC' },
+    );
+    const live = vehicles.find((x) => x.kind === 'live');
+    expect(live?.headsign).toBe('Centru');
+  });
+});

@@ -21,7 +21,6 @@
   import { selectBoardsForView } from '$lib/domain/stationSelection';
   import { DEFAULT_CONFIG } from '$lib/domain/config';
   import { tripIdsFromVehicles } from '$lib/domain/tripIdsFromVehicles';
-  import { buildOrphanLiveVehicle } from '$lib/domain/orphanLive';
   import type { Vehicle } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
@@ -171,84 +170,6 @@
       }
     })();
   });
-
-  // Top up `shapes` for orphan trip_ids (live observations whose
-  // route is shown on some visible board but whose trip didn't
-  // surface in the schedule scan). Worker caches shapes by shape_id
-  // so re-asking for already-fetched ones is O(1).
-  $effect(() => {
-    if (!boards) return;
-    const scheduledTripIds = new Set<string>();
-    const visibleRouteIds = new Set<string>();
-    for (const b of boards) {
-      for (const v of b.vehicles) {
-        if (v.schedule?.tripId) scheduledTripIds.add(v.schedule.tripId);
-        visibleRouteIds.add(v.route.id);
-      }
-    }
-    const missing = Array.from(
-      new Set(
-        liveVehiclesStore.observations
-          .filter(
-            (o) =>
-              o.tripId &&
-              !scheduledTripIds.has(o.tripId) &&
-              visibleRouteIds.has(o.routeId) &&
-              !(o.tripId in shapes),
-          )
-          .map((o) => o.tripId),
-      ),
-    );
-    if (missing.length === 0) return;
-    (async () => {
-      try {
-        const repo = getGtfsRepo();
-        const extra = await repo.getShapesForTrips(missing);
-        shapes = { ...shapes, ...extra };
-      } catch {
-        // Soft-fail: orphan rows just don't render this tick.
-      }
-    })();
-  });
-
-  /** Build orphan live Vehicles for one stop. Only surfaces orphans
-   *  on a (route, direction) pair that the schedule scanner ALSO
-   *  returned for this station — that filter doubles as the source
-   *  of the sibling-trip headsign (GTFS-RT vehicle positions don't
-   *  carry headsign themselves). Pure; cheap to call from the {#each}. */
-  function orphansForStop(
-    stop: { id: number; lat?: number; lon?: number },
-    vehicles: Vehicle[],
-  ): Vehicle[] {
-    if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return [];
-    const stationPos = { lat: stop.lat, lon: stop.lon };
-    const scheduledTripIds = new Set(
-      vehicles.map((v) => v.schedule?.tripId).filter(Boolean) as string[],
-    );
-    // (routeId, directionId) → { route, headsign } for orphan inclusion.
-    // Trips on the same route+direction share their destination
-    // headsign in every feed we've seen.
-    const siblingByKey = new Map<string, { route: Vehicle['route']; headsign: string | undefined }>();
-    for (const v of vehicles) {
-      if (v.schedule?.directionId !== 0 && v.schedule?.directionId !== 1) continue;
-      const key = `${v.route.id}|${v.schedule.directionId}`;
-      const existing = siblingByKey.get(key);
-      if (!existing || (!existing.headsign && v.headsign)) {
-        siblingByKey.set(key, { route: v.route, headsign: v.headsign });
-      }
-    }
-    const out: Vehicle[] = [];
-    for (const o of liveVehiclesStore.observations) {
-      if (!o.tripId || scheduledTripIds.has(o.tripId)) continue;
-      const sibling = siblingByKey.get(`${o.routeId}|${o.directionId}`);
-      if (!sibling) continue;
-      const shape = shapes[o.tripId];
-      if (!shape) continue;
-      const v = buildOrphanLiveVehicle(o, sibling.route, shape, stationPos, sibling.headsign);
-      if (v) out.push(v);
-    }
-    return out;
-  }
 </script>
 
 <div class="mx-auto max-w-3xl px-4 py-6">
@@ -299,7 +220,7 @@
       {@const rawTotal = boards.reduce((n, b) => n + b.vehicles.length, 0)}
       {@const filteredTotal = boards.reduce(
         (n, b) => n + assembleLiveBoard({
-          vehicles: [...b.vehicles, ...orphansForStop(b.stop, b.vehicles)],
+          vehicles: b.vehicles,
           stop: b.stop,
           liveObservations: liveVehiclesStore.observations,
           shapes,
@@ -318,9 +239,8 @@
       {/if}
       {#each boards as { stop, vehicles } (stop.id)}
         {@const routeFilter = routeFilters[stop.id] ?? null}
-        {@const merged = [...vehicles, ...orphansForStop(stop, vehicles)]}
         {@const board = assembleLiveBoard({
-          vehicles: merged,
+          vehicles,
           stop,
           liveObservations: liveVehiclesStore.observations,
           shapes,
