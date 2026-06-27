@@ -179,7 +179,7 @@
     tripStartMin: number;
     /** True for 'before' (next only) and 'at-origin' — no movement prediction. */
     scheduled: boolean;
-    /** Phase 5+: set when the vehicle has a live GPS match. null = schedule-estimated. */
+    /** Set when the vehicle has a live GPS match. null = schedule-estimated. */
     gpsConfidence: 'good' | 'poor' | null;
   };
   const markers = $derived.by<VehicleMarker[]>(() => {

@@ -1,7 +1,7 @@
 <!--
-  /data-test — proves the GTFS pipeline works end-to-end. Phase 2 deliverable
-  #3 (CLI demo in the plan was originally a Node thing — turned into a
-  browser page so iOS Safari / OPFS coverage is exercised at the same time).
+  /data-test — proves the GTFS pipeline works end-to-end. Browser page
+  rather than a Node script so iOS Safari / OPFS coverage is exercised
+  at the same time.
 
   Workflow:
     1. Load manifest (row counts, generated-at, file size).

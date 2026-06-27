@@ -89,7 +89,7 @@
         <Stack direction="row" align="center" justify="between">
           <Box class="flex-1 min-w-0">
             <Typography variant="body2">Show drop-off-only vehicles</Typography>
-            <Typography variant="caption">Include vehicles that stop at this station only to let passengers off (you can't board). They get a "drop off only" chip when shown.</Typography>
+            <Typography variant="caption">Vehicles you can't board here. Marked with a chip.</Typography>
           </Box>
           <Switch
             checked={userPrefs.showDropOffOnly}
@@ -100,8 +100,8 @@
 
         <Stack direction="row" align="center" justify="between">
           <Box class="flex-1 min-w-0">
-            <Typography variant="body2">Show recently departed vehicles</Typography>
-            <Typography variant="caption">Include vehicles that already passed this station and are still en route to their terminus. One row per route (the most recent). Map view always shows them all.</Typography>
+            <Typography variant="body2">Show recently departed</Typography>
+            <Typography variant="caption">Vehicles that just passed this stop. One row per route.</Typography>
           </Box>
           <Switch
             checked={userPrefs.showDepartedVehicles}
@@ -181,7 +181,7 @@
         <Stack direction="row" align="center" justify="between">
           <Box class="flex-1 min-w-0">
             <Typography variant="body2">Show off-route vehicles</Typography>
-            <Typography variant="caption">Diagnostic: include vehicles the reconciler couldn't match to the route shape (stale GPS, off the line). Not relevant in schedule-only mode; lights up once a live source is configured.</Typography>
+            <Typography variant="caption">Diagnostic: vehicles too far from the route shape to match a trip. Empty until live tracking is active.</Typography>
           </Box>
           <Switch
             checked={userPrefs.showOffRouteVehicles}
