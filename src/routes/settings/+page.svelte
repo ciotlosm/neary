@@ -12,6 +12,7 @@
   import {
     Box, Button, Card, CardContent, Chip, List, ListItem, ListItemText,
     Spinner, Stack, Switch, ToggleGroup, Typography,
+    formatBytes, formatRelative, formatAbsolute,
   } from '$lib/ui';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { userPrefs, type Theme } from '$lib/stores/userPrefs.svelte';
@@ -41,28 +42,6 @@
       // localStorage unavailable or corrupted; fall back to "unknown"
     }
   });
-
-  function fmtBytes(n: number | undefined | null): string {
-    if (!n) return '';
-    return n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
-  }
-
-  function fmtRelative(ms: number | null): string {
-    if (ms == null) return '—';
-    const dt = Math.max(0, Date.now() - ms);
-    const min = Math.floor(dt / 60_000);
-    if (min < 1) return 'just now';
-    if (min < 60) return `${min} min ago`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr} h ago`;
-    const day = Math.floor(hr / 24);
-    return `${day} day${day === 1 ? '' : 's'} ago`;
-  }
-
-  function fmtAbsolute(ms: number | null): string {
-    if (ms == null) return '';
-    return new Date(ms).toLocaleString();
-  }
 </script>
 
 <div class="mx-auto max-w-3xl px-4 py-6 space-y-6">
@@ -167,7 +146,7 @@
               >
                 <ListItemText
                   primary={f.name}
-                  secondary={`${f.country}${f.region ? ' · ' + f.region : ''} · ${f.timezone}${f.size_bytes?.sqlite_gz ? ' · ' + fmtBytes(f.size_bytes.sqlite_gz) : ''}`}
+                  secondary={`${f.country}${f.region ? ' · ' + f.region : ''} · ${f.timezone}${f.size_bytes?.sqlite_gz ? ' · ' + formatBytes(f.size_bytes.sqlite_gz) : ''}`}
                 />
                 {#if selected}
                   <Chip size="small" color="primary">
@@ -214,7 +193,7 @@
         <Stack spacing={0.5}>
           <Typography variant="body2">App version</Typography>
           <Typography variant="caption">
-            v{version} · updated {fmtRelative(versionFirstSeenAt)}{#if versionFirstSeenAt} ({fmtAbsolute(versionFirstSeenAt)}){/if}
+            v{version} · updated {formatRelative(versionFirstSeenAt)}{#if versionFirstSeenAt} ({formatAbsolute(versionFirstSeenAt)}){/if}
           </Typography>
         </Stack>
       </Stack>
