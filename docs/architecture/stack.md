@@ -1,6 +1,7 @@
 # Stack
 
-Current v2 stack as of 2026-06-27. Authoritative dependency list is [package.json](../../package.json).
+Tech stack and non-functional targets. Authoritative dependency list is
+[package.json](../../package.json).
 
 ## Runtime
 
@@ -24,7 +25,7 @@ Current v2 stack as of 2026-06-27. Authoritative dependency list is [package.jso
 |---|---|
 | Build | Vite (rolldown-vite) |
 | Tests | Vitest + `@testing-library/svelte` |
-| Lint | (deferred — Biome adoption planned in polish phase) |
+| Lint | (none currently — see [../plan/open-questions.md](../plan/open-questions.md)) |
 
 ## Deployment
 
@@ -32,7 +33,20 @@ Current v2 stack as of 2026-06-27. Authoritative dependency list is [package.jso
 - GitHub Actions: PR validation, auto-bump version on merge, deploy to production on push to `main`.
 - See [../specs/ci-and-versioning.md](../specs/ci-and-versioning.md).
 
+## Performance targets
+
+Non-functional targets the app aims to hold. CI doesn't enforce them today —
+see [../plan/open-questions.md](../plan/open-questions.md) for the "add
+perf budgets to CI" decision.
+
+| Metric | Target |
+|---|---|
+| Cold start to interactive (mid-range iPhone Safari) | < 1.0 s |
+| Time-to-first-station-card (schedule cached) | < 250 ms |
+| JS shipped on first paint | < 50 KB gzipped |
+
 ## What's deliberately not here
 
 - Server-side rendering — static prerender only. Revisit only if route-based data fetching needs it.
 - MapLibre GL — kept on Leaflet until a real iOS-Safari bottleneck appears.
+- Apple App Store wrapper — PWA is the distribution channel. Native wrapper is a separate effort if ever pursued.

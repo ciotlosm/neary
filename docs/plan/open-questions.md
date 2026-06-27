@@ -42,3 +42,18 @@ before deciding).
 
 - **Question**: How do we measure prediction accuracy systematically?
 - **Decide after**: historical observation pipeline produces enough captured-vs-predicted pairs. See [prediction-v2.md §7 Q.7](prediction-v2.md).
+
+## Lint tool (Biome)
+
+- **Question**: Adopt Biome (one tool replacing ESLint + Prettier)?
+- **Decide after**: the team feels actual friction from unformatted / lint-free code. Today the codebase is small enough that no lint is fine.
+
+## Visual regression testing
+
+- **Question**: Replace the manual `/showcase` route review with Histoire + Playwright screenshot diffing?
+- **Decide after**: Histoire's Svelte 5 support stabilizes AND we've shipped a visual regression that screenshot diffing would have caught.
+
+## Performance budgets in CI
+
+- **Question**: Fail PR validation builds that exceed the [stack.md](../architecture/stack.md#performance-targets) targets (cold start, first-card, first-paint JS)?
+- **Decide after**: we've measured a baseline and seen at least one PR regress one of the targets without anyone noticing.
