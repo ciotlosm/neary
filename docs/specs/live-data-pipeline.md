@@ -1,7 +1,7 @@
 # Live data pipeline
 
-Reasoning behind the live worker, reconciler, and the feed-specific
-workarounds. The code itself ([src/lib/data/live/](../../src/lib/data/live/),
+Reasoning behind the worker-side live pipeline, reconciler, and the
+feed-specific workarounds. The code itself ([src/lib/data/live/](../../src/lib/data/live/),
 [src/lib/domain/reconcile.ts](../../src/lib/domain/reconcile.ts)) is the
 implementation; this doc captures the **why** that isn't there.
 

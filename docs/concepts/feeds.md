@@ -27,7 +27,7 @@ The id is what:
 
 - **Favorites** key on `{ feedId, stopId }` because the same numeric stop_id
   in Cluj and Bucharest refers to different stops.
-- **Live worker** polls only the active feed's `realtime` URLs.
+- **Worker live poll** fetches only the active feed's `realtime` URLs.
 - **Reconciler** only sees vehicles for the active feed's `agencies`.
 
 ## Lifecycle

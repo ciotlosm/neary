@@ -142,9 +142,9 @@
 
   const title = $derived(TITLES[activeNav]);
 
-  // Schedule and Live dots reflect their underlying workers; today the
-  // schedule dot lights up when the GTFS worker has a feed bound, the
-  // live dot stays idle until a live worker is wired in. GPS and
+  // Schedule and Live dots both reflect the single GTFS worker. Schedule
+  // lights up when the worker has a feed bound; Live reflects the
+  // worker's reconciliation broadcast (lastFetchMs / error). GPS and
   // Connection are real — see locationStore + connectionStore. The GPS
   // watch isn't started by the layout itself; the Stations route calls
   // locationStore.start() on mount so we don't prompt for permission
