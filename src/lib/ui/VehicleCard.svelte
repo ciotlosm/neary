@@ -172,7 +172,6 @@
       <ArrowDownLeft
         size={13}
         aria-label="Drop off only — cannot board here"
-        title="Drop off only — cannot board here"
         class="text-[color:var(--color-danger)]"
       />
     {/if}

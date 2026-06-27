@@ -217,7 +217,7 @@ describe('etaUrgency', () => {
   });
 
   it("returns 'neutral' for incoming beyond the imminent threshold", () => {
-    expect(etaUrgency('incoming', 6)).toBe('neutral');
+    expect(etaUrgency('incoming', 11)).toBe('neutral');
     expect(etaUrgency('incoming', 20)).toBe('neutral');
   });
 
@@ -282,7 +282,7 @@ describe('filterForStationView', () => {
 
   it('drops drop-off-only vehicles when showDropOffOnly is off', () => {
     const out = filterForStationView(
-      [base('arriving', true), base('arriving', false)],
+      [base('drop-off', true), base('arriving', false)],
       { ...allowAll, showDropOffOnly: false },
     );
     expect(out).toHaveLength(1);

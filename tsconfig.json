@@ -10,5 +10,11 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler"
-  }
+  },
+  "exclude": [
+    "legacy",
+    "apps/legacy",
+    "dist",
+    "node_modules"
+  ]
 }
