@@ -20,10 +20,13 @@ import type { Feed } from '$lib/data/feeds';
 import type { Route, Station, Vehicle } from '$lib/domain/types';
 import { vehicleTypeFromGtfs } from '$lib/domain/types';
 import type {
-  GtfsRepo, RouteMapTrip, ScheduleTripStop, StopWithDistance, UpcomingDeparture,
+  GtfsRepo, ReconciledSnapshot, RouteMapTrip, ScheduleTripStop, StopWithDistance, UpcomingDeparture,
 } from '$lib/data/gtfs/types';
 import { scanSchedule, type ScheduleRow } from '$lib/domain/pipeline/scheduleScanner';
 import { dateKeyInTz, minSinceMidnightInTz } from '$lib/domain/pipeline/timeUtils';
+import { fetchVehiclePositions } from '$lib/data/live/gtfsRtClient';
+import { reconcileWithLive } from '$lib/domain/reconcile';
+import { DEFAULT_CONFIG } from '$lib/domain/config';
 import { opfsFileFor, pruneStaleFeedFiles } from './opfsFilenames';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +67,104 @@ let currentFeedId: string | null = null;
 let currentFeedTz: string | null = null;
 let currentDb: Database | null = null;
 let bootstrapping: Promise<Database> | null = null;
+
+// ---------------------------------------------------------------------------
+// Live-reconciliation pipeline state.
+//
+// The worker owns the whole live pipe: it polls GTFS-RT every
+// DEFAULT_CONFIG.livePollMs, reconciles against active trips, and pushes
+// the resulting Vehicle[] to every subscriber. Reconciliation happens
+// HERE (not on the main thread) so every view consumes a single source
+// of truth — no per-view reconciliation, no duplicate-marker bug.
+//
+// Tuning constants:
+//   LOOKBACK_MIN  — how far back to include trips that started in the past
+//                   and may still be running. 120 min comfortably covers
+//                   Cluj's longest schedules (≤90 min) plus operator delay.
+//   LOOKAHEAD_MIN — how far forward to include trips parked at origin
+//                   that haven't departed yet. 30 min catches the next
+//                   service window without growing the cohort excessively.
+// ---------------------------------------------------------------------------
+
+const LIVE_RECONCILE_LOOKBACK_MIN = 120;
+const LIVE_RECONCILE_LOOKAHEAD_MIN = 30;
+
+type ReconciledListener = (snap: ReconciledSnapshot) => void;
+let livePollTimerId: ReturnType<typeof setInterval> | null = null;
+let liveInFlight = false;
+let lastSnapshot: ReconciledSnapshot | null = null;
+const liveListeners = new Set<ReconciledListener>();
+
+function stopLiveTimer(): void {
+  if (livePollTimerId !== null) {
+    clearInterval(livePollTimerId);
+    livePollTimerId = null;
+  }
+}
+
+function ensureLiveTimer(): void {
+  if (livePollTimerId !== null || typeof setInterval === 'undefined') return;
+  livePollTimerId = setInterval(() => void tickLive(), DEFAULT_CONFIG.livePollMs);
+}
+
+function broadcast(snap: ReconciledSnapshot): void {
+  for (const cb of liveListeners) {
+    try {
+      // Each listener is a Comlink-proxied main-thread function, so
+      // invoking it returns a Promise we don't await — fire-and-forget.
+      void cb(snap);
+    } catch (e) {
+      console.warn('[gtfs.worker] reconciled listener threw', e);
+    }
+  }
+}
+
+async function tickLive(): Promise<void> {
+  const feedId = currentFeedId;
+  if (!feedId || !currentDb) return;
+  if (liveInFlight) return;
+  liveInFlight = true;
+  try {
+    const snap = await fetchVehiclePositions(feedId);
+    // Guard against feed swap mid-fetch.
+    if (feedId !== currentFeedId) return;
+    const nowMs = Date.now();
+    const tz = currentFeedTz ?? 'UTC';
+    const active = await api.getActiveTrips(
+      nowMs,
+      LIVE_RECONCILE_LOOKBACK_MIN,
+      LIVE_RECONCILE_LOOKAHEAD_MIN,
+    );
+    const { vehicles, stats } = reconcileWithLive(active, snap.vehicles, {
+      nowMs,
+      timezone: tz,
+    });
+    const payload: ReconciledSnapshot = {
+      vehicles,
+      feedTimestampMs: snap.feedTimestampMs,
+      lastFetchMs: nowMs,
+      stats,
+      error: null,
+    };
+    lastSnapshot = payload;
+    broadcast(payload);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Keep the previous vehicles + status so the UI stays usable; just
+    // surface the error so the StatusBar can show "Refresh failed".
+    const payload: ReconciledSnapshot = {
+      vehicles: lastSnapshot?.vehicles ?? [],
+      feedTimestampMs: lastSnapshot?.feedTimestampMs ?? null,
+      lastFetchMs: lastSnapshot?.lastFetchMs ?? null,
+      stats: lastSnapshot?.stats ?? null,
+      error: msg,
+    };
+    lastSnapshot = payload;
+    broadcast(payload);
+  } finally {
+    liveInFlight = false;
+  }
+}
 
 async function getPool() {
   if (poolPromise) return poolPromise;
@@ -169,6 +270,12 @@ function closeCurrent() {
   // Shape polylines are feed-scoped — invalidate so the next feed
   // can't see stale entries from this one.
   shapeCache.clear();
+  // Live-pipeline state is feed-scoped too: stop the timer and drop
+  // the cached snapshot so the next feed doesn't briefly broadcast
+  // stale vehicles. Listeners are kept — they belong to the main-side
+  // store which survives feed switches.
+  stopLiveTimer();
+  lastSnapshot = null;
 }
 
 async function ensureDb(): Promise<Database> {
@@ -241,6 +348,12 @@ const api: GtfsRepo = {
     } finally {
       bootstrapping = null;
     }
+    // DB is open — start the live pipeline. One immediate poll + a
+    // 15 s interval. Subscribers (if any are registered from a prior
+    // feed) start receiving the new feed's vehicles on the very next
+    // tick.
+    ensureLiveTimer();
+    void tickLive();
   },
 
   async ready() {
@@ -813,6 +926,108 @@ const api: GtfsRepo = {
     const repStops = stopsByTrip.get(repTripId) ?? loadStopsForTrip(db, repTripId);
 
     return { route, shape, stops: repStops, trips };
+  },
+
+  async getActiveTrips(nowMs, lookbackMin, lookaheadMin): Promise<Vehicle[]> {
+    const db = await ensureDb();
+    const tz = currentFeedTz ?? 'UTC';
+    const localDate = dateKeyInTz(nowMs, tz);
+    const nowMin = minSinceMidnightInTz(nowMs, tz);
+
+    const services = activeServicesOn(db, localDate);
+    if (services.length === 0) return [];
+
+    const placeholders = services.map(() => '?').join(',');
+    type TripRow = {
+      trip_id: string;
+      trip_headsign: string | null;
+      direction_id: number | null;
+      trip_start_time: string;
+      trip_end_time: string;
+      route_id: string;
+      route_short_name: string;
+      route_color: string | null;
+      route_text_color: string | null;
+      route_type: number | null;
+    };
+    const rows = selectAll<TripRow>(
+      db,
+      // Trip-level scan (no stop_times join in the select list): one
+      // row per active trip with origin/terminus times via the same
+      // correlated subqueries getRouteMapView uses. Cheap thanks to
+      // stop_times_trip_seq_idx.
+      `SELECT t.trip_id, t.trip_headsign, t.direction_id,
+              (SELECT departure_time FROM stop_times WHERE trip_id = t.trip_id
+               ORDER BY stop_sequence ASC LIMIT 1) AS trip_start_time,
+              (SELECT arrival_time FROM stop_times WHERE trip_id = t.trip_id
+               ORDER BY stop_sequence DESC LIMIT 1) AS trip_end_time,
+              r.route_id, r.route_short_name, r.route_color, r.route_text_color, r.route_type
+       FROM trips t
+       JOIN routes r ON r.route_id = t.route_id
+       WHERE t.service_id IN (${placeholders});`,
+      services,
+    );
+
+    const lower = nowMin - lookbackMin;
+    const upper = nowMin + lookaheadMin;
+    const out: Vehicle[] = [];
+    for (const r of rows) {
+      const tripStartMin = timeToMinutes(r.trip_start_time);
+      const tripEndMin = timeToMinutes(r.trip_end_time);
+      if (tripStartMin < lower || tripStartMin > upper) continue;
+      if (tripEndMin < nowMin) continue;
+      const dir: 0 | 1 | -1 =
+        r.direction_id === 0 || r.direction_id === 1 ? r.direction_id : -1;
+      const route: Route = {
+        id: String(r.route_id),
+        shortName: r.route_short_name,
+        color: r.route_color ? `#${r.route_color}` : '#666666',
+        textColor: r.route_text_color ? `#${r.route_text_color}` : undefined,
+        type: vehicleTypeFromGtfs(r.route_type),
+      };
+      out.push({
+        kind: 'scheduled',
+        id: `trip:${r.trip_id}`,
+        route,
+        type: route.type ?? 'unknown',
+        tripId: r.trip_id,
+        directionId: dir,
+        headsign: r.trip_headsign ?? undefined,
+        confidence: 'low',
+        schedule: {
+          tripId: r.trip_id,
+          scheduledDeparture: tripStartMin,
+          scheduledArrival: tripEndMin,
+          tripStartMin,
+          headsign: r.trip_headsign ?? undefined,
+          directionId: dir,
+        },
+      });
+    }
+    return out;
+  },
+
+  async subscribeReconciled(cb) {
+    liveListeners.add(cb);
+    // Late-subscriber catch-up: immediately surface the last good
+    // snapshot so the new view doesn't have to wait up to one poll
+    // interval to see vehicles.
+    if (lastSnapshot) {
+      try { void cb(lastSnapshot); } catch (e) {
+        console.warn('[gtfs.worker] late-subscribe broadcast threw', e);
+      }
+    }
+    return Comlink.proxy(() => {
+      liveListeners.delete(cb);
+    });
+  },
+
+  async refreshLive() {
+    await tickLive();
+  },
+
+  async getReconciledSnapshot() {
+    return lastSnapshot;
   },
 
   async getRoutesForStop(stopId: number): Promise<Route[]> {

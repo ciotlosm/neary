@@ -5,6 +5,30 @@ workarounds. The code itself ([src/lib/data/live/](../../src/lib/data/live/),
 [src/lib/domain/reconcile.ts](../../src/lib/domain/reconcile.ts)) is the
 implementation; this doc captures the **why** that isn't there.
 
+## Where it runs
+
+The GTFS-RT poll, protobuf decode, active-trips SQL query, and
+reconciliation all run **inside the SQLite-WASM worker**
+([src/lib/workers/gtfs.worker.ts](../../src/lib/workers/gtfs.worker.ts)).
+The worker broadcasts a `ReconciledSnapshot` (`Vehicle[]` plus status
+fields) every 15 s; every view consumes the same broadcast via
+[`reconciledVehiclesStore`](../../src/lib/stores/reconciledVehiclesStore.svelte.ts).
+
+Why worker-side: pre-refactor each view ran its own `reconcileWithLive`
+against a per-view scheduled subset. The map view used string-equality
+trip_id lookups while station cards used (route, dir, tripStartMin)
+tolerance matching, so the map drew a marker for both the scheduled
+trip *and* the drifted live obs of the same physical bus — empirically
+~6 % duplicate markers across the Cluj fleet at peak hours. Centralizing
+reconciliation in the worker means every consumer reads the same
+deduplicated set.
+
+Station views still keep their per-stop `getStationBoard` fetch (the
+worker doesn't know the consumer's stop) and join the global reconciled
+set by `tripId` via `mergeReconciledIntoStationBoard` — promoting
+matched rows to `kind: 'reconciled'` and appending route-relevant
+`kind: 'live'` orphans with a sibling-derived ETA seed.
+
 ## Source priority
 
 | Source | Default | Why |
@@ -90,7 +114,11 @@ synthesize `kind: 'live'` rows from sibling lookups (PR #69, #72).
 That duplicated reconciliation state across the page-domain boundary
 and put inclusion gating + headsign hydration on the wrong side.
 The reconciler already has both `live` and `scheduled` in hand —
-emitting orphans there keeps the boundary clean.
+emitting orphans there keeps the boundary clean. The station-side
+`mergeReconciledIntoStationBoard` only **re-seeds** the orphan ETA
+using a per-stop sibling's travel-time-from-origin (the global
+reconciler doesn't know the consumer's stop, so its ETA is
+terminus-relative).
 
 Future direction: see [../plan/prediction-v2.md](../plan/prediction-v2.md).
 

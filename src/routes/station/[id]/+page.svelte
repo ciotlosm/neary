@@ -20,7 +20,7 @@
   import { tripIdsFromVehicles } from '$lib/domain/tripIdsFromVehicles';
   import type { Vehicle } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
-  import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
+  import { reconciledVehiclesStore } from '$lib/stores/reconciledVehiclesStore.svelte';
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { nowTicker } from '$lib/stores/nowTicker.svelte';
   import { refreshBus } from '$lib/stores/refreshBus.svelte';
@@ -82,20 +82,23 @@
 
   // Top up `shapes` with any live-observation trip_ids that aren't
   // already covered. Reconciler emits kind:'live' orphans for live
-  // obs on (route, direction) pairs the schedule scanner returned;
-  // applyGpsEta then needs the orphan's polyline (sibling fallback
-  // exists in assembleLiveBoard but its own shape is more accurate).
-  // Filtered to routes the board serves so we don't fetch shapes
-  // for the entire city's live fleet.
+  // Fetch shapes for orphan kind:'live' rows the worker emitted whose
+  // route appears on this station's board, so applyGpsEta can project
+  // them onto the right polyline.
   $effect(() => {
     if (!board) return;
     const visibleRouteIds = new Set<string>();
     for (const v of board.vehicles) visibleRouteIds.add(v.route.id);
     const missing = Array.from(
       new Set(
-        liveVehiclesStore.observations
-          .filter((o) => o.tripId && visibleRouteIds.has(o.routeId) && !(o.tripId in shapes))
-          .map((o) => o.tripId),
+        reconciledVehiclesStore.vehicles
+          .filter((v) =>
+            v.kind === 'live' &&
+            v.tripId != null &&
+            visibleRouteIds.has(v.route.id) &&
+            !(v.tripId in shapes),
+          )
+          .map((v) => v.tripId as string),
       ),
     );
     if (missing.length === 0) return;
@@ -149,7 +152,7 @@
     {@const rows = assembleLiveBoard({
       vehicles: board.vehicles,
       stop: board.stop,
-      liveObservations: liveVehiclesStore.observations,
+      reconciledVehicles: reconciledVehiclesStore.vehicles,
       shapes,
       prefs: userPrefs,
       nowMs,

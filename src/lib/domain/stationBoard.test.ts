@@ -3,6 +3,7 @@ import {
   applyGpsEta,
   assembleStationBoard,
   capStationBoard,
+  mergeReconciledIntoStationBoard,
   STATION_BOARD_MAX_ROWS,
 } from './stationBoard';
 import type { BoardRow } from './stationBoard';
@@ -316,5 +317,173 @@ describe('capStationBoard', () => {
     }));
     const out = capStationBoard(rows);
     expect(out).toHaveLength(STATION_BOARD_MAX_ROWS);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeReconciledIntoStationBoard — joins per-stop scheduled rows with the
+// worker's global reconciled set by tripId, and emits station-relevant
+// orphans with a sibling-derived ETA seed.
+// ---------------------------------------------------------------------------
+
+describe('mergeReconciledIntoStationBoard', () => {
+  function perStopScheduled(
+    tripId: string,
+    route: Route,
+    dir: 0 | 1,
+    tripStartMin: number,
+    scheduledArrivalAtStop: number,
+    headsign?: string,
+  ): Vehicle {
+    return {
+      kind: 'scheduled',
+      id: `trip:${tripId}`,
+      route,
+      type: 'bus',
+      tripId,
+      directionId: dir,
+      headsign,
+      confidence: 'low',
+      schedule: {
+        tripId,
+        scheduledDeparture: scheduledArrivalAtStop,
+        scheduledArrival: scheduledArrivalAtStop,
+        tripStartMin,
+        directionId: dir,
+        headsign,
+      },
+    } as Vehicle;
+  }
+
+  function reconciledHit(
+    tripId: string,
+    route: Route,
+    dir: 0 | 1,
+    lat: number,
+    lon: number,
+    asOf: number,
+  ): Vehicle {
+    return {
+      kind: 'reconciled',
+      id: `trip:${tripId}`,
+      route,
+      type: 'bus',
+      tripId,
+      directionId: dir,
+      confidence: 'medium',
+      schedule: { tripId, scheduledDeparture: 0, tripStartMin: 0, directionId: dir },
+      position: { lat, lon, source: 'gps', asOf, speedMs: 5 },
+      liveSources: ['gtfs-rt'],
+    } as Vehicle;
+  }
+
+  function liveOrphan(
+    obsTripId: string,
+    route: Route,
+    dir: 0 | 1,
+    tripStartMin: number,
+    lat: number,
+    lon: number,
+  ): Vehicle {
+    return {
+      kind: 'live',
+      id: `live:${obsTripId}`,
+      route,
+      type: 'bus',
+      tripId: obsTripId,
+      directionId: dir,
+      confidence: 'medium',
+      schedule: { tripId: obsTripId, scheduledDeparture: tripStartMin, tripStartMin, directionId: dir },
+      position: { lat, lon, source: 'gps', asOf: 0, speedMs: 0 },
+      liveSources: ['gtfs-rt'],
+    } as Vehicle;
+  }
+
+  it('promotes a per-stop scheduled row to reconciled when tripId matches', () => {
+    const perStop = [perStopScheduled('T1', r24, 0, 500, 540)];
+    const reconciled = [reconciledHit('T1', r24, 0, 46.78, 23.59, 12345)];
+    const out = mergeReconciledIntoStationBoard({
+      perStopVehicles: perStop,
+      reconciledVehicles: reconciled,
+      nowMin: 540,
+    });
+    expect(out).toHaveLength(1);
+    const v = out[0];
+    expect(v.kind).toBe('reconciled');
+    expect(v.tripId).toBe('T1');
+    // Per-stop schedule is preserved (scheduledArrival at this stop).
+    expect(v.schedule?.scheduledArrival).toBe(540);
+    // GPS position is copied from the worker's reconciled row.
+    expect(v.position?.lat).toBe(46.78);
+    expect(v.position?.asOf).toBe(12345);
+  });
+
+  it('leaves per-stop rows scheduled when no reconciled match', () => {
+    const perStop = [perStopScheduled('T1', r24, 0, 500, 540)];
+    // Worker reconciled set has a different trip (T2), not T1.
+    const reconciled = [reconciledHit('T2', r24, 0, 46.78, 23.59, 12345)];
+    const out = mergeReconciledIntoStationBoard({
+      perStopVehicles: perStop,
+      reconciledVehicles: reconciled,
+      nowMin: 540,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].kind).toBe('scheduled');
+    expect(out[0].position).toBeUndefined();
+  });
+
+  it('emits orphan live rows when (route, dir) matches the per-stop set', () => {
+    const perStop = [
+      perStopScheduled('T1', r24, 0, 500, 540, 'North'),
+      perStopScheduled('T2', r24, 0, 510, 550, 'North'),
+    ];
+    // Live obs for a different tripId on the same (route, dir).
+    const reconciled = [liveOrphan('LIVE-1', r24, 0, 520, 46.79, 23.60)];
+    const out = mergeReconciledIntoStationBoard({
+      perStopVehicles: perStop,
+      reconciledVehicles: reconciled,
+      nowMin: 555,
+    });
+    // 2 promoted (no live match in reconciled though) + 1 orphan.
+    expect(out).toHaveLength(3);
+    const orphan = out.find((v) => v.kind === 'live');
+    expect(orphan?.tripId).toBe('LIVE-1');
+    expect(orphan?.headsign).toBe('North'); // copied from sibling rep
+    // ETA seed = obsStartMin + travelTime - nowMin
+    //         = 520 + (540 - 500) - 555 = 5
+    expect(orphan?.eta?.minutes).toBe(5);
+  });
+
+  it('drops orphans whose (route, dir) is not on the per-stop board', () => {
+    const perStop = [perStopScheduled('T1', r24, 0, 500, 540)];
+    // Different route — station doesn't serve it.
+    const reconciled = [liveOrphan('LIVE-X', r35, 0, 520, 46.79, 23.60)];
+    const out = mergeReconciledIntoStationBoard({
+      perStopVehicles: perStop,
+      reconciledVehicles: reconciled,
+      nowMin: 555,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].kind).toBe('scheduled');
+  });
+
+  it('emits origin-relative orphan ETA when station IS the trip origin', () => {
+    // When scheduledArrival === tripStartMin (the per-stop row is the
+    // trip's origin), travelTime collapses to 0 and the orphan ETA
+    // becomes obsStartMin − nowMin — "minutes since/until the live
+    // bus's scheduled origin departure".
+    const perStop = [
+      perStopScheduled('T1', r24, 0, 500, 500, 'North'), // arrival=start=500
+    ];
+    const reconciled = [liveOrphan('LIVE-1', r24, 0, 520, 46.79, 23.60)];
+    const out = mergeReconciledIntoStationBoard({
+      perStopVehicles: perStop,
+      reconciledVehicles: reconciled,
+      nowMin: 555,
+    });
+    const orphan = out.find((v) => v.kind === 'live');
+    expect(orphan).toBeTruthy();
+    // 520 + 0 − 555 = -35 (bus's scheduled origin departure was 35 min ago).
+    expect(orphan?.eta?.minutes).toBe(-35);
   });
 });

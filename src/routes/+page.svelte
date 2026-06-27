@@ -24,7 +24,7 @@
   import { tripIdsFromVehicles } from '$lib/domain/tripIdsFromVehicles';
   import type { Vehicle } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
-  import { liveVehiclesStore } from '$lib/stores/liveVehiclesStore.svelte';
+  import { reconciledVehiclesStore } from '$lib/stores/reconciledVehiclesStore.svelte';
   import { locationStore } from '$lib/stores/locationStore.svelte';
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { nowTicker } from '$lib/stores/nowTicker.svelte';
@@ -177,19 +177,24 @@
   // Top up `shapes` with any live-observation trip_ids that aren't
   // already covered. Reconciler emits kind:'live' orphans for live
   // obs on (route, direction) pairs the schedule scanner returned;
-  // applyGpsEta then needs the orphan's polyline (or a sibling's
-  // via shapesByRouteDir, but we want the orphan's own first).
-  // Filter to live obs whose route appears on a visible board so we
-  // don't fetch shapes for the entire city's live fleet.
+  // Fetch shapes for orphan kind:'live' rows the worker emitted whose
+  // route appears on a visible board, so applyGpsEta can project them
+  // onto the right polyline. Reconciled rows' shapes were already
+  // fetched on mount via tripIdsFromVehicles(board.vehicles).
   $effect(() => {
     if (!boards) return;
     const visibleRouteIds = new Set<string>();
     for (const b of boards) for (const v of b.vehicles) visibleRouteIds.add(v.route.id);
     const missing = Array.from(
       new Set(
-        liveVehiclesStore.observations
-          .filter((o) => o.tripId && visibleRouteIds.has(o.routeId) && !(o.tripId in shapes))
-          .map((o) => o.tripId),
+        reconciledVehiclesStore.vehicles
+          .filter((v) =>
+            v.kind === 'live' &&
+            v.tripId != null &&
+            visibleRouteIds.has(v.route.id) &&
+            !(v.tripId in shapes),
+          )
+          .map((v) => v.tripId as string),
       ),
     );
     if (missing.length === 0) return;
@@ -276,7 +281,7 @@
         (n, b) => n + assembleLiveBoard({
           vehicles: b.vehicles,
           stop: b.stop,
-          liveObservations: liveVehiclesStore.observations,
+          reconciledVehicles: reconciledVehiclesStore.vehicles,
           shapes,
           prefs: userPrefs,
           nowMs,
@@ -296,7 +301,7 @@
         {@const board = assembleLiveBoard({
           vehicles,
           stop,
-          liveObservations: liveVehiclesStore.observations,
+          reconciledVehicles: reconciledVehiclesStore.vehicles,
           shapes,
           prefs: userPrefs,
           nowMs,
