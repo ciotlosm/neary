@@ -13,7 +13,6 @@
   },
   "exclude": [
     "legacy",
-    "apps/legacy",
     "dist",
     "node_modules"
   ]
