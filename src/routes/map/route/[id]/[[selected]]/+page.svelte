@@ -765,11 +765,19 @@
     const colors = scheduled
       ? `background:rgba(255,255,255,0.92);color:${bg};border:1.5px solid ${bg};`
       : `background:${bg};color:${fg};`;
-    return `<div style="position:relative;"><div style="
+    // Pulsing CSS class for the selected badge — the keyframe lives in
+    // the page <style> block and animates an additional box-shadow on
+    // top of the static one above, so the dark outer ring breathes
+    // outward without the badge moving. `--neary-inner` carries the
+    // GPS-confidence ring colour into the animation so the inner ring
+    // stays at its semantic colour through the pulse.
+    const selectedClass = selected ? ' neary-vehicle-selected' : '';
+    const selectedVar = selected ? `--neary-inner:${inner};` : '';
+    return `<div style="position:relative;"><div class="neary-vehicle-badge${selectedClass}" style="
       display:inline-flex;align-items:center;justify-content:center;
       min-width:32px;height:22px;padding:0 6px;border-radius:6px;
       ${colors}font:600 12px/1 ui-sans-serif,system-ui;
-      opacity:${opacity};${ring}
+      opacity:${opacity};${ring}${selectedVar}
     ">${escapeHtml(shortName)}</div>${debugId ? `<div style="position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 9px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;background:rgba(255,255,255,0.9);border-radius:3px;padding:1px 3px;pointer-events:none;">${escapeHtml(debugId)}</div>` : ''}</div>`;
   }
   function routeBadgeHtml(r: Route): string {
@@ -968,5 +976,30 @@
   @keyframes neary-user-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.35); opacity: 0.65; }
+  }
+
+  /* Selected vehicle marker: animate the dark outer ring outward in a
+     soft breathing pulse so it stands out among other markers without
+     redrawing the map. The inline box-shadow handles the static inner
+     coloured ring + 5px dark ring at the resting state; this keyframe
+     blends an extra 9px translucent ring at 50% so the dark ring
+     appears to expand and fade rhythmically. --neary-inner is set
+     inline per badge to preserve the GPS-confidence inner ring colour
+     through the animation. */
+  :global(.neary-vehicle-selected) {
+    animation: neary-vehicle-selected-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes neary-vehicle-selected-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 3px var(--neary-inner, #fff),
+        0 0 0 5px #111;
+    }
+    50% {
+      box-shadow:
+        0 0 0 3px var(--neary-inner, #fff),
+        0 0 0 5px #111,
+        0 0 0 9px rgba(17, 17, 17, 0.35);
+    }
   }
 </style>
