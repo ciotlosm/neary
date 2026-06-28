@@ -569,35 +569,19 @@
     stopsLayer?.clearLayers();
     const sl = stopsLayer;
     if (sl) {
-      const lastIdx = currentView.stops.length - 1;
-      currentView.stops.forEach((s, i) => {
-        // Origin gets a play-triangle disc, terminus a square cap
-        // — same convention RouteBadge uses for isStart/isEnd, so a
-        // user who's seen the badge already reads these icons at a
-        // glance. Middle stops stay as the small circleMarker so
-        // the endpoint hierarchy is unmistakable.
-        const isOrigin = i === 0;
-        const isTerminus = i === lastIdx;
-        const m = (isOrigin || isTerminus)
-          ? Lref.marker([s.lat, s.lon], {
-              icon: Lref.divIcon({
-                className: isOrigin ? 'neary-origin' : 'neary-terminus',
-                html: isOrigin
-                  ? endpointHtml(currentView.route.color, 'origin')
-                  : endpointHtml(currentView.route.color, 'terminus'),
-                iconSize: isOrigin ? [18, 18] : [16, 16],
-                iconAnchor: isOrigin ? [9, 9] : [8, 8],
-              }),
-              keyboard: false,
-              riseOnHover: true,
-            })
-          : Lref.circleMarker([s.lat, s.lon], {
-              radius: 5,
-              color: '#fff',
-              weight: 1.5,
-              fillColor: currentView.route.color,
-              fillOpacity: 1,
-            });
+      // Every stop renders as the same small circleMarker — origin and
+      // terminus get no special treatment. The route badge in the
+      // header already names origin + destination, and "next at
+      // origin" surfaces via the scheduled vehicle bubble; a separate
+      // play / square endpoint glyph was redundant.
+      currentView.stops.forEach((s) => {
+        const m = Lref.circleMarker([s.lat, s.lon], {
+          radius: 5,
+          color: '#fff',
+          weight: 1.5,
+          fillColor: currentView.route.color,
+          fillOpacity: 1,
+        });
         m.bindPopup(stopPopupHtml(s.stopId, s.stopName, currentRoutes.get(s.stopId) ?? []), {
           closeButton: false,
         });
@@ -841,27 +825,6 @@
         </a>
       </div>${badgesHtml}
     </div>`;
-  }
-  /** Origin / terminus marker glyph. Origin shows a white play
-   *  triangle (▶) — the same convention RouteBadge encodes as
-   *  isStart, instantly readable as 'departures begin here'.
-   *  Terminus shows a white square (■) — RouteBadge's isEnd cap. */
-  function endpointHtml(routeColor: string, kind: 'origin' | 'terminus'): string {
-    const fg = pickContrastingText(routeColor);
-    // Origin: 18×18 — play-styled, stands out but leaves room for the
-    // scheduled vehicle badge that usually sits on top of it.
-    // Terminus: 16×16 — slightly special (square glyph) but smaller so
-    // the hierarchy origin > terminus > regular stop is clear.
-    const size = kind === 'origin' ? 18 : 16;
-    const glyph = kind === 'origin'
-      ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="${fg}" style="margin-left:1px;"><polygon points="6 4 20 12 6 20"/></svg>`
-      : `<svg width="8" height="8" viewBox="0 0 24 24" fill="${fg}"><rect x="4" y="4" width="16" height="16" rx="1.5"/></svg>`;
-    return `<div style="
-      width:${size}px;height:${size}px;border-radius:50%;
-      background:${routeColor};
-      display:inline-flex;align-items:center;justify-content:center;
-      box-shadow:0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,0.3);
-    ">${glyph}</div>`;
   }
   function escapeHtml(s: string): string {
     return s
