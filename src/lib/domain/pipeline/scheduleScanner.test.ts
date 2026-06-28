@@ -255,6 +255,55 @@ describe('scanSchedule tripPhase', () => {
     expect(out.find((v) => v.tripId === 'B1')?.schedule?.tripPhase).toBe('next');
   });
 
+  it('scopes next/last per direction within the same route', () => {
+    // Stop that's the origin for dir 0 AND the terminus for dir 1 of
+    // the same route: both directions emit rows in the same scan, but
+    // each direction must get its own `next` / `last`. Without
+    // direction in the cohort key, an earlier dir-1 arrival would
+    // steal `next` from the soonest dir-0 origin departure and leave
+    // it classified `later`, hiding its action buttons.
+    const out = scanSchedule({
+      rows: [
+        // dir 0 origin trips: depart 09:20, 09:40 from this stop.
+        origin({
+          trip_id: 'D0-1',
+          direction_id: 0,
+          arrival_time: '09:20:00',
+          departure_time: '09:20:00',
+        }),
+        origin({
+          trip_id: 'D0-2',
+          direction_id: 0,
+          arrival_time: '09:40:00',
+          departure_time: '09:40:00',
+        }),
+        // dir 1 terminus trips: started from the other end at 09:00,
+        // arrive here at 09:15. tripStartMin (09:00) is smaller than
+        // any dir 0 trip's, so without the direction scope this row
+        // would win the route-wide `next` slot.
+        row({
+          trip_id: 'D1-1',
+          direction_id: 1,
+          arrival_time: '09:15:00',
+          departure_time: '09:15:00',
+          trip_start_time: '09:00:00',
+          stop_sequence: 12,
+          last_seq: 12,
+          first_seq: 1,
+        }),
+      ],
+      nowMinSinceMidnight: now,
+      nowMs,
+      windowMinutes: 60,
+    });
+    expect(out.find((v) => v.tripId === 'D0-1')?.schedule?.tripPhase).toBe('next');
+    expect(out.find((v) => v.tripId === 'D0-2')?.schedule?.tripPhase).toBe('later');
+    // The dir-1 terminus trip started at 09:00 (past); it's the only
+    // trip in its cohort, so it's classified `last` (most recent past
+    // departure on dir 1, still running).
+    expect(out.find((v) => v.tripId === 'D1-1')?.schedule?.tripPhase).toBe('last');
+  });
+
   it('tie-breaks equal departure times by tripId lexicographic order', () => {
     const out = scanSchedule({
       rows: [

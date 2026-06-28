@@ -176,16 +176,24 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
  *  (drop-off filter, action-button gates) actually want.
  *
  *  Tie-break by `tripId` lexicographic order when two trips share a
- *  scheduled departure time (rare but GTFS-legal). */
+ *  scheduled departure time (rare but GTFS-legal).
+ *
+ *  Scoped per `(routeId, directionId)`: a stop that's the origin for
+ *  one direction of a route AND the terminus for the other direction
+ *  will see rows for BOTH directions in the same emission set. Each
+ *  direction needs its own `next` / `last` — otherwise a dir-1 arrival
+ *  with an earlier `tripStartMin` would steal the `next` slot from
+ *  the soonest dir-0 origin departure. */
 function assignTripPhases(vehicles: Vehicle[], nowMin: number): void {
-  const byRoute = new Map<string, Vehicle[]>();
+  const byCohort = new Map<string, Vehicle[]>();
   for (const v of vehicles) {
     if (v.schedule?.tripStartMin == null) continue;
-    const list = byRoute.get(v.route.id);
+    const key = `${v.route.id}_${v.directionId ?? -1}`;
+    const list = byCohort.get(key);
     if (list) list.push(v);
-    else byRoute.set(v.route.id, [v]);
+    else byCohort.set(key, [v]);
   }
-  for (const list of byRoute.values()) {
+  for (const list of byCohort.values()) {
     list.sort((a, b) => {
       const da = a.schedule!.tripStartMin!;
       const db = b.schedule!.tripStartMin!;
