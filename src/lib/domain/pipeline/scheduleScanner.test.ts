@@ -322,4 +322,43 @@ describe('scanSchedule tripPhase', () => {
     expect(out.find((v) => v.tripId === 'P3')?.schedule?.tripPhase).toBe('last');
     expect(out.find((v) => v.tripId === 'F1')?.schedule?.tripPhase).toBe('next');
   });
+
+  it('bumps confidence to `high` on the `next` origin row', () => {
+    const out = scanSchedule({
+      rows: [
+        origin({ trip_id: 'T1', arrival_time: '09:05:00', departure_time: '09:05:00' }),
+        origin({ trip_id: 'T2', arrival_time: '09:20:00', departure_time: '09:20:00' }),
+        origin({
+          trip_id: 'T0',
+          arrival_time: '08:50:00',
+          departure_time: '08:50:00',
+          trip_end_time: '09:30:00',
+        }),
+      ],
+      nowMinSinceMidnight: now,
+      nowMs,
+      windowMinutes: 60,
+    });
+    const t1 = out.find((v) => v.tripId === 'T1')!; // next
+    const t2 = out.find((v) => v.tripId === 'T2')!; // later
+    const t0 = out.find((v) => v.tripId === 'T0')!; // last
+    expect(t1.confidence).toBe('high');
+    expect(t1.eta?.confidence).toBe('high');
+    expect(t2.confidence).toBe('medium');
+    expect(t2.eta?.confidence).toBe('medium');
+    expect(t0.confidence).toBe('medium');
+    expect(t0.eta?.confidence).toBe('medium');
+  });
+
+  it('keeps intermediate-stop rows at low confidence regardless of phase', () => {
+    // Non-origin rows never get a phase, so the confidence bump never fires.
+    const out = scanSchedule({
+      rows: [row({ trip_id: 'T1', arrival_time: '09:10:00', stop_sequence: 3, first_seq: 1 })],
+      nowMinSinceMidnight: now,
+      nowMs,
+      windowMinutes: 60,
+    });
+    expect(out[0].schedule?.tripPhase).toBeUndefined();
+    expect(out[0].confidence).toBe('low');
+  });
 });

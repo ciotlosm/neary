@@ -123,10 +123,11 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
         ? true
         : undefined;
     const etaMinutes = arrivalMin - nowMinSinceMidnight;
-    // Confidence rule:
+    // Confidence rule (initial — `assignTripPhases` upgrades `next`
+    // rows to `high` once the phase is known):
     //   At the trip's origin the schedule IS authoritative — the bus is
-    //   parked, no GPS-based ETA is possible before departure. Score
-    //   that as 'medium' so the UI doesn't fade it.
+    //   parked, no GPS-based ETA is possible before departure. Default
+    //   to `medium` so the UI doesn't fade it.
     //   At intermediate stops a schedule-only row (no live match) is
     //   inherently low-confidence: it's a wall-clock guess with no GPS
     //   to back it up.
@@ -167,6 +168,12 @@ export function scanSchedule(inputs: ScheduleScannerInputs): Vehicle[] {
  *    - `on-route`             → any earlier past departure still running
  *    - `later`                → any future departure that is not `next`
  *
+ *  Also bumps the row's confidence to `high` for the `next` phase: at
+ *  the origin, the imminent departure is the most reliable thing we
+ *  can show — schedule IS authoritative for a parked bus and the rider
+ *  is acting on that information now. `last` / `on-route` / `later`
+ *  rows keep their default `medium` confidence.
+ *
  *  Tie-break by `tripId` lexicographic order when two trips share a
  *  scheduled departure time (rare but GTFS-legal). */
 function assignTripPhases(vehicles: Vehicle[], nowMin: number): void {
@@ -195,11 +202,19 @@ function assignTripPhases(vehicles: Vehicle[], nowMin: number): void {
       }
     }
     for (let i = 0; i < list.length; i += 1) {
-      const schedule = list[i].schedule!;
-      if (i === nextIdx) schedule.tripPhase = 'next';
-      else if (i === lastIdx) schedule.tripPhase = 'last';
-      else if (lastIdx >= 0 && i < lastIdx) schedule.tripPhase = 'on-route';
-      else schedule.tripPhase = 'later';
+      const v = list[i];
+      const schedule = v.schedule!;
+      if (i === nextIdx) {
+        schedule.tripPhase = 'next';
+        v.confidence = 'high';
+        if (v.eta) v.eta.confidence = 'high';
+      } else if (i === lastIdx) {
+        schedule.tripPhase = 'last';
+      } else if (lastIdx >= 0 && i < lastIdx) {
+        schedule.tripPhase = 'on-route';
+      } else {
+        schedule.tripPhase = 'later';
+      }
     }
   }
 }
