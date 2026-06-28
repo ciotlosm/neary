@@ -218,6 +218,12 @@
      *  the underlying fix is relative to where dead-reckoning has
      *  walked the marker. */
     gpsAsOfMs: number | null;
+    /** True when `tripStartMin` is a real origin-departure time from
+     *  the schedule, false when it's a fallback (e.g. orphan whose
+     *  live observation didn't carry a parseable start). The popup
+     *  shows 'left at HH:MM' only when this is true — a 'left at'
+     *  rendered from `nowMin` is a lie. */
+    hasOriginTime: boolean;
   };
   const markers = $derived.by<VehicleMarker[]>(() => {
     if (!view) return [];
@@ -299,6 +305,7 @@
         kind: reconciled?.kind ?? 'scheduled',
         directionId: (reconciled?.directionId ?? (direction as 0 | 1)) as 0 | 1 | -1,
         gpsAsOfMs: reconciled?.position?.asOf ?? null,
+        hasOriginTime: true,
       });
     }
 
@@ -334,6 +341,7 @@
         kind: v.kind,
         directionId: v.directionId ?? -1,
         gpsAsOfMs: v.position.asOf,
+        hasOriginTime: v.schedule?.tripStartMin != null,
       });
     }
     return out;
@@ -677,7 +685,18 @@
     } else {
       infoHtml = `<span style="display:flex;align-items:center;gap:2px;color:#888;font-size:11px;opacity:0.85;">${calSvg}<span>est.</span></span>`;
     }
-    return `<div style="font:13px/1.3 ui-sans-serif,system-ui;min-width:150px;">${topRow}${infoHtml}</div>`;
+    // For vehicles that have ALREADY departed origin (everything but
+    // the scheduled-at-origin / scheduled-before bubbles, which the
+    // 'in X min' label above already covers), append the wall-clock
+    // time the trip left its first stop. Lets a rider on the map
+    // map a moving bubble back to a specific scheduled departure
+    // without opening the schedule view. Suppressed for orphans whose
+    // tripStartMin is a fallback (hasOriginTime === false) — rendering
+    // 'left at <now>' there would be a lie.
+    const leftAtHtml = !m.scheduled && m.hasOriginTime
+      ? `<div style="display:flex;align-items:center;gap:2px;color:#888;font-size:11px;margin-top:3px;">${clockSvg}<span style="margin-left:2px;">left at ${formatHHMM(m.tripStartMin)}</span></div>`
+      : '';
+    return `<div style="font:13px/1.3 ui-sans-serif,system-ui;min-width:150px;">${topRow}${infoHtml}${leftAtHtml}</div>`;
   }
   function vehicleHtml(
     shortName: string,
