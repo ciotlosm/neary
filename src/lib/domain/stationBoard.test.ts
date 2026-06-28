@@ -391,6 +391,47 @@ describe('capStationBoard', () => {
     expect(out.map((r) => r.vehicle.schedule?.tripId)).toEqual(['live-r24', 'r35-drop']);
   });
 
+  it('drop-off filter: single-route board keeps only running + next-to-start trips', () => {
+    // Terminus single-route case. 4 trips arriving as drop-off:
+    //   - live (kind:'tracked')        : bus on the road
+    //   - schedule, tripStartMin=545 (now=550): already started; running
+    //   - schedule, tripStartMin=555  : soonest future → 'next'
+    //   - schedule, tripStartMin=575  : later → DROPPED
+    const tNow = 550;
+    const live: Vehicle = {
+      kind: 'tracked',
+      id: 'live-1',
+      route: r24,
+      type: 'bus',
+      directionId: 0,
+      confidence: 'medium',
+      schedule: { tripId: 'live-1', scheduledDeparture: 552, tripStartMin: 500, directionId: 0 },
+      eta: { distanceMeters: 0, minutes: 2, confidence: 'medium' },
+      position: { lat: 0, lon: 0, source: 'gps', asOf: nowMs },
+      liveSources: ['gtfs-rt'],
+    } as Vehicle;
+    const running = {
+      ...scheduled('running', r24, 15),
+      schedule: { tripId: 'running', scheduledDeparture: 565, tripStartMin: 545, directionId: 0 },
+    } as Vehicle;
+    const nextToStart = {
+      ...scheduled('next-to-start', r24, 25),
+      schedule: { tripId: 'next-to-start', scheduledDeparture: 575, tripStartMin: 555, directionId: 0 },
+    } as Vehicle;
+    const laterTrip = {
+      ...scheduled('later', r24, 35),
+      schedule: { tripId: 'later', scheduledDeparture: 585, tripStartMin: 575, directionId: 0 },
+    } as Vehicle;
+    const rows: BoardRow[] = [
+      { vehicle: live, bucket: 'drop-off', etaMinutes: 2 },
+      { vehicle: running, bucket: 'drop-off', etaMinutes: 15 },
+      { vehicle: nextToStart, bucket: 'drop-off', etaMinutes: 25 },
+      { vehicle: laterTrip, bucket: 'drop-off', etaMinutes: 35 },
+    ];
+    const out = capStationBoard(rows, 10, tNow);
+    expect(out.map((r) => r.vehicle.schedule?.tripId)).toEqual(['live-1', 'running', 'next-to-start']);
+  });
+
   it('preserves compareForBoard order in the output', () => {
     // Departing should come first, then at-station, then arriving, etc.
     const rows: BoardRow[] = [
