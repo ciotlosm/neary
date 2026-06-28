@@ -8,7 +8,7 @@ Source: [src/lib/domain/types.ts](../../src/lib/domain/types.ts) is authoritativ
 
 | Tier | Meaning | UI |
 |---|---|---|
-| `high` | Two live sources agree (`verified`), OR the next scheduled departure at the trip's origin (`scheduled` + `tripPhase === 'next'`) | Full opacity, check-circle pip on `verified` |
+| `high` | Two live sources agree (`verified`), OR the next scheduled departure at the trip's origin (`scheduled` + `tripPhase === 'next'`) | Full opacity. A check-circle pip on `verified` is planned alongside the Tranzy integration — not yet rendered. |
 | `medium` | One live source matched to schedule (`tracked`), live without schedule match (`gps-only`), or a non-`next` origin row (`scheduled` + `tripPhase ∈ {last, on-route, later}`) | Full opacity |
 | `low` | Schedule-only at an intermediate stop (no live match, no origin authority) | `opacity-60` (dimmed) |
 

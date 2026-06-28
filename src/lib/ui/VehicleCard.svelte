@@ -57,13 +57,26 @@
   // (`gps-only` / `tracked` / `verified`), grey = schedule-derived
   // (`scheduled`). Tooltip carries the specific kind. A darker-green
   // variant for `verified` (multi-source agreement) is planned but
-  // not yet differentiated.
+  // not yet differentiated — gated on the Tranzy integration.
   const KIND = $derived({
     verified:    { label: 'Verified',  dotBg: 'bg-[color:var(--color-success)]' },
     tracked:     { label: 'Tracked',   dotBg: 'bg-[color:var(--color-success)]' },
     'gps-only':  { label: 'GPS only',  dotBg: 'bg-[color:var(--color-success)]' },
     scheduled:   { label: 'Scheduled', dotBg: 'bg-[color:var(--color-fg-muted)]' },
   }[vehicle.kind]);
+
+  // Suppress the kind dot for `scheduled` rows whose `tripPhase` is
+  // `later` — at the origin stop those are the future-but-not-next
+  // rows where the grey dot adds no information (the rider already
+  // knows the row is on the schedule). The `next` / `last` /
+  // `on-route` origin rows keep the dot because the data-source
+  // distinction (parked-but-on-schedule vs running-without-GPS) is
+  // useful there. tripPhase is only set on `isFirstStop` rows, so
+  // this rule is implicitly origin-only — intermediate-stop
+  // scheduled rows keep their dot.
+  const showKindDot = $derived(
+    !(vehicle.kind === 'scheduled' && vehicle.schedule?.tripPhase === 'later'),
+  );
 
   // ETA / scheduled-time secondary line.
   const secondaryLine = $derived.by(() => {
@@ -210,13 +223,17 @@
     </a>
   {/if}
 
-  <!-- State dot: non-interactive. Color = GPS health. -->
-  <span
-    title={KIND.label}
-    aria-label={KIND.label}
-    class={cn(
-      'inline-block w-2.5 h-2.5 rounded-full shrink-0',
-      KIND.dotBg,
-    )}
-  ></span>
+  <!-- State dot: non-interactive. Color = GPS health.
+       Hidden for `scheduled` rows with `tripPhase: later` (future
+       non-next origin rows) — see `showKindDot` above. -->
+  {#if showKindDot}
+    <span
+      title={KIND.label}
+      aria-label={KIND.label}
+      class={cn(
+        'inline-block w-2.5 h-2.5 rounded-full shrink-0',
+        KIND.dotBg,
+      )}
+    ></span>
+  {/if}
 </div>

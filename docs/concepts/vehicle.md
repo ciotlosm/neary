@@ -70,3 +70,18 @@ Orthogonal to `kind` and to [arrival-buckets](arrival-buckets.md). A
 `next` row can carry GPS (`kind: 'tracked'`) when the bus is at
 the depot already broadcasting; `last` and `on-route` rows almost
 always do.
+
+## Visual rendering — kind dot
+
+The `VehicleCard` shows a small dot on the far right encoding `kind`
+in two colors: green for live-backed (`gps-only` / `tracked` /
+`verified`), grey for `scheduled`. The tooltip carries the specific
+kind.
+
+The dot is **hidden** when `kind === 'scheduled' && tripPhase === 'later'`.
+At the origin stop those rows are future-but-not-next — the grey dot
+adds nothing the rider doesn't already know from the row being on
+the schedule. `next` / `last` / `on-route` keep the dot because the
+data-source distinction (parked-and-on-schedule vs running-without-GPS)
+is informative there. Intermediate-stop rows have no `tripPhase` and
+always show the dot.
