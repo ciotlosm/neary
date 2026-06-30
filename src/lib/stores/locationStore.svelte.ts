@@ -141,18 +141,23 @@ class LocationStore {
 
   /**
    * Header-dot state. Buckets:
-   *   - permission denied: error (red)
-   *   - watch error w/ no position ever: error
-   *   - watch not started (user hasn't opted in): off (grey, tap-to-enable)
-   *   - watch started but no position yet: idle (grey, waiting)
+   *   - user hasn't opted in yet: off (grey), regardless of any stale
+   *     browser permission record. The dot only goes red after an
+   *     explicit Enable attempt, so a returning user with previously-
+   *     denied permission doesn't see an alarming state on first open.
+   *   - opted in + permission denied: error (red)
+   *   - opted in + watch error w/ no position ever: error
+   *   - opted in + watch started but no position yet: idle (grey,
+   *     waiting)
    *   - position < 60s old: ok (green)
    *   - position 60s-5min old: stale (amber)
    *   - position older: error (red — likely lost signal)
    */
   get freshness(): FreshState {
+    if (!userPrefs.gpsOptedIn) return 'off';
     if (this.permission === 'denied') return 'error';
     if (this.error && !this.position) return 'error';
-    if (!this.lastUpdated) return this.isWatching ? 'idle' : 'off';
+    if (!this.lastUpdated) return 'idle';
     const age = this.now - this.lastUpdated;
     if (age < 60_000) return 'ok';
     if (age < 5 * 60_000) return 'stale';
@@ -161,13 +166,10 @@ class LocationStore {
 
   /** Human-readable tooltip text for the dot. */
   get tooltip(): string {
+    if (!userPrefs.gpsOptedIn) return 'GPS off — tap to enable.';
     if (this.permission === 'denied') return 'Location permission denied';
     if (this.error && !this.position) return `GPS error: ${this.error.message}`;
-    if (!this.lastUpdated) {
-      return this.isWatching
-        ? 'Waiting for first GPS fix…'
-        : 'GPS off — tap to enable.';
-    }
+    if (!this.lastUpdated) return 'Waiting for first GPS fix…';
     const ageSec = Math.round((this.now - this.lastUpdated) / 1000);
     if (ageSec < 60) return `GPS fresh (${ageSec}s ago)`;
     return `GPS last fix ${Math.round(ageSec / 60)} min ago`;
