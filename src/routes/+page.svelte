@@ -157,15 +157,6 @@
         boardsError = null;
         // Route filters are view-only: reset on every refresh / re-fetch.
         routeFilters = {};
-        // Fetch shapes + stop_distances for visible trips. The shared
-        // helper diff-fetches (only new tripIds cross the worker IPC)
-        // and prunes (cache size tracks the page). Without this, every
-        // refresh tick re-marshals the full ~250-trip payload —
-        // ~3 s of IPC + microtask cascade per tick measured 2026-06-30.
-        const visibleTrips = selection.boards.flatMap((b) => tripIdsFromVehicles(b.vehicles));
-        const next = await syncTripShapeCache(repo, visibleTrips, { shapes, stopDistances: stopDistancesByTrip });
-        shapes = next.shapes;
-        stopDistancesByTrip = next.stopDistances;
         expandedStopId = selection.expandedStopId;
       } catch (e) {
         boardsError = e instanceof Error ? e.message : String(e);
@@ -173,38 +164,42 @@
     })();
   });
 
-  // Top up `shapes` with any live-observation trip_ids that aren't
-  // already covered. Reconciler emits kind:'gps-only' orphans for live
-  // observations on (route, direction) pairs the schedule scanner
-  // returned; fetch shapes for those whose route appears on a visible
-  // board so applyGpsEta can project them onto the right polyline.
-  // Reconciled rows' shapes were already fetched on mount via
-  // tripIdsFromVehicles(board.vehicles).
+  // Single owner of `shapes` / `stopDistancesByTrip`. Reacts to either
+  // the boards refresh or new live-only observations, computes the
+  // union of (scheduled trip_ids on visible boards) + (gps-only orphan
+  // trip_ids on visible routes), and diff-fetches via the shared cache
+  // helper. Previously this lived in two effects with two different
+  // ideas of "visible", and each effect's prune step kept undoing the
+  // other's add — observable as ~1 Hz vehicle bucket-flicker (see git
+  // log 5f368df for the cache-stability half of the fix).
+  //
+  // Reads of `shapes` / `stopDistancesByTrip` are wrapped in untrack
+  // so the effect cannot depend on its own writes; the cache helper
+  // also returns prev verbatim on a no-op, so even the assignment is
+  // a reference-equality no-op when nothing changed.
   $effect(() => {
     if (!boards) return;
     const visibleRouteIds = new Set<string>();
-    for (const b of boards) for (const v of b.vehicles) visibleRouteIds.add(v.route.id);
-    const orphanTripIds = new Set<string>();
+    const tripIds = new Set<string>();
+    for (const b of boards) {
+      for (const v of b.vehicles) visibleRouteIds.add(v.route.id);
+      for (const tid of tripIdsFromVehicles(b.vehicles)) tripIds.add(tid);
+    }
     for (const v of reconciledVehiclesStore.vehicles) {
       if (v.kind !== 'gps-only') continue;
       if (v.tripId == null) continue;
       if (!visibleRouteIds.has(v.route.id)) continue;
-      if (v.tripId in shapes) continue;
-      orphanTripIds.add(v.tripId);
+      tripIds.add(v.tripId);
     }
-    if (orphanTripIds.size === 0) return;
-    // Pass the union of (already-cached scheduled trips) + (new
-    // orphan trips) as "visible" so the helper's prune step leaves
-    // the scheduled cache intact while adding the orphans.
-    const visibleUnion: string[] = [...Object.keys(shapes), ...orphanTripIds];
     (async () => {
       try {
         const repo = getGtfsRepo();
-        const next = await syncTripShapeCache(repo, visibleUnion, { shapes, stopDistances: stopDistancesByTrip });
-        shapes = next.shapes;
-        stopDistancesByTrip = next.stopDistances;
+        const prev = untrack(() => ({ shapes, stopDistances: stopDistancesByTrip }));
+        const next = await syncTripShapeCache(repo, tripIds, prev);
+        if (next.shapes !== prev.shapes) shapes = next.shapes;
+        if (next.stopDistances !== prev.stopDistances) stopDistancesByTrip = next.stopDistances;
       } catch {
-        // Soft-fail: orphan ETAs fall back to the sibling shape via
+        // Soft-fail: ETAs fall back to the sibling shape via
         // assembleLiveBoard's shapesByRouteDir, or stay as "Live".
       }
     })();

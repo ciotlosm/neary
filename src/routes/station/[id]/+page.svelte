@@ -8,6 +8,7 @@
   flow exactly as on /.
 -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { page } from '$app/state';
   import {
     Card, CardContent, NoFeedState, Spinner, Stack, StationCard, Typography,
@@ -67,18 +68,7 @@
           board = result;
           error = null;
           routeFilter = null; // reset on every refresh
-          // Shapes + stop_distances: diff fetch via shared helper
-          // so steady-state polls don't re-marshal the full payload
-          // across the worker IPC (~3 s/tick on Cluj before this,
-          // Chrome trace 2026-06-30). originRouteIds is independent.
-          const visibleTrips = tripIdsFromVehicles(result.vehicles);
-          const [next, originIds] = await Promise.all([
-            syncTripShapeCache(repo, visibleTrips, { shapes, stopDistances: stopDistancesByTrip }),
-            repo.getOriginRoutesAtStop(sid),
-          ]);
-          shapes = next.shapes;
-          stopDistancesByTrip = next.stopDistances;
-          originRouteIds = new Set(originIds);
+          originRouteIds = new Set(await repo.getOriginRoutesAtStop(sid));
         }
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
@@ -86,37 +76,34 @@
     })();
   });
 
-  // Top up `shapes` with any live-observation trip_ids that aren't
-  // already covered. Reconciler emits kind:'gps-only' orphans for live
-  // observations on (route, direction) pairs the schedule scanner
-  // returned; fetch shapes for those whose route appears on this
-  // station's board so applyGpsEta can project them onto the right
-  // polyline.
+  // Single owner of `shapes` / `stopDistancesByTrip`. Reacts to either
+  // the board refresh or new live-only observations, computes the
+  // union of (scheduled trip_ids on this board) + (gps-only orphan
+  // trip_ids on visible routes), and diff-fetches via the shared cache
+  // helper. See routes/+page.svelte for the matching pattern and git
+  // log 5f368df for why splitting these across two effects caused a
+  // bucket-flicker feedback loop.
   $effect(() => {
     if (!board) return;
     const visibleRouteIds = new Set<string>();
+    const tripIds = new Set<string>();
     for (const v of board.vehicles) visibleRouteIds.add(v.route.id);
-    const orphanTripIds = new Set<string>();
+    for (const tid of tripIdsFromVehicles(board.vehicles)) tripIds.add(tid);
     for (const v of reconciledVehiclesStore.vehicles) {
       if (v.kind !== 'gps-only') continue;
       if (v.tripId == null) continue;
       if (!visibleRouteIds.has(v.route.id)) continue;
-      if (v.tripId in shapes) continue;
-      orphanTripIds.add(v.tripId);
+      tripIds.add(v.tripId);
     }
-    if (orphanTripIds.size === 0) return;
-    // Pass the union of (already-cached scheduled trips) + (new
-    // orphan trips) as "visible" so the helper's prune step leaves
-    // the scheduled cache intact while adding the orphans.
-    const visibleUnion: string[] = [...Object.keys(shapes), ...orphanTripIds];
     (async () => {
       try {
         const repo = getGtfsRepo();
-        const next = await syncTripShapeCache(repo, visibleUnion, { shapes, stopDistances: stopDistancesByTrip });
-        shapes = next.shapes;
-        stopDistancesByTrip = next.stopDistances;
+        const prev = untrack(() => ({ shapes, stopDistances: stopDistancesByTrip }));
+        const next = await syncTripShapeCache(repo, tripIds, prev);
+        if (next.shapes !== prev.shapes) shapes = next.shapes;
+        if (next.stopDistances !== prev.stopDistances) stopDistancesByTrip = next.stopDistances;
       } catch {
-        // Soft-fail: orphan ETAs fall back to the sibling shape via
+        // Soft-fail: ETAs fall back to the sibling shape via
         // assembleLiveBoard's shapesByRouteDir, or stay as "Live".
       }
     })();
