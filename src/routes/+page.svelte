@@ -220,29 +220,40 @@
     {/if}
 
     {#if gpsState === 'not-opted-in'}
-      <InfoCard variant="primary" title="See stops near you">
+      <InfoCard variant="primary" title="Stops near you">
         {#snippet icon()}<MapPin size={16} />{/snippet}
         {#snippet body()}
-          Allow location access so we can suggest the closest stops automatically.
-          It stays on your device — never sent, stored, or used to track you.
+          Allow location and we'll surface stops near you automatically. Your
+          position stays on your device. You can also jump straight to a station
+          by name.
         {/snippet}
         {#snippet actions()}
           <Button variant="contained" size="small" onclick={() => locationStore.enable()}>
             Enable location
           </Button>
+          {#if userPrefs.feedId != null}
+            <Button variant="text" size="small" onclick={() => searchOverlayStore.open()}>
+              Search a station
+            </Button>
+          {/if}
         {/snippet}
       </InfoCard>
     {:else if denied}
-      <InfoCard title="Location is off">
+      <InfoCard title="No location — search instead">
         {#snippet icon()}<MapPin size={16} />{/snippet}
         {#snippet body()}
-          Closest-stop suggestions are turned off because your browser is blocking
-          location for this site. If you change your mind, open
-          Settings → Site permissions → Location to allow it, then tap
-          <strong>Try again</strong>.
+          Your browser is blocking location for this site, so we can't suggest
+          stops near you. Search for a station by name to keep going. To get
+          auto-suggestions later, allow location in your browser's site
+          settings, then tap <strong>Try again</strong>.
         {/snippet}
         {#snippet actions()}
-          <Button variant="contained" size="small" onclick={() => locationStore.enable()}>
+          {#if userPrefs.feedId != null}
+            <Button variant="contained" size="small" onclick={() => searchOverlayStore.open()}>
+              Search a station
+            </Button>
+          {/if}
+          <Button variant="text" size="small" onclick={() => locationStore.enable()}>
             Try again
           </Button>
         {/snippet}
@@ -251,8 +262,15 @@
       <InfoCard title="Location not supported">
         {#snippet icon()}<MapPin size={16} />{/snippet}
         {#snippet body()}
-          Your browser doesn't expose a geolocation API, so we can't suggest stops
-          near you.
+          Your browser doesn't expose a geolocation API. Search for a station by
+          name to find what you're looking for.
+        {/snippet}
+        {#snippet actions()}
+          {#if userPrefs.feedId != null}
+            <Button variant="contained" size="small" onclick={() => searchOverlayStore.open()}>
+              Search a station
+            </Button>
+          {/if}
         {/snippet}
       </InfoCard>
     {/if}
