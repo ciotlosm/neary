@@ -18,6 +18,13 @@
 // we actually read.
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 
+import {
+  deriveDirection,
+  deriveStartTime,
+  quirksForFeed,
+  type FeedRtQuirks,
+} from '../../domain/feedQuirks';
+
 const { FeedMessage } = GtfsRealtimeBindings.transit_realtime;
 
 /** A single live observation of one vehicle at one point in time.
@@ -66,7 +73,10 @@ export interface VehiclePositionsSnapshot {
   vehicles: LiveVehicleObservation[];
 }
 
-/** Fetch + parse the latest VehiclePositions for a feed. */
+/** Fetch + parse the latest VehiclePositions for a feed. Per-feed
+ *  quirks (`src/lib/domain/feedQuirks.ts`) are applied at parse time,
+ *  so downstream consumers see only canonical `startTime` and
+ *  `directionId` fields. */
 export async function fetchVehiclePositions(feedId: string): Promise<VehiclePositionsSnapshot> {
   const url = `/api/rt/${encodeURIComponent(feedId)}/vehiclePositions`;
   const res = await fetch(url, { cache: 'no-store' });
@@ -74,11 +84,16 @@ export async function fetchVehiclePositions(feedId: string): Promise<VehiclePosi
     throw new Error(`GTFS-RT fetch failed for ${feedId}: HTTP ${res.status}`);
   }
   const buf = new Uint8Array(await res.arrayBuffer());
-  return parseVehiclePositions(buf);
+  return parseVehiclePositions(buf, quirksForFeed(feedId));
 }
 
-/** Pure parser — separated so tests can hand it a fixture buffer. */
-export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot {
+/** Pure parser — separated so tests can hand it a fixture buffer.
+ *  Quirks default to empty (no derivations) so feeds whose canonical
+ *  fields are already correct don't need a quirks entry. */
+export function parseVehiclePositions(
+  buf: Uint8Array,
+  quirks: FeedRtQuirks = {},
+): VehiclePositionsSnapshot {
   const msg = FeedMessage.decode(buf);
   const feedTimestampMs = (Number(msg.header?.timestamp ?? 0) || 0) * 1000;
   const vehicles: LiveVehicleObservation[] = [];
@@ -86,13 +101,22 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
     const v = entity.vehicle;
     if (!v || !v.position) continue;
     const tripId = v.trip?.tripId ?? '';
+    // Apply quirks to upgrade the canonical fields. If a quirk
+    // produces a value we use it; otherwise we trust whatever the
+    // feed provided. Downstream code reads only the canonical fields
+    // — no trip_id parsing past this point.
+    const derivedDir = deriveDirection(quirks, tripId);
+    const claimedDir = v.trip?.directionId ?? null;
+    const directionId = derivedDir ?? (claimedDir === 0 || claimedDir === 1 ? claimedDir : -1);
+    const derivedStart = deriveStartTime(quirks, tripId);
+    const startTime = (v.trip?.startTime || derivedStart) ?? '';
     vehicles.push({
       source: 'gtfs-rt',
       vehicleId: v.vehicle?.id ?? entity.id ?? '',
       tripId,
       routeId: v.trip?.routeId ?? '',
-      directionId: resolveDirectionId(v.trip?.directionId ?? null, tripId),
-      startTime: v.trip?.startTime ?? '',
+      directionId,
+      startTime,
       lat: v.position.latitude ?? 0,
       lon: v.position.longitude ?? 0,
       bearing: v.position.bearing ?? null,
@@ -103,21 +127,4 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
     });
   }
   return { feedTimestampMs, vehicles };
-}
-
-/** Resolve the bus's direction with feed-id-bug tolerance. Some
- *  operators (observed: Cluj cluj-rt-feed.gtfs.ro) report
- *  `TripDescriptor.direction_id = 0` for every vehicle regardless of
- *  the actual run. When the trip_id follows the canonical
- *  `<route>_<dir>_<service>_<run>_<HHMM>` convention, the embedded
- *  direction is authoritative — prefer it over the feed-level field.
- *  Falls back to the feed-level value when the trip_id doesn't carry a
- *  parseable direction segment. */
-export function resolveDirectionId(claimed: number | null, tripId: string): number {
-  const m = tripId.match(/^\d+_(\d)_/);
-  if (m) {
-    const parsed = Number(m[1]);
-    if (parsed === 0 || parsed === 1) return parsed;
-  }
-  return claimed ?? -1;
 }

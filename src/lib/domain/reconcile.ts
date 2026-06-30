@@ -298,26 +298,16 @@ export function reconcileWithLive(
   return { vehicles, stats: { matched, unmatched, ambiguous, live: liveOut } };
 }
 
-/** Parse the live observation's scheduled start time into minutes since
- *  local midnight. Prefers the canonical `TripDescriptor.start_time`
- *  ("HH:MM:SS"), falls back to parsing the last four digits of the
- *  trip_id when the feed encodes start time there (the
- *  `..._HHMM` suffix used by both Cluj static + Cluj RT). Returns null
- *  if neither source yields a parseable time. */
+/** Parse the live observation's scheduled start time into minutes
+ *  since local midnight. Reads only the canonical
+ *  `TripDescriptor.start_time` ("HH:MM:SS") field — any per-feed
+ *  trip_id encoding has already been resolved into `obs.startTime`
+ *  upstream at parse time (see `src/lib/domain/feedQuirks.ts`).
+ *  Returns null when the field is absent or unparseable; the
+ *  reconciler treats those observations as unmatched. */
 export function parseLiveStartMin(obs: LiveVehicleObservation): number | null {
-  if (obs.startTime) {
-    return timeToMinutes(obs.startTime);
-  }
-  // trip_id tail pattern: any suffix ending in `_HHMM` or `_HMM` digits.
-  const m = obs.tripId.match(/_(\d{3,4})$/);
-  if (!m) return null;
-  const digits = m[1];
-  // 3 digits = HMM, 4 digits = HHMM.
-  const h = digits.length === 4 ? Number(digits.slice(0, 2)) : Number(digits.slice(0, 1));
-  const min = Number(digits.slice(-2));
-  if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
-  if (h < 0 || h > 30 || min < 0 || min > 59) return null;
-  return h * 60 + min;
+  if (!obs.startTime) return null;
+  return timeToMinutes(obs.startTime);
 }
 
 /** Compute the matching tolerance (in minutes) for a single
