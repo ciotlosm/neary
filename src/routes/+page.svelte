@@ -228,42 +228,11 @@
          Stack what's missing at the top so the user can see all the
          setup work in one glance. Each banner owns its primary
          action; the page below it shows nothing until both feed AND
-         GPS are resolved. -->
+         GPS are resolved.
 
-    {#if userPrefs.feedId == null}
-      <InfoCard variant="primary" title="Select your transit feed">
-        {#snippet icon()}<Bus size={16} />{/snippet}
-        {#snippet body()}
-          {#if coveringFeed}
-            Looks like you're in <strong>{coveringFeed.name}</strong>'s service
-            area. Use it with one tap, or pick a different feed in Settings.
-            The data downloads once and is cached for offline use.
-          {:else if noFeedCoversUser}
-            None of the transit feeds Neary publishes cover your current
-            location, so nearby stops likely won't be available. You can still
-            pick a feed in Settings to browse routes for another city.
-          {:else}
-            Neary needs a transit feed to load schedules and routes for your city.
-            Pick one in Settings to get started — the data downloads once and is cached
-            for offline use, no account needed.
-          {/if}
-        {/snippet}
-        {#snippet actions()}
-          {#if coveringFeed}
-            <Button variant="contained" size="small" onclick={() => switchFeed(coveringFeed.id)}>
-              Use {coveringFeed.name}
-            </Button>
-            <Button variant="text" size="small" onclick={() => goto('/settings')}>
-              Open Settings
-            </Button>
-          {:else}
-            <Button variant="contained" size="small" onclick={() => goto('/settings')}>
-              Open Settings
-            </Button>
-          {/if}
-        {/snippet}
-      </InfoCard>
-    {/if}
+         Location goes first so opting in can flip the feed banner
+         below into the "Use {coveringFeed}" one-tap state in the same
+         render pass. -->
 
     {#if gpsState === 'not-opted-in'}
       <InfoCard variant="primary" title="Stops near you">
@@ -315,6 +284,41 @@
           {#if userPrefs.feedId != null}
             <Button variant="contained" size="small" onclick={() => searchOverlayStore.open()}>
               Search a station
+            </Button>
+          {/if}
+        {/snippet}
+      </InfoCard>
+    {/if}
+
+    {#if userPrefs.feedId == null}
+      <InfoCard variant="primary" title="Select your transit feed">
+        {#snippet icon()}<Bus size={16} />{/snippet}
+        {#snippet body()}
+          {#if coveringFeed}
+            Looks like you're in <strong>{coveringFeed.name}</strong>'s service
+            area. Use it with one tap, or pick a different feed in Settings.
+            The data downloads once and is cached for offline use.
+          {:else if noFeedCoversUser}
+            None of the transit feeds Neary publishes cover your current
+            location, so nearby stops likely won't be available. You can still
+            pick a feed in Settings to browse routes for another city.
+          {:else}
+            Neary needs a transit feed to load schedules and routes for your city.
+            Pick one in Settings to get started — the data downloads once and is cached
+            for offline use, no account needed.
+          {/if}
+        {/snippet}
+        {#snippet actions()}
+          {#if coveringFeed}
+            <Button variant="contained" size="small" onclick={() => switchFeed(coveringFeed.id)}>
+              Use {coveringFeed.name}
+            </Button>
+            <Button variant="text" size="small" onclick={() => goto('/settings')}>
+              Open Settings
+            </Button>
+          {:else}
+            <Button variant="contained" size="small" onclick={() => goto('/settings')}>
+              Open Settings
             </Button>
           {/if}
         {/snippet}
