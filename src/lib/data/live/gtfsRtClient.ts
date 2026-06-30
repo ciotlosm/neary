@@ -66,7 +66,11 @@ export interface VehiclePositionsSnapshot {
   vehicles: LiveVehicleObservation[];
 }
 
-/** Fetch + parse the latest VehiclePositions for a feed. */
+/** Fetch + parse the latest VehiclePositions for a feed. The parser
+ *  is intentionally I/O only — direction + start_time enrichment
+ *  (per-feed quirks, SQL fallback) lives in
+ *  `domain/enrichObservations.ts` so it can prefer authoritative
+ *  static-feed data when available. */
 export async function fetchVehiclePositions(feedId: string): Promise<VehiclePositionsSnapshot> {
   const url = `/api/rt/${encodeURIComponent(feedId)}/vehiclePositions`;
   const res = await fetch(url, { cache: 'no-store' });
@@ -77,7 +81,10 @@ export async function fetchVehiclePositions(feedId: string): Promise<VehiclePosi
   return parseVehiclePositions(buf);
 }
 
-/** Pure parser — separated so tests can hand it a fixture buffer. */
+/** Pure parser — separated so tests can hand it a fixture buffer.
+ *  Surfaces the GTFS-RT canonical fields verbatim; the enrichment
+ *  pass downstream may overwrite `directionId` / `startTime` with
+ *  authoritative static-feed values or per-feed quirks. */
 export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot {
   const msg = FeedMessage.decode(buf);
   const feedTimestampMs = (Number(msg.header?.timestamp ?? 0) || 0) * 1000;
@@ -85,13 +92,13 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
   for (const entity of msg.entity ?? []) {
     const v = entity.vehicle;
     if (!v || !v.position) continue;
-    const tripId = v.trip?.tripId ?? '';
+    const claimedDir = v.trip?.directionId ?? null;
     vehicles.push({
       source: 'gtfs-rt',
       vehicleId: v.vehicle?.id ?? entity.id ?? '',
-      tripId,
+      tripId: v.trip?.tripId ?? '',
       routeId: v.trip?.routeId ?? '',
-      directionId: resolveDirectionId(v.trip?.directionId ?? null, tripId),
+      directionId: claimedDir === 0 || claimedDir === 1 ? claimedDir : -1,
       startTime: v.trip?.startTime ?? '',
       lat: v.position.latitude ?? 0,
       lon: v.position.longitude ?? 0,
@@ -103,21 +110,4 @@ export function parseVehiclePositions(buf: Uint8Array): VehiclePositionsSnapshot
     });
   }
   return { feedTimestampMs, vehicles };
-}
-
-/** Resolve the bus's direction with feed-id-bug tolerance. Some
- *  operators (observed: Cluj cluj-rt-feed.gtfs.ro) report
- *  `TripDescriptor.direction_id = 0` for every vehicle regardless of
- *  the actual run. When the trip_id follows the canonical
- *  `<route>_<dir>_<service>_<run>_<HHMM>` convention, the embedded
- *  direction is authoritative — prefer it over the feed-level field.
- *  Falls back to the feed-level value when the trip_id doesn't carry a
- *  parseable direction segment. */
-export function resolveDirectionId(claimed: number | null, tripId: string): number {
-  const m = tripId.match(/^\d+_(\d)_/);
-  if (m) {
-    const parsed = Number(m[1]);
-    if (parsed === 0 || parsed === 1) return parsed;
-  }
-  return claimed ?? -1;
 }

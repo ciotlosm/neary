@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseVehiclePositions, resolveDirectionId } from './gtfsRtClient';
+import { parseVehiclePositions } from './gtfsRtClient';
 
 // Fixture is a real protobuf capture from Cluj's vehicle_positions feed.
 // Purpose + regen recipe: docs/specs/live-data-pipeline.md § "Test fixture".
@@ -26,34 +26,23 @@ describe('parseVehiclePositions', () => {
     expect(v.lon).toBeLessThan(24);
   });
 
-  it('emits a trip_id that looks GTFS-canonical when the feed assigns one', () => {
+  it('emits trip_ids verbatim from the feed (parser does no decoding)', () => {
     const snap = parseVehiclePositions(new Uint8Array(fixture));
-    // Most entries should have a non-empty trip_id; some may be deadheading.
     const withTrip = snap.vehicles.filter((v) => v.tripId.length > 0);
     expect(withTrip.length).toBeGreaterThan(0);
-    // GTFS-RT trip_ids for Cluj look like '45_1_LV_9_0721' (route_dir_service_block_starttime).
+    // GTFS-RT trip_ids for Cluj look like '45_1_LV_9_0721'. Whether any
+    // structure is parsed out of that string is the enrichment step's
+    // concern, NOT the parser's.
     expect(withTrip[0].tripId).toMatch(/^\d+_\d+_/);
   });
-});
 
-describe('resolveDirectionId', () => {
-  it('prefers the trip_id-encoded direction over a claimed value', () => {
-    // Observed in Cluj: feed sets directionId=0 for every vehicle, but
-    // the real direction lives in the trip_id second segment.
-    expect(resolveDirectionId(0, '13_1_LV_70_1448')).toBe(1);
-    expect(resolveDirectionId(0, '13_0_LV_79_1504')).toBe(0);
-  });
-
-  it('falls back to the claimed value when trip_id has no parseable dir', () => {
-    expect(resolveDirectionId(1, 'opaque-trip')).toBe(1);
-    expect(resolveDirectionId(0, '')).toBe(0);
-  });
-
-  it('returns -1 when both sources are unavailable', () => {
-    expect(resolveDirectionId(null, 'opaque')).toBe(-1);
-  });
-
-  it('ignores trip_id segments that aren’t 0/1', () => {
-    expect(resolveDirectionId(1, '13_7_LV_99_1500')).toBe(1);
+  it('surfaces canonical RT fields verbatim — no derivation', () => {
+    // Cluj's RT feed publishes direction_id=0 for every vehicle and
+    // never populates start_time. The parser must mirror that as-is.
+    // direction / start_time enrichment happens downstream in
+    // enrichObservations.ts, not here.
+    const snap = parseVehiclePositions(new Uint8Array(fixture));
+    expect(snap.vehicles.every((v) => v.directionId === 0)).toBe(true);
+    expect(snap.vehicles.every((v) => v.startTime === '')).toBe(true);
   });
 });

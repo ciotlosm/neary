@@ -64,17 +64,16 @@ function obs(opts: {
 }
 
 describe('parseLiveStartMin', () => {
-  it('prefers explicit startTime over trip_id parse', () => {
+  it('parses canonical startTime', () => {
     expect(parseLiveStartMin(obs({ tripId: '14_1_LV_99_0900', startTime: '14:23:00' })))
       .toBe(14 * 60 + 23);
   });
-  it('falls back to the _HHMM suffix in the trip_id', () => {
-    expect(parseLiveStartMin(obs({ tripId: '14_1_LV_99_1423' }))).toBe(14 * 60 + 23);
-  });
-  it('handles _HMM suffix (single-digit hour)', () => {
-    expect(parseLiveStartMin(obs({ tripId: '14_1_LV_99_905' }))).toBe(9 * 60 + 5);
-  });
-  it('returns null when no parseable time is present', () => {
+  it('returns null when startTime is empty (trip_id is opaque post-parse)', () => {
+    // Producer-side trip_id conventions are resolved upstream at parse
+    // time via feedQuirks; reconcile sees only canonical fields.
+    // Observations whose feed never populates start_time AND have no
+    // matching quirk become unmatched (gps-only orphans downstream).
+    expect(parseLiveStartMin(obs({ tripId: '14_1_LV_99_1423' }))).toBeNull();
     expect(parseLiveStartMin(obs({ tripId: 'no-time-here' }))).toBeNull();
   });
 });
@@ -203,15 +202,22 @@ describe('reconcileWithLive (route+direction+startTime match)', () => {
     }
   });
 
-  it('parses HHMM from trip_id when feed does not populate startTime', () => {
+  it('does not match observations whose startTime is empty (trip_id is opaque post-parse)', () => {
+    // Producer-side trip_id encodings are resolved upstream in the RT
+    // parser via per-feed quirks (`src/lib/domain/feedQuirks.ts`).
+    // The reconciler sees only canonical fields. An observation that
+    // reaches reconcile with an empty startTime — because the feed
+    // didn't populate it and no quirk synthesised one — cannot be
+    // matched. Cluj's live data flows through the quirks layer so
+    // this scenario doesn't happen in production; this test pins the
+    // contract for any future feed wired up without quirks.
     const sched = [scheduled({ tripId: 't-1', tripStartMin: 14 * 60 + 21 })];
-    const { vehicles, stats } = reconcileWithLive(
+    const { stats } = reconcileWithLive(
       sched,
       [obs({ tripId: '14_1_LV_99_1421' })], // no startTime
       { nowMs: epochAt(14 * 60 + 25 ), timezone: 'UTC'},
     );
-    expect(stats.matched).toBe(1);
-    expect(vehicles[0].kind).toBe('tracked');
+    expect(stats.matched).toBe(0);
   });
 
   it('preserves headsign / route / eta / dropOffOnly across upgrade', () => {
