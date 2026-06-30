@@ -19,6 +19,7 @@
   import type { Urgency } from '$lib/domain/buckets';
   import RouteBadge from './RouteBadge.svelte';
   import { urgencyClass } from './urgencyClass';
+  import { iconButtonClass } from './iconButtonClass';
   import { cn } from './cn';
   import { userPrefs } from '$lib/stores/userPrefs.svelte';
   import { statusBus } from '$lib/stores/statusBus.svelte';
@@ -286,7 +287,7 @@
       so a per-row icon was duplicate. State dot moved inline beside
       the headsign above so we only carry the 3 action buttons here.
     -->
-    <div class="flex items-center shrink-0">
+    <div class="flex items-center gap-1 shrink-0">
 
   <!-- Schedule button slot. -->
   <span class="shrink-0 w-6 flex items-center justify-center">
@@ -295,14 +296,9 @@
         href={scheduleHref}
         title="Open route schedule"
         aria-label={`Open ${vehicle.route.shortName} schedule`}
-        class={cn(
-          'inline-flex items-center justify-center w-6 h-6 rounded-md',
-          'bg-[color:var(--color-border)]/40 text-[color:var(--color-fg)]',
-          'hover:bg-[color:var(--color-border)]/70',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]',
-        )}
+        class={iconButtonClass}
       >
-        <Calendar size={13} strokeWidth={2.25} />
+        <Calendar size={16} strokeWidth={2.25} />
       </a>
     {/if}
   </span>
@@ -314,14 +310,9 @@
         href={mapHref}
         title="Open route map"
         aria-label={`Open ${vehicle.route.shortName} on the map`}
-        class={cn(
-          'inline-flex items-center justify-center w-6 h-6 rounded-md',
-          'bg-[color:var(--color-border)]/40 text-[color:var(--color-fg)]',
-          'hover:bg-[color:var(--color-border)]/70',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]',
-        )}
+        class={iconButtonClass}
       >
-        <MapIcon size={14} strokeWidth={2.25} />
+        <MapIcon size={16} strokeWidth={2.25} />
       </a>
     {/if}
   </span>
@@ -336,15 +327,12 @@
         aria-expanded={stopsExpanded}
         onclick={(e) => { e.stopPropagation(); onStopsExpand!(); }}
         class={cn(
-          'inline-flex items-center justify-center w-6 h-6 rounded-md',
-          'bg-[color:var(--color-border)]/40 text-[color:var(--color-fg)]',
-          'hover:bg-[color:var(--color-border)]/70',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]',
+          iconButtonClass,
           'transition-transform',
           stopsExpanded && 'rotate-180',
         )}
       >
-        <ChevronDown size={14} strokeWidth={2.25} />
+        <ChevronDown size={16} strokeWidth={2.25} />
       </button>
     {/if}
   </span>

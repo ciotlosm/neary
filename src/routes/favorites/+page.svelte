@@ -8,10 +8,10 @@
   shows hearts on favorited badges as visual reinforcement.
 -->
 <script lang="ts">
-  import { Calendar, Heart, Map as MapIcon } from 'lucide-svelte';
+  import { Calendar, Heart } from 'lucide-svelte';
   import {
-    Card, CardContent, IconButton, NoFeedState, RouteBadge, Spinner, Stack,
-    Typography, TypeBadge,
+    Card, CardContent, NoFeedState, RouteBadge, Spinner, Stack,
+    Typography, TypeBadge, iconButtonClass,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
   import type { Route, VehicleType } from '$lib/domain/types';
@@ -92,15 +92,12 @@
 <!-- One row-renderer shared by both cards so the layout stays identical
      between favorited and other routes. KISS / DRY.
 
-     Layout: [Badge → schedule (if available)] [Type] [Schedule (if available)] [Map] [Heart]
-     Routes whose feed has no usable schedule (Cluj's Tranzy-fallback
-     `_NT*` trips ship empty arrival_times — `route.hasSchedule` is
-     false) render with a plain badge and no Calendar icon, since
-     /schedule/route would have nothing to show. The map button
-     stays — the route geometry is always available.
-
-     Icon order (schedule → map) matches VehicleCard in the station
-     view so users see one consistent ordering across the app. -->
+     Layout: [<a → map: Badge + label/description>] [Schedule (if any)] [Heart]
+     Tapping the row body (badge, long name, description) opens the
+     route map — route geometry is always available regardless of
+     whether the feed ships usable schedules. The schedule icon is
+     only rendered when `route.hasSchedule !== false` (Cluj's
+     Tranzy-fallback `_NT*` trips ship empty arrival_times). -->
 {#snippet routeRow(route: Route)}
   {@const isFav = favoritesStore.has(route.id)}
   {@const type = route.type ?? 'unknown'}
@@ -108,53 +105,45 @@
   {@const primaryLabel = route.longName ?? typeLabel}
   {@const hasSchedule = route.hasSchedule !== false}
   {@const scheduleHref = hasSchedule ? `/schedule/route/${route.id}_0` : null}
+  {@const mapHref = `/map/route/${route.id}_0`}
   <Stack direction="row" spacing={1} align="center" class="px-1 py-1 rounded-md hover:bg-[color:var(--color-border)]/30">
-    {#if scheduleHref}
-      <a
-        href={scheduleHref}
-        aria-label={`Open schedule for ${typeLabel.toLowerCase()} ${route.shortName}`}
-        class="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]"
-      >
-        <RouteBadge {route} size="medium" class="min-w-14" />
-      </a>
-    {:else}
-      <RouteBadge {route} size="medium" class="min-w-14" />
-    {/if}
-    <div class="flex-1 min-w-0">
-      <div class="text-sm font-medium truncate">{primaryLabel}</div>
-      {#if route.description}
-        <div class="text-xs truncate text-[color:var(--color-fg-muted)]">{route.description}</div>
-      {/if}
-    </div>
+    <a
+      href={mapHref}
+      aria-label={`Open map for ${typeLabel.toLowerCase()} ${route.shortName}`}
+      class="flex flex-1 min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]"
+    >
+      <RouteBadge {route} size="medium" class="min-w-14 shrink-0" />
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium truncate">{primaryLabel}</div>
+        {#if route.description}
+          <div class="text-xs truncate text-[color:var(--color-fg-muted)]">{route.description}</div>
+        {/if}
+      </div>
+    </a>
     {#if scheduleHref}
       <a
         href={scheduleHref}
         aria-label={`Open schedule for ${typeLabel.toLowerCase()} ${route.shortName}`}
         title="Open route schedule"
-        class="inline-flex items-center justify-center w-10 h-10 rounded-full text-current hover:bg-current/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] transition-colors"
+        class={iconButtonClass}
       >
-        <Calendar size={18} />
+        <Calendar size={16} strokeWidth={2.25} />
       </a>
     {/if}
-    <a
-      href={`/map/route/${route.id}_0`}
-      aria-label={`Open map for ${typeLabel.toLowerCase()} ${route.shortName}`}
-      title="Open route map"
-      class="inline-flex items-center justify-center w-10 h-10 rounded-full text-current hover:bg-current/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] transition-colors"
-    >
-      <MapIcon size={18} />
-    </a>
-    <IconButton
+    <button
+      type="button"
       aria-label={`${isFav ? 'Unfavorite' : 'Favorite'} ${typeLabel.toLowerCase()} ${route.shortName}`}
       aria-pressed={isFav}
       onclick={() => favoritesStore.toggle(route.id)}
+      class={iconButtonClass}
     >
       <Heart
-        size={18}
+        size={16}
+        strokeWidth={2.25}
         fill={isFav ? 'currentColor' : 'none'}
         class={isFav ? 'text-[color:var(--color-danger)]' : 'text-[color:var(--color-fg-muted)]'}
       />
-    </IconButton>
+    </button>
   </Stack>
 {/snippet}
 
