@@ -300,7 +300,18 @@
                       stopsExpanded={expandedVehicleId === vehicle.id || loadingVehicleId === vehicle.id}
                     />
                     {#if stopsEligible}
-                      <Collapsible in={expandedVehicleId === vehicle.id}>
+                      <!-- reduced=true: skip Collapsible's
+                           `grid-template-rows: 0fr → 1fr` height
+                           animation. It triggers full layout +
+                           paint of every child each frame; with
+                           30+ stop rows inside, Safari profiling
+                           showed ~50ms paint per frame sustained
+                           for ~200ms (verified 2026-06-30,
+                           localhost-recording.json). The stops
+                           are async-fetched anyway, so the user
+                           already sees a brief loading state —
+                           the slide adds little, costs a lot. -->
+                      <Collapsible in={expandedVehicleId === vehicle.id} reduced>
                         {#if vehicleStops != null && expandedVehicleId === vehicle.id}
                           <div class="rounded-md border border-[color:var(--color-border)]/60 bg-[color:var(--color-surface-raised,var(--color-surface))] overflow-hidden">
                             <TripStopList stops={vehicleStops} class="py-1" />
