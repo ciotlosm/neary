@@ -303,26 +303,42 @@ export interface GtfsRepo {
   getReconciledSnapshot(): Promise<ReconciledSnapshot | null>;
 
   /**
-   * Worker-side merge + GPS-ETA per board. Takes per-stop scheduled
-   * vehicle lists, returns the same set with `kind` upgraded by the
-   * latest reconciled snapshot and ETAs adjusted by the GPS-derived
-   * predictor. Shapes + stop distances stay inside the worker — main
-   * never has to fetch or cache them.
+   * Subscribe a callback to receive per-stop assembled vehicle boards
+   * on every successful live tick. Replaces the old pull-style
+   * `assembleLiveBoards(boards, nowMs)` IPC method: the worker pushes
+   * `Array<{ stopId, vehicles }>` (vehicles already merged + GPS-ETA
+   * adjusted) every poll cycle and on `setStopIds` (so a stop-set
+   * change or fresh subscription reflects within a microtask).
    *
-   * Call once per visible-boards change OR once per reconciled-snapshot
-   * tick (the reconciled snapshot the worker uses is the latest it
-   * has broadcast, so main + worker agree on freshness). Main keeps
-   * the result keyed by stopId and feeds it into `bucketLiveBoardMemo`
-   * for filtering + bucketing.
+   * Shape polylines and stop-distance arrays never cross IPC; the
+   * worker resolves them from SQLite per push.
+   *
+   * The returned handle's `unsubscribe` and `setStopIds` are
+   * Comlink-proxied — call them directly from main.
+   *
+   * Late subscribers receive an immediate push from the worker's
+   * latest snapshot if one is already available.
    */
-  assembleLiveBoards(
-    boards: Array<{
-      stopId: number;
-      stop: { lat?: number; lon?: number };
-      vehicles: Vehicle[];
-    }>,
-    nowMs: number,
-  ): Promise<Array<{ stopId: number; vehicles: Vehicle[] }>>;
+  subscribeStationBoards(
+    initialStopIds: readonly number[],
+    cb: (payload: StationBoardPush) => void,
+  ): Promise<StationBoardsSubscription>;
+}
+
+/** Per-stop assembled vehicles, as pushed by `subscribeStationBoards`.
+ *  Stops that don't exist in the feed are silently dropped. */
+export type StationBoardPush = ReadonlyArray<{
+  stopId: number;
+  vehicles: Vehicle[];
+}>;
+
+/** Comlink-proxied handle returned from `subscribeStationBoards`. */
+export interface StationBoardsSubscription {
+  /** Tear down the subscription. Call on component teardown. */
+  unsubscribe: () => void;
+  /** Replace the stop set. Triggers an immediate push so a stop-set
+   *  change is reflected without waiting for the next poll. */
+  setStopIds: (next: readonly number[]) => void;
 }
 
 /** One trip on a route+direction, surfaced by getRouteSchedule. */

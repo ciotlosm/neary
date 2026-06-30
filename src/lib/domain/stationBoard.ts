@@ -233,7 +233,7 @@ export interface AssembleLiveVehiclesInputs {
 }
 
 /** Merge + GPS-ETA — the heavy half of the live pipeline. Runs inside
- *  the worker (via `repo.assembleLiveBoards`) so shape polylines and
+ *  the worker (via `repo.subscribeStationBoards`) so shape polylines and
  *  stop-distance arrays never cross the IPC boundary. Pure function;
  *  exported for the worker query and for direct unit testing. */
 export function assembleLiveVehicles(input: AssembleLiveVehiclesInputs): Vehicle[] {
@@ -258,7 +258,7 @@ export function assembleLiveVehicles(input: AssembleLiveVehiclesInputs): Vehicle
 
 /** Inputs for `bucketLiveBoardMemo` — the main-side half of the live
  *  pipeline. Vehicles are already merged + GPS-ETA-adjusted by the
- *  worker (`repo.assembleLiveBoards`); main only filters by route and
+ *  worker (`repo.subscribeStationBoards`); main only filters by route and
  *  buckets/caps for display. */
 export interface BucketLiveBoardInputs {
   /** Per-stop vehicles, already through `assembleLiveVehicles` in the
