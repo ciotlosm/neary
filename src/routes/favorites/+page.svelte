@@ -8,26 +8,32 @@
   shows hearts on favorited badges as visual reinforcement.
 -->
 <script lang="ts">
-  import { Calendar, Heart } from 'lucide-svelte';
+  import { Calendar, GraduationCap, Heart, MapPin, Moon, Music, Plane, Star, Zap } from 'lucide-svelte';
   import {
-    Card, CardContent, NoFeedState, RouteBadge, Spinner, Stack,
+    Card, CardContent, Chip, NoFeedState, RouteBadge, Spinner, Stack,
     Typography, TypeBadge, iconButtonClass,
   } from '$lib/ui';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
-  import type { Route, VehicleType } from '$lib/domain/types';
+  import type { Network, Route, VehicleType } from '$lib/domain/types';
   import { compareRouteShortName, vehicleTypeLabel } from '$lib/domain/types';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { userPrefs } from '$lib/stores/userPrefs.svelte';
 
   let allRoutes = $state<Route[] | null>(null);
+  let allNetworks = $state<Network[]>([]);
   let error = $state<string | null>(null);
   // Single-select type filter. null = no filter (show all).
   // Clicking the active type deselects; clicking another selects only that one.
   let typeFilter = $state<VehicleType | null>(null);
+  // Single-select network filter. null = no filter.
+  let networkFilter = $state<string | null>(null);
 
   function toggleType(t: VehicleType) {
     typeFilter = typeFilter === t ? null : t;
+  }
+  function toggleNetwork(id: string) {
+    networkFilter = networkFilter === id ? null : id;
   }
 
   $effect(() => {
@@ -36,7 +42,10 @@
     (async () => {
       try {
         const repo = getGtfsRepo();
-        allRoutes = await repo.getRoutes();
+        [allRoutes, allNetworks] = await Promise.all([
+          repo.getRoutes(),
+          repo.getNetworks(),
+        ]);
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
       }
@@ -71,15 +80,18 @@
     return m;
   });
 
-  // Apply the type filter once, then split into the two cards. Within
+  // Apply both filters, then split into the two cards. Within
   // each section, sort numeric-first then alpha.
   function sortRoutes(list: Route[]): Route[] {
     return [...list].sort((a, b) => compareRouteShortName(a.shortName, b.shortName));
   }
   const filteredRoutes = $derived.by<Route[]>(() => {
     if (!allRoutes) return [];
-    if (typeFilter === null) return allRoutes;
-    return allRoutes.filter((r) => (r.type ?? 'unknown') === typeFilter);
+    return allRoutes.filter((r) => {
+      if (typeFilter !== null && (r.type ?? 'unknown') !== typeFilter) return false;
+      if (networkFilter !== null && !(r.networks?.includes(networkFilter) ?? false)) return false;
+      return true;
+    });
   });
   const favRoutes = $derived(
     sortRoutes(filteredRoutes.filter((r) => favoritesStore.has(r.id))),
@@ -87,6 +99,19 @@
   const otherRoutes = $derived(
     sortRoutes(filteredRoutes.filter((r) => !favoritesStore.has(r.id))),
   );
+
+  // Icon per network_id — falls back to a generic star for unknown ids.
+  const NETWORK_ICONS: Record<string, typeof Moon> = {
+    night: Moon,
+    school: GraduationCap,
+    metroline: MapPin,
+    festival: Music,
+    airport: Plane,
+    special: Zap,
+  };
+  function networkIcon(id: string): typeof Moon {
+    return NETWORK_ICONS[id] ?? Star;
+  }
 </script>
 
 <!-- One row-renderer shared by both cards so the layout stays identical
@@ -168,23 +193,51 @@
     </Card>
   {:else}
     <Stack spacing={2}>
-      {#if presentTypes.length > 1}
+      {#if presentTypes.length > 1 || allNetworks.length > 0}
         <Card>
           <CardContent>
-            <Stack spacing={1}>
-              <Stack spacing={0.5}>
-                <Typography variant="h5">Filter by mode</Typography>
-                <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">
-                  {typeFilter === null
-                    ? `Showing all ${allRoutes.length} routes. Tap a mode to narrow down.`
-                    : `${filteredRoutes.length} of ${allRoutes.length} routes match.`}
-                </Typography>
-              </Stack>
-              <Stack direction="row" spacing={1} align="center" wrap>
-                {#each presentTypes as t (t)}
-                  <TypeBadge type={t} color={colorByType.get(t)} active={typeFilter === t} onclick={() => toggleType(t)} />
-                {/each}
-              </Stack>
+            <Stack spacing={1.5}>
+              {#if presentTypes.length > 1}
+                <Stack spacing={0.5}>
+                  <Typography variant="h5">Filter by mode</Typography>
+                  <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">
+                    {typeFilter === null
+                      ? `Showing all ${allRoutes.length} routes. Tap a mode to narrow down.`
+                      : `${filteredRoutes.length} of ${allRoutes.length} routes match.`}
+                  </Typography>
+                  <Stack direction="row" spacing={1} align="center" wrap>
+                    {#each presentTypes as t (t)}
+                      <TypeBadge type={t} color={colorByType.get(t)} active={typeFilter === t} onclick={() => toggleType(t)} />
+                    {/each}
+                  </Stack>
+                </Stack>
+              {/if}
+
+              {#if allNetworks.length > 0}
+                <Stack spacing={0.5}>
+                  <Typography variant="h5">Filter by network</Typography>
+                  <Typography variant="caption" class="text-[color:var(--color-fg-muted)]">
+                    {networkFilter === null
+                      ? 'Tap a network to narrow down.'
+                      : `Showing ${filteredRoutes.length} route${filteredRoutes.length !== 1 ? 's' : ''} in this network.`}
+                  </Typography>
+                  <Stack direction="row" spacing={1} align="center" wrap>
+                    {#each allNetworks as net (net.id)}
+                      {@const Icon = networkIcon(net.id)}
+                      {@const active = networkFilter === net.id}
+                      <Chip
+                        size="small"
+                        variant={active ? 'filled' : 'outlined'}
+                        color={active ? 'primary' : 'default'}
+                        onclick={() => toggleNetwork(net.id)}
+                      >
+                        {#snippet icon()}<Icon size={12} />{/snippet}
+                        {net.name}
+                      </Chip>
+                    {/each}
+                  </Stack>
+                </Stack>
+              {/if}
             </Stack>
           </CardContent>
         </Card>
