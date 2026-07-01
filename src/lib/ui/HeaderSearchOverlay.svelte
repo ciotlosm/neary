@@ -22,7 +22,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { Dialog as Bits } from 'bits-ui';
-  import { Calendar, Heart, MapPin, Search, X } from 'lucide-svelte';
+  import { Bus, Calendar, Heart, Search, X } from 'lucide-svelte';
   import { getGtfsRepo } from '$lib/data/gtfs/repo';
   import type { StopWithDistance } from '$lib/data/gtfs/types';
   import type { Route } from '$lib/domain/types';
@@ -30,6 +30,7 @@
   import { favoritesStore } from '$lib/stores/favoritesStore.svelte';
   import { feedsStore } from '$lib/stores/feedsStore.svelte';
   import { locationStore } from '$lib/stores/locationStore.svelte';
+  import Avatar from './Avatar.svelte';
   import { cn } from './cn';
   import { iconButtonClass } from './iconButtonClass';
   import RouteBadge from './RouteBadge.svelte';
@@ -380,12 +381,12 @@
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]',
     )}
   >
-    <span
-      class="shrink-0 inline-flex items-center justify-center w-14 h-9 rounded-md bg-[color:var(--color-border)]/20 text-[color:var(--color-fg-muted)]"
-      aria-hidden="true"
-    >
-      <MapPin size={16} />
-    </span>
+    <!-- Same station badge as the StationCard header: square Avatar
+         with a Bus glyph. Keeps a rider's mental model consistent
+         across search, favorites, and the station view itself. -->
+    <Avatar variant="square" class="w-10 h-10 shrink-0">
+      <Bus size={20} />
+    </Avatar>
     <span class="min-w-0 flex-1 text-sm font-medium truncate">{stop.name}</span>
     {#if hasGps && stop.distance != null}
       <span class="shrink-0 text-xs font-mono text-[color:var(--color-fg-muted)]">
