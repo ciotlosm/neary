@@ -37,11 +37,11 @@ import { getRouteDirectionEndpoints } from './gtfs/queries/routeEndpoints';
 import { getRouteMapView } from './gtfs/queries/routeMapView';
 import { getRouteSchedule } from './gtfs/queries/routeSchedule';
 import { getStopsAlongTrip } from './gtfs/queries/routeStops';
-import { getRouteById, getRoutes, getRoutesForStop } from './gtfs/queries/routes';
+import { getRouteById, getRoutes, getRoutesForStop, getRoutesForStops } from './gtfs/queries/routes';
 import { getNetworks } from './gtfs/queries/networks';
 import { getFeedConfig } from './gtfs/queries/feedConfig';
 import { getStationBoard, getStationBoardsNear } from './gtfs/queries/stationBoards';
-import { getDeparturesFromStop, getOriginRoutesAtStop, getStopsNear } from './gtfs/queries/stops';
+import { getDeparturesFromStop, getOriginRoutesAtStop, getStopsNear, searchStops } from './gtfs/queries/stops';
 import { getWeeklySchedule } from './gtfs/queries/weeklySchedule';
 
 const api: GtfsRepo = {
@@ -105,15 +105,19 @@ const api: GtfsRepo = {
   async getRouteById(routeId) {
     return getRouteById(await ensureDb(), routeId);
   },
-  async getRoutesForStop(stopId: number) {
+  async getRoutesForStop(stopId: string) {
     return getRoutesForStop(await ensureDb(), stopId);
+  },
+  async getRoutesForStops(stopIds: readonly string[]) {
+    return getRoutesForStops(await ensureDb(), stopIds);
   },
 
   // ── Stops ───────────────────────────────────────────────────────────
   async getStopsNear(lat, lon, radiusMeters, limit) {
     return getStopsNear(await ensureDb(), lat, lon, radiusMeters, limit);
-  },
-  async getDeparturesFromStop(stopId, localDate, localMinutesSinceMidnight, windowMinutes) {
+  },  async searchStops(text, anchorLat, anchorLon, limit, sort) {
+    return searchStops(await ensureDb(), text, anchorLat, anchorLon, limit, sort);
+  },  async getDeparturesFromStop(stopId, localDate, localMinutesSinceMidnight, windowMinutes) {
     return getDeparturesFromStop(
       await ensureDb(),
       stopId,
@@ -122,7 +126,7 @@ const api: GtfsRepo = {
       windowMinutes,
     );
   },
-  async getOriginRoutesAtStop(stopId: number) {
+  async getOriginRoutesAtStop(stopId: string) {
     return getOriginRoutesAtStop(await ensureDb(), stopId);
   },
 

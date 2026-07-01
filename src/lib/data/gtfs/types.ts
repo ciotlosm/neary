@@ -86,12 +86,32 @@ export interface GtfsRepo {
   getStopsNear(lat: number, lon: number, radiusMeters: number, limit?: number): Promise<StopWithDistance[]>;
 
   /**
+   * Diacritic-insensitive substring search over stop names.
+   *
+   * `sort: 'distance'` (default) sorts by distance from the anchor
+   * (GPS position or active feed's `center`); empty `text` falls back
+   * to "nearest 25" so the header search overlay shows useful
+   * results before the user types.
+   *
+   * `sort: 'name'` sorts alphabetically; anchor params are ignored.
+   * Used when the user has no GPS — distance from the feed centroid
+   * carries no rider-useful signal.
+   */
+  searchStops(
+    text: string,
+    anchorLat: number,
+    anchorLon: number,
+    limit?: number,
+    sort?: 'distance' | 'name',
+  ): Promise<StopWithDistance[]>;
+
+  /**
    * Next departures from a stop within `windowMinutes` minutes, where the
    * trip's service is active on `localDate` ("YYYYMMDD"). Joins
    * stop_times -> trips -> routes -> calendar.
    */
   getDeparturesFromStop(
-    stopId: number,
+    stopId: string,
     localDate: string,
     localMinutesSinceMidnight: number,
     windowMinutes: number,
@@ -123,7 +143,7 @@ export interface GtfsRepo {
    * getStationBoardsNear instead.
    */
   getStationBoard(
-    stopId: number,
+    stopId: string,
     nowMs: number,
     windowMinutes: number,
   ): Promise<{ stop: StopWithDistance; vehicles: Vehicle[] } | null>;
@@ -191,13 +211,21 @@ export interface GtfsRepo {
    * short_name (same sort as getRoutes). Empty array when the stop has
    * no scheduled service.
    */
-  getRoutesForStop(stopId: number): Promise<Route[]>;
+  getRoutesForStop(stopId: string): Promise<Route[]>;
+
+  /**
+   * Batched variant of {@link GtfsRepo.getRoutesForStop} — one worker
+   * round-trip for many stops. Result keyed by stop_id; stops with no
+   * routes are absent (callers treat as empty). Used by the header
+   * search overlay to render route chips on every result row.
+   */
+  getRoutesForStops(stopIds: readonly string[]): Promise<Record<string, Route[]>>;
 
   /**
    * Route ids for which `stopId` is the first stop (origin) of at least one trip.
    * Used to show the isStart ▶ marker on route badges in the station view.
    */
-  getOriginRoutesAtStop(stopId: number): Promise<string[]>;
+  getOriginRoutesAtStop(stopId: string): Promise<string[]>;
 
   /**
    * One round-trip payload for the route-map view: every trip
@@ -261,7 +289,7 @@ export interface GtfsRepo {
    * latest snapshot if one is already available.
    */
   subscribeStationBoards(
-    initialStopIds: readonly number[],
+    initialStopIds: readonly string[],
     cb: (payload: StationBoardPush) => void,
   ): Promise<StationBoardsSubscription>;
 }
@@ -269,7 +297,7 @@ export interface GtfsRepo {
 /** Per-stop assembled vehicles, as pushed by `subscribeStationBoards`.
  *  Stops that don't exist in the feed are silently dropped. */
 export type StationBoardPush = ReadonlyArray<{
-  stopId: number;
+  stopId: string;
   vehicles: Vehicle[];
 }>;
 
@@ -279,7 +307,7 @@ export interface StationBoardsSubscription {
   unsubscribe: () => void;
   /** Replace the stop set. Triggers an immediate push so a stop-set
    *  change is reflected without waiting for the next poll. */
-  setStopIds: (next: readonly number[]) => void;
+  setStopIds: (next: readonly string[]) => void;
 }
 
 /** One trip on a route+direction, surfaced by getRouteSchedule. */
@@ -319,7 +347,7 @@ export interface RouteDirectionEndpoints {
 
 /** One stop on a single trip's stop_times. */
 export interface ScheduleTripStop {
-  stopId: number;
+  stopId: string;
   stopName: string;
   lat: number;
   lon: number;

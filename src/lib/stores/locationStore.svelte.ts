@@ -3,18 +3,21 @@
  * the Stations view's proximity query.
  *
  * Lifecycle:
- *   - Constructed lazily on first reactive access (module-level $state is
- *     fine in browser; SSR builds skip the watchPosition call because no
- *     consumer touches it during prerender).
- *   - `start()` is idempotent — the Stations route calls it on mount; later
- *     navigations to other views keep the watch alive so we don't lose
- *     position lock between tab switches.
+ *   - Constructed lazily on first reactive access (browser only; SSR builds
+ *     skip the watchPosition call because no consumer touches it during
+ *     prerender).
+ *   - GPS is strictly opt-in. `start()` is idempotent but does not flip the
+ *     "opted in" flag; callers that want the user choice to persist across
+ *     reloads use `enable()` instead. The +layout effect calls `start()`
+ *     on mount when `userPrefs.gpsOptedIn` is already true.
  *   - A 15s ticker bumps `now`, so the `freshness` getter naturally demotes
  *     ok -> stale -> error over time without us having to remember to
  *     re-render.
  */
 
-export type FreshState = 'idle' | 'ok' | 'stale' | 'error';
+import { userPrefs } from './userPrefs.svelte';
+
+export type FreshState = 'off' | 'idle' | 'ok' | 'stale' | 'error';
 export type PermissionState = 'unknown' | 'prompt' | 'granted' | 'denied';
 
 class LocationStore {
@@ -58,7 +61,18 @@ class LocationStore {
       },
       (err) => {
         this.error = err;
-        if (err.code === err.PERMISSION_DENIED) this.permission = 'denied';
+        if (err.code === err.PERMISSION_DENIED) {
+          this.permission = 'denied';
+          // Revert opt-in so declining the browser prompt isn't a
+          // one-way trip into a stuck red dot. The header reads 'off'
+          // (grey, tap-to-enable) and the home page shows the Enable
+          // banner again -- the user can re-tap whenever they want.
+          // The browser remembers the denial; subsequent enable()
+          // calls only re-prompt if the user clears it in browser
+          // settings.
+          userPrefs.gpsOptedIn = false;
+          this.stop();
+        }
       },
       // Low-accuracy is fine for proximity filtering and saves battery on iOS.
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 30_000 },
@@ -68,6 +82,32 @@ class LocationStore {
       this.tickerId = setInterval(() => (this.now = Date.now()), 15_000);
     }
     return true;
+  }
+
+  /**
+   * Mark the user as opted in (persists across reloads via userPrefs) and
+   * start the watch. Single entry point for the in-page "Enable location"
+   * button and the header's GPS-off dot — they both call this. Idempotent:
+   * safe to call repeatedly.
+   */
+  enable(): boolean {
+    userPrefs.gpsOptedIn = true;
+    return this.start();
+  }
+
+  /**
+   * Explicit opt-out: clear the persistent flag, stop the watch, and
+   * drop any cached position. Called from the Settings "Use location"
+   * toggle so the user can revoke without having to wait for the next
+   * browser prompt and decline it. The browser's own permission record
+   * is untouched (only the OS / browser UI can clear that).
+   */
+  disable(): void {
+    userPrefs.gpsOptedIn = false;
+    this.stop();
+    this.position = null;
+    this.error = null;
+    this.lastUpdated = null;
   }
 
   stop(): void {
@@ -127,14 +167,20 @@ class LocationStore {
 
   /**
    * Header-dot state. Buckets:
-   *   - permission denied: error (red)
-   *   - watch error w/ no position ever: error
-   *   - no position yet: idle (grey)
+   *   - user hasn't opted in yet: off (grey), regardless of any stale
+   *     browser permission record. The dot only goes red after an
+   *     explicit Enable attempt, so a returning user with previously-
+   *     denied permission doesn't see an alarming state on first open.
+   *   - opted in + permission denied: error (red)
+   *   - opted in + watch error w/ no position ever: error
+   *   - opted in + watch started but no position yet: idle (grey,
+   *     waiting)
    *   - position < 60s old: ok (green)
    *   - position 60s-5min old: stale (amber)
    *   - position older: error (red — likely lost signal)
    */
   get freshness(): FreshState {
+    if (!userPrefs.gpsOptedIn) return 'off';
     if (this.permission === 'denied') return 'error';
     if (this.error && !this.position) return 'error';
     if (!this.lastUpdated) return 'idle';
@@ -146,13 +192,10 @@ class LocationStore {
 
   /** Human-readable tooltip text for the dot. */
   get tooltip(): string {
+    if (!userPrefs.gpsOptedIn) return 'GPS off — tap to enable.';
     if (this.permission === 'denied') return 'Location permission denied';
     if (this.error && !this.position) return `GPS error: ${this.error.message}`;
-    if (!this.lastUpdated) {
-      return this.isWatching
-        ? 'Waiting for first GPS fix…'
-        : 'GPS not requested by this view';
-    }
+    if (!this.lastUpdated) return 'Waiting for first GPS fix…';
     const ageSec = Math.round((this.now - this.lastUpdated) / 1000);
     if (ageSec < 60) return `GPS fresh (${ageSec}s ago)`;
     return `GPS last fix ${Math.round(ageSec / 60)} min ago`;

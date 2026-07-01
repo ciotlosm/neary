@@ -36,7 +36,8 @@ export { default as RouteBadge } from './RouteBadge.svelte';
 export { default as TripStopList } from './TripStopList.svelte';
 export { default as VehicleCard } from './VehicleCard.svelte';
 export { default as StationCard } from './StationCard.svelte';
-export { default as NoFeedState } from './NoFeedState.svelte';
+export { default as InfoCard } from './InfoCard.svelte';
+export { default as SelectFeedCard } from './SelectFeedCard.svelte';
 export { default as TypeBadge } from './TypeBadge.svelte';
 
 // Pure helpers (no DOM, no stores).
@@ -45,6 +46,8 @@ export { formatBytes, formatWhen } from './formatters';
 // App shell.
 export { default as Header } from './Header.svelte';
 export type { HeaderHealth, HealthState } from './headerTypes';
+export { default as HeaderSearchOverlay } from './HeaderSearchOverlay.svelte';
+export { default as StopSearchCard } from './StopSearchCard.svelte';
 export { default as StatusDot } from './StatusDot.svelte';
 export { default as AppLayout } from './AppLayout.svelte';
 
