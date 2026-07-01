@@ -931,13 +931,24 @@
                     style="transform:rotate(${brg.toFixed(1)}deg);" aria-hidden="true">
               <path d="M10 2 L16 14 L10 11 L4 14 Z" fill="currentColor" />
             </svg></div>`;
+          // Anchor the pill on the side OPPOSITE the direction of
+          // travel: since the route line extends from origin in the
+          // bearing direction, the opposite flank is off-route, so
+          // the pill doesn't overlap other vehicle badges that stack
+          // near the departure area. Screen-space math: bearing θ
+          // (CW from N) maps to screen direction (sin θ, -cos θ);
+          // pill sits in direction (-sin θ, cos θ). Distance R=40
+          // gives clearance around the 44×28 vehicle badge even at
+          // pure-diagonal bearings.
+          const brgRad = (brg * Math.PI) / 180;
+          const R = 40;
+          const dxCenter = -R * Math.sin(brgRad);
+          const dyCenter = R * Math.cos(brgRad);
           const icon = Lref.divIcon({
             className: 'neary-start-vehicle-arrow',
             html,
             iconSize: [SIZE, SIZE],
-            // Anchor placed BELOW the icon so the pill sits just
-            // above the 28 px-tall vehicle badge with a 2 px gap.
-            iconAnchor: [SIZE / 2, SIZE + 16],
+            iconAnchor: [SIZE / 2 - dxCenter, SIZE / 2 - dyCenter],
           });
           Lref.marker([best.lat, best.lon], {
             icon,
